@@ -19,3 +19,10 @@ nucleus 70000, membrane 50000.
 
 `shots.mjs` drives real-time headless Chrome for checks: open the page with `?test=1` (no self-turning,
 which stalls screenshots), step with `cell.goTo(level)` and `cell.seekFlight(1)`.
+
+`perf.mjs <url> --w 1440 --h 900 --dpr 2` loads the page as a Retina laptop would, WITH the self-turning on,
+and prints the animation frames per second, every main-thread task over 50 ms, and the time to draw a
+frame at each level. Good: about 120 frames in 2 s, no long tasks after loading. Run it after any change
+to the drawing loop in `js/cell3d.js` (`wake()` / `frame()`): on 3 Oct a second frame booked from inside a
+frame doubled the work every frame and froze the page within seconds. The page also takes `?msaa=0`,
+`?dpr=1.25` and `?depth=u` to try a lighter drawing.
