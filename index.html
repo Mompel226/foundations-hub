@@ -17,7 +17,7 @@
 <link rel="stylesheet" media="print" onload="this.media='all'"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-<link rel="stylesheet" href="css/app.css?v=1791032263">
+<link rel="stylesheet" href="css/app.css?v=1791034183">
 </head>
 <body>
 <main class="zoom" id="zoom">
@@ -68,24 +68,24 @@
   <!-- the real tissue beside the model: the slice outlined on the model's front face, seen through a light microscope -->
   <figure class="micro" id="micro" hidden>
     <div class="micro__img">
-      <img src="assets/tissue/endocervix-tissue.jpg" alt="A photograph through a light microscope of the lining of the cervix, stained pink and purple" width="1100" height="1692">
-      <b class="pin pin--left" style="left:81.8%;top:8.4%;--c:#d9b3cc"><i></i>Lining cells</b>
-      <b class="pin pin--left" style="left:69.1%;top:14.2%;--c:#5b4bb5"><i></i>Nucleus</b>
-      <b class="pin" style="left:45.5%;top:39.4%;--c:#ebb0c3"><i></i>Connective tissue</b>
-      <b class="pin pin--left" style="left:65.2%;top:51.7%;--c:#d9364c"><i></i>Capillary</b>
-      <b class="pin" style="left:50%;top:75.8%;--c:#6a3f9c"><i></i>Crypt, cut across</b>
+      <img src="assets/tissue/endocervix-tissue.jpg?v=2" alt="A photograph through a light microscope of the lining of the cervix, stained pink and purple" width="1100" height="1692">
+      <b class="pin" style="left:84.5%;top:11.8%;--c:#d9b3cc"><i></i>Lining cells</b>
+      <b class="pin" style="left:30.0%;top:12.8%;--c:#5b4bb5"><i></i>Nucleus</b>
+      <b class="pin" style="left:43.6%;top:44.9%;--c:#ebb0c3"><i></i>Connective tissue</b>
+      <b class="pin" style="left:64.8%;top:52.3%;--c:#d9364c"><i></i>Small blood vessel</b>
+      <b class="pin" style="left:48.5%;top:75.3%;--c:#6a3f9c"><i></i>Crypt, cut across</b>
     </div>
-    <figcaption>The real tissue: a slice like the outlined face, through a light microscope. About 0.5&nbsp;mm across.</figcaption>
+    <figcaption>The real tissue, through a light microscope: the slice outlined in green on the model. The model's cut face is traced from it. About 0.4&nbsp;mm across.</figcaption>
   </figure>
 
   <!-- closer, as the zoom goes into one lining cell: the same tissue at a higher magnification -->
-  <figure class="micro" id="micro2" hidden>
+  <figure class="micro micro--wide" id="micro2" hidden>
     <div class="micro__img">
-      <img src="assets/tissue/endocervix-cells.jpg" alt="A closer photograph through a light microscope: tall lining cells side by side, each with its nucleus, and connective tissue beside them" width="375" height="789">
-      <b class="pin pin--left" style="left:76%;top:48.2%;--c:#d9b3cc"><i></i>One lining cell</b>
-      <b class="pin pin--left" style="left:60%;top:53.2%;--c:#5b4bb5"><i></i>Its nucleus</b>
-      <b class="pin" style="left:20%;top:41.8%;--c:#ebb0c3"><i></i>Connective tissue</b>
-      <b class="pin" style="left:10.7%;top:55.8%;--c:#d9364c"><i></i>Red blood cell</b>
+      <img src="assets/tissue/endocervix-cells.jpg?v=2" alt="A closer photograph through a light microscope: tall lining cells side by side, each with its nucleus, and connective tissue below them" width="789" height="375">
+      <b class="pin" style="left:48.2%;top:24%;--c:#d9b3cc"><i></i>One lining cell</b>
+      <b class="pin" style="left:53.2%;top:40%;--c:#5b4bb5"><i></i>Its nucleus</b>
+      <b class="pin" style="left:41.8%;top:80%;--c:#ebb0c3"><i></i>Connective tissue</b>
+      <b class="pin" style="left:55.8%;top:89.3%;--c:#d9364c"><i></i>Red blood cell</b>
     </div>
     <figcaption>Closer: one layer of tall cells, side by side, each with its nucleus. About 0.06&nbsp;mm across. The lit-up cell in the model is a cell like these.</figcaption>
   </figure>
@@ -157,7 +157,8 @@
   <h3>Drawn from what is known</h3>
   <ul>
     <li><b>The cut organ</b>: the outline of the cut is real (the Atlas's uterus and cervix); the layers inside the wall are drawn at the widths histology describes, in the colours of a stained slide.</li>
-    <li><b>The tissue is a model</b>, built to the sizes measured in its photograph: cells about 30&nbsp;µm tall and 7&nbsp;µm across, nuclei about 5 by 10&nbsp;µm near the base of each cell, a crypt, and connective tissue with capillaries. Where each cell and fibre sits is made up.</li>
+    <li><b>The tissue is a model</b>, traced from the photograph beside it: inside the green frame, its cut face has the photograph's surface, gland and blood vessels in the same places, at the same scale. Where each cell and fibre sits is made up.</li>
+    <li><b>From the tissue to the cell</b>, one lining cell rises out of the tissue and spreads flat, as a cell of this kind does when it is grown in a dish. That is a picture of what happens, not a measurement.</li>
     <li>The shape of a ribosome, a pore in the nucleus and a centriole: the microscope shows where each one is; the shape is drawn at its real size from other studies. A vesicle is a ball of the volume that was measured; a microtubule is a tube 25&nbsp;nm wide along the path that was measured.</li>
     <li><b>The molecules are a model.</b> Measured, and used: the shape and size of each kind of protein (Protein Data Bank), how many of each kind a HeLa cell holds (Mueller et al. 2020), about 3 million protein molecules in every cubic micrometre (Milo 2013), kinesin's 8&nbsp;nm steps. Made up: where each molecule sits, the kinesin's stalk, and the speed. Kinesin takes about 100 steps a second; here it takes one. At that speed the other molecules would be a blur, so here they move only when the vesicle reaches them.</li>
   </ul>
@@ -183,7 +184,7 @@
   <p class="fineprint">Something wrong, or a suggestion? Please contact me: <a href="mailto:dmompelriera@nlcsjeju.kr">dmompelriera@nlcsjeju.kr</a>. Checked against the Cambridge IGCSE Biology 0610 syllabus for 2026–2028.</p>
 </dialog>
 
-<script src="js/topics.js?v=1791032263"></script>
-<script type="module" src="js/intro.js?v=1791032263"></script>
+<script src="js/topics.js?v=1791034183"></script>
+<script type="module" src="js/intro.js?v=1791034183"></script>
 </body>
 </html>

@@ -26,11 +26,11 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791032263';
+import { build as buildTissue } from './tissue3d.js?v=1791034183';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
-const FRAME = { body: 'body', tissue: 'tissue', cell: 'cell', inside: 'cell', mol: 'mol' };
+const FRAME = { body: 'body', tissue: 'tissue', single: 'tissue', cell: 'cell', inside: 'cell', mol: 'mol' };
 const SCALE = { body: 1e6, tissue: 1, cell: 1, mol: 1 };          // µm in one unit of each frame
 
 // Colours are a choice: most of these structures are smaller than the wavelength of light. The same thing keeps
@@ -107,13 +107,16 @@ export const VIEWS = {
   organism:  { pos: [0.95, 0.32, 2.15], at: [0, 0.04, -0.05], orbit: [1.1, 3.6] },
   system:    { pos: [0.15, 0.21, 0.24], at: [-0.012, 0.052, -0.05], orbit: [0.16, 0.9] },
   organ:     { pos: [0.078, 0.052, -0.012], at: [-0.0105, 0.031, -0.057], orbit: [0.04, 0.3] },
-  tissue:    { pos: [520, 420, 1050], at: [120, -230, -60], orbit: [180, 2400] },
+  tissue:    { pos: [170, 110, 930], at: [0, -270, -30], orbit: [180, 2400] },
   cell:      { pos: [30, 26, 34], at: [-1, 1.5, -1], orbit: [12, 85] },
   inside:    { pos: [-0.248, 1.104, -0.826], at: [0.55, 1.42, -1.1] },
   molecules: { pos: [0.0, 0.03, 0.17], at: [-0.01, 0.03, 0.0] },
 };
 const BOX = { lo: [-3.75, 0.0, -4.65], hi: [3.75, 4.2, 2.85] };   // the detailed region (build_meshes.SCENE_UM), cell frame
-const SECONDS = [4, 5, 9, 8, 12, 6];                              // each step down, when a button is pressed
+const SECONDS = [4, 5, 15, 8, 12, 6];                             // each step down, when a button is pressed
+// how much scrolling each step takes (1 = the usual): organ to tissue magnifies 160 times and grows the tissue out
+// of the cut face, so it is given more (Daniel: "make the movement from organ to tissue slower")
+const STEP_LEN = [1, 1, 2.4, 1.2, 1.4, 1];
 
 const sm = (x, a, b) => THREE.MathUtils.smoothstep(x, a, b);
 const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
@@ -146,7 +149,7 @@ export async function mount(el, opts = {}) {
   const post = makePost(renderer, { ...LOOK.organism, fogColor: FOG, samples: opts.samples ?? (dpr >= 1.75 ? 0 : 4), depthUint: !!opts.depthUint });
   post.setSize(W(), H(), dpr);
 
-  const G = { body: new THREE.Group(), tissue: new THREE.Group(), cell: new THREE.Group(), inside: new THREE.Group(), mol: new THREE.Group() };
+  const G = { body: new THREE.Group(), tissue: new THREE.Group(), single: new THREE.Group(), cell: new THREE.Group(), inside: new THREE.Group(), mol: new THREE.Group() };
   Object.values(G).forEach(g => { g.visible = false; g.matrixAutoUpdate = false; scene.add(g); });
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   const v = opts.v || '1';
@@ -232,40 +235,91 @@ export async function mount(el, opts = {}) {
       m.visible = x > 0.004;
     }
   }
-  // where the organs are named: the middle of each (the two ovaries and the two oviducts each on their own)
+  // where the organs are named: a point ON each organ's surface (the one nearest the middle of its points), never
+  // the middle of its box, which for a curled oviduct is empty space beside it; the two ovaries and the two
+  // oviducts each on their own
   {
-    const box = (o, side) => {
-      const p = o.geometry.attributes.position, b = new THREE.Box3(), q = new THREE.Vector3();
-      for (let i = 0; i < p.count; i++) { q.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); if (side == null || Math.sign(q.x - SEC.x) === side) b.expandByPoint(q); }
-      return b;
-    };
     const organ = (id, text, side, z) => {
-      const b = box(bodyParts[id], side), c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3());
-      anchors.push({ group: 'body', frame: 'body', p: c.toArray(), r: Math.max(s.x, s.y, s.z) / 2, text, part: BODY_PART[id] || id, z, cut: side === 1 });
+      const o = bodyParts[id], p = o.geometry.attributes.position, q = new THREE.Vector3(), pts = [];
+      const b = new THREE.Box3(), mid = new THREE.Vector3();
+      for (let i = 0; i < p.count; i++) {
+        q.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld);
+        if (side == null || Math.sign(q.x - SEC.x) === side) { pts.push(q.clone()); b.expandByPoint(q); mid.add(q); }
+      }
+      mid.divideScalar(Math.max(1, pts.length));
+      let best = pts[0], bd = Infinity;
+      for (const v of pts) { const d = v.distanceToSquared(mid); if (d < bd) { bd = d; best = v; } }
+      // more places on it, spread out (each the farthest from those already chosen): from any side, one can be seen
+      const cands = [best];
+      for (let k = 0; k < 9; k++) {
+        let far = null, fd = -1;
+        for (let i = 0; i < pts.length; i += 3) { let d = Infinity; for (const c of cands) d = Math.min(d, pts[i].distanceToSquared(c)); if (d > fd) { fd = d; far = pts[i]; } }
+        cands.push(far);
+      }
+      const s = b.getSize(new THREE.Vector3());
+      anchors.push({ group: 'body', frame: 'body', p: best.toArray(), cands: cands.map(c => c.toArray()), r: Math.max(s.x, s.y, s.z) / 2, text, part: BODY_PART[id] || id, z, cut: side === 1 });
     };
     for (const sd of [-1, 1]) { organ('ovaries', 'Ovary', sd, [0.55, 2.4]); organ('tubes', 'Oviduct', sd, [0.55, 2.4]); }
     organ('uterus', 'Uterus', null, [0.55, 1.88]); organ('cervix', 'Cervix', null, [0.55, 1.75]); organ('vagina', 'Vagina', null, [0.55, 1.75]);
     organ('bladder', 'Bladder', null, [0.75, 1.6]); organ('rectum', 'Rectum', null, [0.75, 1.6]);
     const L = SEC.labels;
-    const face = (k, text, part) => anchors.push({ group: 'body', frame: 'body', p: [L[k][0] + 3e-5, L[k][1], L[k][2]], r: 0.004, text, part, z: [1.9, 2.75], face: true });
+    const face = (k, text, part) => anchors.push({ group: 'body', frame: 'body', p: [L[k][0] + 3e-5, L[k][1], L[k][2]], r: 0.004, text, part, z: [1.9, 2.75], face: true, accept: ['section'] });
     face('muscle', 'Uterus: muscle tissue', 'muscle'); face('lining_u', 'Lining of the uterus', 'lining_u');
     face('connective', 'Cervix: connective tissue', 'connective'); face('lining_c', 'Lining of the canal', 'lining_c');
   }
 
+  // Several places on a mesh for one name, within `radius` of a point, spread out (each the farthest from those
+  // already chosen); the name goes on one that can be seen (drawTags), so it stays on its part from any side.
+  // a mesh's matrix in its level's own frame (the group's), whatever the group's place in the world is just now
+  function localOf(o, g) { o.updateWorldMatrix(true, false); return g.matrixWorld.clone().invert().multiply(o.matrixWorld); }
+  function spreadOn(o, g, toward, radius, k = 10) {
+    const p = o.geometry.attributes.position, q = new THREE.Vector3(), t = new THREE.Vector3().fromArray(toward), near = [];
+    const M = localOf(o, g);
+    const step = Math.max(1, Math.floor(p.count / 40000));
+    for (let i = 0; i < p.count; i += step) { q.fromBufferAttribute(p, i).applyMatrix4(M); if (q.distanceTo(t) < radius) near.push(q.clone()); }
+    if (!near.length) return null;
+    near.sort((a, b) => a.distanceToSquared(t) - b.distanceToSquared(t));
+    const out = [near[0]];
+    while (out.length < k) {
+      let far = null, fd = -1;
+      for (let i = 0; i < near.length; i += 2) { let d = Infinity; for (const c of out) d = Math.min(d, near[i].distanceToSquared(c)); if (d > fd) { fd = d; far = near[i]; } }
+      if (!far || fd < 1e-12) break; out.push(far);
+    }
+    return out.map(v => v.toArray());
+  }
+
   // ---------- level 4: the tissue, a model (js/tissue3d.js), built just after the first picture ----------
   let tissue = null, slideLine = null;
-  const tissueReady = new Promise(res => setTimeout(() => {
-    tissue = buildTissue(THREE, G.tissue);
-    tissue.labels.forEach(a => anchors.push({ group: 'tissue', frame: 'tissue', p: a.p, r: a.r, text: a.text, part: a.part, z: [2.86, 3.45] }));
+  // Its cut face is traced from the micrograph beside it (assets/tissue/trace.json).
+  const LIFT = 45;                               // how far the lining cell rises out of the tissue, µm
+  const tissueReady = new Promise(res => setTimeout(async () => {
+    const trace = await fetch('assets/tissue/trace.json?v=' + v).then(r => r.json());
+    tissue = buildTissue(THREE, G.tissue, trace);
+    tissue.labels.forEach(a => anchors.push({ group: 'tissue', frame: 'tissue', p: a.p, cands: a.cands, r: a.r, text: a.text, part: a.part, z: [2.86, 3.3], free: !!a.free }));
     // the slice the photograph beside it shows is outlined on the block's cut face (tissue3d's frame)
     slideLine = { material: tissue.frameMat };
-    // the HeLa cell sits where the lining cell the zoom goes into is: its base 3 µm below that cell's top
-    const A = tissue.target.top;
-    P.cell.makeTranslation(A[0] + 1, A[1] - 3, A[2] + 1);
+    // the one lining cell the zoom goes into has a group of its own: it lifts out of the tissue and spreads flat
+    G.single.add(tissue.single); tissue.single.visible = true;
+    const b = tissue.target.base;
+    anchors.push({ group: 'single', frame: 'tissue', p: [b[0], b[1] + 20, b[2]], r: 12, text: 'One lining cell', part: 'tcell', z: [3.12, 3.4], free: true, dyn: 'single' });
+    anchors.push({ group: 'single', frame: 'tissue', p: [b[0], b[1] + 20, b[2]], r: 12, text: 'Grown in a dish, a cell like this spreads flat', part: 'tcell', z: [3.42, 3.66], free: true, dyn: 'single' });
+    // the HeLa cell sits where that cell has spread: the middle of its base on the middle of the lifted cell's base
+    P.cell.makeTranslation(b[0] + 0.5, b[1] + LIFT, b[2] - 0.9);
     placeGroups(); lastState = null; stateAt(Z);
     precompile(G.tissue);
     res();
   }, 60));
+  // the lining cell at a point of its lift (0 in the tissue, 1 out of it) and its spreading (0 tall, 1 flat), as a
+  // dish makes it: about 45 µm across and 6 µm high, like the HeLa cell that takes its place
+  const singleMatrix = (lift, flat) => {
+    const t = tissue.target, m = new THREE.Matrix4(), pos = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
+    t.pose.decompose(pos, q, s);
+    pos.y += LIFT * lift;
+    q.slerp(new THREE.Quaternion(), lift);                              // it stands upright as it rises
+    const wide = THREE.MathUtils.lerp(1, 6.2, flat), high = THREE.MathUtils.lerp(s.y, 6 / 30, flat);
+    return m.compose(pos, q, new THREE.Vector3(wide, high, wide * 0.8));
+  };
+  let singleAt = [0, 0, 0];
   // As soon as a level's files are here, its shaders are made in the background and its shapes are sent to the
   // graphics card (drawn once, every part, into one hidden pixel), so that scrolling into it never stalls: the
   // first drawing of the organelles moves about 50 MB and held the screen for more than a second.
@@ -327,20 +381,24 @@ export async function mount(el, opts = {}) {
     G.cell.add(glass); groups.glass = glass;
     precompile(G.cell);
     // names at the cell level: a point on each part, the one nearest the middle of the part
-    whole.scene.updateMatrixWorld(true);
     const near = (id, toward) => {
       let o = null; whole.scene.traverse(x => { if (x.isMesh && x.userData.part === id && !o) o = x; });
       if (!o) return null;
-      const p = o.geometry.attributes.position, q = new THREE.Vector3(), t = new THREE.Vector3().fromArray(toward);
+      const p = o.geometry.attributes.position, q = new THREE.Vector3(), t = new THREE.Vector3().fromArray(toward), M = localOf(o, G.cell);
       let best = null, bd = Infinity;
-      for (let i = 0; i < p.count; i += 7) { q.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); const d = q.distanceToSquared(t); if (d < bd) { bd = d; best = q.clone(); } }
+      for (let i = 0; i < p.count; i += 7) { q.fromBufferAttribute(p, i).applyMatrix4(M); const d = q.distanceToSquared(t); if (d < bd) { bd = d; best = q.clone(); } }
       return best;
     };
-    const add2 = (id, toward, text, r) => { const p = near(id, toward); if (p) anchors.push({ group: 'cell', frame: 'cell', p: p.toArray(), r, text, part: id, z: [3.6, 4.45] }); };
-    add2('nucleus', [-1, 8, -1], 'Nucleus', 9); add2('cell', [-18, 4, 10], 'Cell membrane', 8);
-    add2('mito', [12, 4, 8], 'Mitochondria', 3); add2('golgi', [4, 4, 4], 'Golgi apparatus', 3);
+    const meshOf = id => { let o = null; whole.scene.traverse(x => { if (x.isMesh && x.userData.part === id && !o && x.material.clippingPlanes !== clipIn) o = x; }); return o; };
+    const add2 = (id, toward, text, r, radius) => {
+      const p = near(id, toward); if (!p) return;
+      const cands = id === 'cell' ? null : spreadOn(meshOf(id), G.cell, p.toArray(), radius);
+      anchors.push({ group: 'cell', frame: 'cell', p: p.toArray(), cands, r, text, part: id, z: [3.6, 4.45], free: id === 'cell' });
+    };
+    add2('nucleus', [-1, 8, -1], 'Nucleus', 9, 9); add2('cell', [-18, 4, 10], 'Cell membrane', 8);
+    add2('mito', [12, 4, 8], 'Mitochondria', 3, 9); add2('golgi', [4, 4, 4], 'Golgi apparatus', 3, 5);
     // named again on the way in: where the camera passes through the membrane, and the nucleus seen from below
-    anchors.push({ group: 'cell', frame: 'cell', p: [0.6, 1.62, -15.4], r: 1.2, text: 'Cell membrane', part: 'cell', z: [4.36, 4.56] });
+    anchors.push({ group: 'cell', frame: 'cell', p: [0.6, 1.62, -15.4], r: 1.2, text: 'Cell membrane', part: 'cell', z: [4.36, 4.56], free: true });
     anchors.push({ group: 'cell', frame: 'cell', p: [0.3, 1.45, -6.5], r: 2.5, text: 'Nucleus, seen from below', part: 'nucleus', z: [4.52, 4.76] });
   });
 
@@ -371,17 +429,19 @@ export async function mount(el, opts = {}) {
     });
     // names among the organelles: for each part, the points of it nearest to places along the way in and the
     // last view (they are named when they are near enough to see and far enough to read)
-    gltf.scene.updateMatrixWorld(true);
     const spots = [[0.3, 2.6, -0.9], [0.4, 1.5, -1.0], [1.4, 1.5, -1.2], [-0.3, 1.2, -0.4], [0.9, 1.0, -0.6], [0.2, 2.2, -1.8]];
     const TEXT = { nucleus: 'Nucleus', er: 'Endoplasmic reticulum', golgi: 'Golgi apparatus', mito: 'Mitochondrion', lyso: 'Lysosome', endo: 'Endosome', ld: 'Lipid droplet', membrane: 'Cell membrane' };
     gltf.scene.traverse(o => {
       if (!o.isMesh || !TEXT[o.userData.part]) return;
-      const p = o.geometry.attributes.position, q = new THREE.Vector3();
+      const p = o.geometry.attributes.position, q = new THREE.Vector3(), M = localOf(o, G.inside);
       const used = [];
       for (const s of spots) {
         const t = new THREE.Vector3().fromArray(s); let best = null, bd = Infinity;
-        for (let i = 0; i < p.count; i += 11) { q.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); const d = q.distanceToSquared(t); if (d < bd) { bd = d; best = q.clone(); } }
-        if (best && bd < 0.36 && !used.some(u => u.distanceTo(best) < 0.8)) { used.push(best); anchors.push({ group: 'inside', frame: 'cell', p: best.toArray(), r: o.userData.part === 'nucleus' ? 1.5 : 0.18, text: TEXT[o.userData.part], part: o.userData.part, z: [4.7, 5.45] }); }
+        for (let i = 0; i < p.count; i += 11) { q.fromBufferAttribute(p, i).applyMatrix4(M); const d = q.distanceToSquared(t); if (d < bd) { bd = d; best = q.clone(); } }
+        if (best && bd < 0.36 && !used.some(u => u.distanceTo(best) < 0.8)) {
+          used.push(best);
+          anchors.push({ group: 'inside', frame: 'cell', p: best.toArray(), cands: spreadOn(o, G.inside, best.toArray(), o.userData.part === 'nucleus' ? 0.6 : 0.25, 8), r: o.userData.part === 'nucleus' ? 1.5 : 0.18, text: TEXT[o.userData.part], part: o.userData.part, z: [4.7, 5.45] });
+        }
       }
     });
     const nearest = (arr, t, stride = 3) => { let best = null, bd = Infinity; for (let i = 0; i < arr.length; i += stride) { const d = (arr[i] - t[0]) ** 2 + (arr[i + 1] - t[1]) ** 2 + (arr[i + 2] - t[2]) ** 2; if (d < bd) { bd = d; best = [arr[i], arr[i + 1], arr[i + 2]]; } } return best; };
@@ -403,7 +463,7 @@ export async function mount(el, opts = {}) {
       }
       const emMark = new THREE.Group(); emMark.add(sheet, frame); emMark.visible = false; emMark.userData.part = 'emslice';
       G.inside.add(emMark); groups.emMark = emMark; groups.emFrame = fm; groups.emSheet = sheet.material;
-      anchors.push({ group: 'inside', frame: 'cell', p: [x, 1.75, -0.75], r: 0.3, text: 'The slice in the photograph', part: 'emslice', z: [4.9, 5.36] });
+      anchors.push({ group: 'inside', frame: 'cell', p: [x, 1.75, -0.75], r: 0.3, text: 'The slice in the photograph', part: 'emslice', z: [4.9, 5.36], free: true });
       lastState = null; stateAt(Z);
     }).catch(() => {});
     // the molecules' model (small) is made in the background a little later, so the last step never waits
@@ -417,13 +477,14 @@ export async function mount(el, opts = {}) {
   // A layer is the set of things one level shows.
   const LAYER = {
     body:   { body: 1 },
-    tissue: { tissue: 1 },
+    tissue: { tissue: 1, single: 1 },
+    lift:   { tissue: 1, single: 1 },          // (the lining cell rises out of the tissue, which stays below it)
     cell:   { cell: 1, twins: 1 },             // the whole cell, its organelles all coarse
     inside: { cell: 1, inside: 1 },            // the whole cell round the box, the detail in the box
     mol:    { mol: 1 },
   };
   let layers = [[LAYER.body, 1]];
-  const fades = { body: 1, tissue: 0, cell: 0, inside: 0, mol: 0 };
+  const fades = { body: 1, tissue: 0, single: 0, cell: 0, inside: 0, mol: 0 };
   function showLayer(L) {
     for (const k in G) G[k].visible = !!L[k];
     for (const t of wholeIn) t.visible = !!L.twins;
@@ -437,18 +498,21 @@ export async function mount(el, opts = {}) {
     setKnife(Z < 1.4 ? 1 : 0.06 * (1 - sm(Z, 1.4, 1.92)));
     cap.visible = Z > 1.84;
     // which levels are drawn, and how much of each: [layer, weight]
-    const mixes = [[2.78, 2.92, LAYER.body, LAYER.tissue], [3.45, 3.72, LAYER.tissue, LAYER.cell],
+    const mixes = [[2.78, 2.92, LAYER.body, LAYER.tissue], [3.6, 3.74, LAYER.tissue, LAYER.cell],
       [4.58, 4.72, LAYER.cell, LAYER.inside], [5.35, 5.6, LAYER.inside, LAYER.mol]];
-    const order = [LAYER.body, LAYER.tissue, LAYER.cell, LAYER.inside, LAYER.mol];
+    const order = [[2.78, LAYER.body], [3.6, LAYER.tissue], [4.58, LAYER.cell], [5.35, LAYER.inside], [9, LAYER.mol]];
     layers = null;
     for (const [a, b, A, B] of mixes) if (Z > a && Z < b) { const k = sm(Z, a, b); layers = [[A, 1 - k], [B, k]]; }
-    if (!layers) layers = [[order[Z <= 2.78 ? 0 : Z <= 3.45 ? 1 : Z <= 4.58 ? 2 : Z <= 5.35 ? 3 : 4], 1]];
+    if (!layers) layers = [[order.find(([z]) => Z <= z)[1], 1]];
     if (layers.some(([L]) => L === LAYER.mol) && !molApi) layers = [[LAYER.inside, 1]];
     for (const k in fades) fades[k] = layers.reduce((s, [L, w]) => s + (L[k] ? w : 0), 0);
     // the one lining cell the zoom goes into lights up; the slice the photograph shows is outlined
+    // then it rises out of the tissue (3.32-3.5) and spreads flat (3.46-3.66), and the HeLa cell takes its place
     if (tissue) {
-      tissue.single.visible = Z > 3.05;
-      tissue.single.material.emissive.setHex(0x3a1640).multiplyScalar(sm(Z, 3.05, 3.3));
+      tissue.single.material.emissive.setHex(0x8a3c9a).multiplyScalar(sm(Z, 3.05, 3.25) * (1 - 0.6 * sm(Z, 3.5, 3.66)));
+      const lift = sm(Z, 3.32, 3.5), flat = sm(Z, 3.46, 3.66);
+      tissue.single.matrix.copy(singleMatrix(lift, flat)); tissue.single.matrixWorldNeedsUpdate = true;
+      const b = tissue.target.base; singleAt = [b[0], b[1] + LIFT * lift + 20 * (1 - flat) + 7 * flat, b[2]];
       slideLine.material.opacity = 0.9 * sm(Z, 2.9, 2.98) * (1 - sm(Z, 3.08, 3.2));
     }
     if (groups.glass) groups.glass.visible = Z < 4.45;
@@ -505,9 +569,13 @@ export async function mount(el, opts = {}) {
     () => [view('organism'), { f: 'body', pos: [0.5, 0.2, 1.0], at: VIEWS.system.at }, view('system')],
     () => [view('system'), { f: 'body', pos: [0.12, 0.11, 0.07], at: [-0.011, 0.04, -0.055] }, view('organ')],
     () => [view('organ'), { f: 'tissue', pos: [6000, 9000, 26000], at: [0, 0, 0] }, { f: 'tissue', pos: [700, 1200, 4200], at: [0, -120, 0] },
-      { f: 'tissue', pos: [420, 450, 1400], at: [30, -140, -40] }, view('tissue')],
-    () => { const t = tissue.target.top; return [view('tissue'), { f: 'tissue', pos: [t[0] + 60, t[1] + 220, t[2] + 140], at: t },
-      { f: 'tissue', pos: [t[0] + 12, t[1] + 60, t[2] + 30], at: [t[0], t[1] - 2, t[2]] }, view('cell')]; },
+      { f: 'tissue', pos: [300, 330, 1700], at: [0, -220, 0] }, view('tissue')],
+    // to one lining cell, from in front and above: it lights up, rises out of the tissue, spreads flat as it does in a
+    // dish, and the real HeLa cell takes its place
+    () => { const b = tissue.target.base; return [view('tissue'),
+      { f: 'tissue', pos: [b[0] + 50, b[1] + 90, b[2] + 170], at: [b[0], b[1] + 15, b[2]] },
+      { f: 'tissue', pos: [b[0] + 40, b[1] + 95, b[2] + 120], at: [b[0], b[1] + 30, b[2]] },
+      { f: 'tissue', pos: [b[0] + 45, b[1] + 100, b[2] + 75], at: [b[0], b[1] + LIFT, b[2]] }, view('cell')]; },
     // into the cell: round to its thin edge, through the membrane there, under the rim of the nucleus (the gap
     // between it and the base of the cell is about 1 µm high) and into the box of organelles from its side
     () => [view('cell'), { f: 'cell', pos: [9, 8, -36], at: [0.3, 1.4, -13] }, { f: 'cell', pos: [0.8, 2.4, -23], at: [0.3, 1.25, -9] },
@@ -668,6 +736,7 @@ export async function mount(el, opts = {}) {
   async function nudge(dz) {
     if (tween) { tween.cancel(); }
     const base = Zt;
+    dz /= STEP_LEN[Math.min(STEP_LEN.length - 1, Math.floor(dz > 0 ? base : Math.max(0, base - 1e-6)))];
     const next = THREE.MathUtils.clamp(base + dz, 0, LEVELS.length - 1);
     const i = Math.floor(Math.min(next, base) + 1e-6);
     if (next > base && !scrollLock) {           // load what the next step needs before moving into it
@@ -744,7 +813,8 @@ export async function mount(el, opts = {}) {
     void main(){
     #include <clipping_planes_fragment>
     if (useMap > 0.5 && texture2D(map, vUv).a < 0.5) discard;
-    gl_FragColor = vec4(uId, 1.0); }`;
+    float d = gl_FragCoord.z * 255.0;
+    gl_FragColor = vec4(uId.rg, floor(d) / 255.0, fract(d)); }`;
   function pickMat(n, src) {
     if (!pickMats[n]) pickMats[n] = new THREE.ShaderMaterial({ vertexShader: PICK_VS, fragmentShader: PICK_FS, clipping: true, side: THREE.DoubleSide,
       uniforms: { uId: { value: new THREE.Color((n & 255) / 255, ((n >> 8) & 255) / 255, 0) }, map: { value: null }, useMap: { value: 0 } } });
@@ -761,7 +831,14 @@ export async function mount(el, opts = {}) {
     return op >= (m.transparent ? 0.06 : 0.5);
   }
   function partOf(o) { for (let p = o; p; p = p.parent) if (p.userData.part) return p.userData.part; return null; }
-  function gpuPick(x, y, skipShells) {
+  // a part you can see through (a faint bone, the bladder behind the uterus) hides nothing behind it
+  function solidEnough(o) {
+    if (!shownEnough(o)) return false;
+    const m = Array.isArray(o.material) ? o.material[0] : o.material;
+    const op = m.uniforms && m.uniforms.uOpacity ? m.uniforms.uOpacity.value : m.opacity;
+    return !m.transparent || op >= 0.5;
+  }
+  function gpuPick(x, y, skipShells, solidOnly) {
     const r = cv.getBoundingClientRect();
     const px = x - r.left, py = y - r.top, w = r.width, h = r.height;
     const cx = (px / w) * 2 - 1, cy = 1 - (py / h) * 2, hx = 1 / w, hy = 1 / h;
@@ -773,7 +850,7 @@ export async function mount(el, opts = {}) {
     scene.traverse(o => {
       if (!(o.isMesh || o.isInstancedMesh || o.isPoints || o.isLine)) return;
       const shell = o.userData.part === 'body' || o.userData.part === 'cell' || o.userData.part === 'glass';
-      if (o.isMesh && o.visible && o.userData.part !== 'glass' && partOf(o) && shownEnough(o) && !(skipShells && shell)) {
+      if (o.isMesh && o.visible && o.userData.part !== 'glass' && partOf(o) && (solidOnly ? solidEnough(o) : shownEnough(o)) && !(skipShells && shell)) {
         list.push(o); swapped.push([o, o.material]); o.material = pickMat(list.length, Array.isArray(o.material) ? o.material[0] : o.material);
       } else if (o.visible) { hidden.push(o); o.visible = false; }
     });
@@ -786,10 +863,80 @@ export async function mount(el, opts = {}) {
     for (const [o, m] of swapped) o.material = m;
     for (const o of hidden) o.visible = true;
     const n = pickBuf[0] + pickBuf[1] * 256;
-    return n > 0 && pickBuf[3] > 0 ? list[n - 1] : null;
+    return n > 0 ? list[n - 1] : null;
+  }
+
+  // What is where on the screen, a few times a second: the scene drawn small (a quarter of the size), each part in
+  // its own colour with how far away it is. A name is shown only if, at its place, its own part is what you see,
+  // or nothing stands in front of it: so turning the view never leaves a name floating over the wrong thing.
+  // The small picture is read back without waiting for the graphics card (it arrives a frame or two later): waiting
+  // for it held the page for up to 100 ms among the organelles, several times a second.
+  const idRT = new THREE.WebGLRenderTarget(1, 1);
+  let idBuf = null, idList = [], idW = 0, idH = 0, idAt = 0, idCam = null, idPending = false;
+  function idPass(sync) {
+    if (idPending && !sync) return;
+    const w = Math.max(40, Math.ceil(W() / 3)), h = Math.max(30, Math.ceil(H() / 3));
+    if (idRT.width !== w || idRT.height !== h) idRT.setSize(w, h);
+    const buf = new Uint8Array(w * h * 4);
+    camera.updateMatrixWorld();
+    const list = [];
+    const hidden = [], swapped = [];
+    scene.traverse(o => {
+      if (!(o.isMesh || o.isInstancedMesh || o.isPoints || o.isLine)) return;
+      const shell = o.userData.part === 'body' || o.userData.part === 'cell' || o.userData.part === 'glass' || o.userData.part === 'emslice';
+      if (o.isMesh && o.visible && partOf(o) && shownEnough(o) && !shell) {
+        // see-through parts are drawn first and leave no depth: they can be found where nothing solid is, but
+        // never hide a solid part behind them
+        const solid = solidEnough(o);
+        list.push(o); swapped.push([o, o.material, o.renderOrder]);
+        const m = pickMat(list.length, Array.isArray(o.material) ? o.material[0] : o.material);
+        m.depthWrite = solid; o.material = m; o.renderOrder = solid ? 1 : -1;
+      } else if (o.visible) { hidden.push(o); o.visible = false; }
+    });
+    const bg = scene.background; scene.background = null;
+    const prevRT = renderer.getRenderTarget(), prevClear = renderer.getClearColor(new THREE.Color()), prevA = renderer.getClearAlpha();
+    renderer.setRenderTarget(idRT); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, camera);
+    const snap = { vp: new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse), near: camera.near, far: camera.far };
+    const done = () => { idBuf = buf; idList = list; idW = w; idH = h; idCam = snap; };
+    if (sync) { renderer.readRenderTargetPixels(idRT, 0, 0, w, h, buf); done(); }
+    else {
+      idPending = true;
+      renderer.readRenderTargetPixelsAsync(idRT, 0, 0, w, h, buf).then(() => { done(); idPending = false; wake(); }, () => { idPending = false; });
+    }
+    renderer.setRenderTarget(prevRT); renderer.setClearColor(prevClear, prevA);
+    scene.background = bg;
+    for (const [o, m, ro] of swapped) { o.material.depthWrite = true; o.material = m; o.renderOrder = ro; }
+    for (const o of hidden) o.visible = true;
+  }
+  const CONTAINS = { tnucleus: ['tcell'], capillary: ['connective'], crypt: ['tcell', 'tnucleus', 'connective'] };
+  const lin = z => idCam.near * idCam.far / (idCam.far - z * (idCam.far - idCam.near));
+  function seen(a, p, d, strict) {
+    if (a.free || !idBuf || !idCam) return true;
+    const q = new THREE.Vector4(p.x, p.y, p.z, 1).applyMatrix4(idCam.vp);
+    if (q.w <= 0) return false;
+    const ix = Math.floor((q.x / q.w * 0.5 + 0.5) * idW), iy = Math.floor((q.y / q.w * 0.5 + 0.5) * idH);
+    const ok = a.accept || [a.part, ...(CONTAINS[a.part] || [])];
+    const zA = lin(q.z / q.w * 0.5 + 0.5), tol = 0.03 * zA + 0.6 * a.r * SCALE[a.frame];
+    let front = Infinity;
+    if (strict) {                                  // one of several places: its own part must be there, filling a small
+      const at = (x, y) => { if (x < 0 || y < 0 || x >= idW || y >= idH) return null; const k = (y * idW + x) * 4, n = idBuf[k] + idBuf[k + 1] * 256; return n ? partOf(idList[n - 1]) : null; };
+      const rpx = a.r * SCALE[a.frame] / Math.max(1e-9, zA) * (idH / 2) / Math.tan(camera.fov * Math.PI / 360);
+      const pts = rpx < 4 ? [[0, 0]] : [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]];       // cross round it (a small part: its pixel)
+      return pts.every(([dx, dy]) => at(ix + dx, iy + dy) === a.part);
+    }
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const x = ix + dx, y = iy + dy; if (x < 0 || y < 0 || x >= idW || y >= idH) continue;
+      const k = (y * idW + x) * 4, n = idBuf[k] + idBuf[k + 1] * 256;
+      if (!n) continue;
+      const o = idList[n - 1]; if (o && ok.includes(partOf(o))) return true;          // its own part is what you see
+      if (dx === 0 && dy === 0) front = lin((idBuf[k + 2] + idBuf[k + 3] / 255) / 255);
+    }
+    if (strict) return false;                                                          // one of several places: its part must be there
+    return zA <= front + tol;                                                          // or nothing is in front of it
   }
   function pickAt(x, y) {
-    let o = gpuPick(x, y, true) || gpuPick(x, y, false);
+    // what is seen: first the solid parts, then the see-through ones, then the see-through shells (skin, membrane)
+    let o = gpuPick(x, y, true, true) || gpuPick(x, y, true, false) || gpuPick(x, y, false, false);
     const r = cv.getBoundingClientRect();
     let part = o ? partOf(o) : (Z > 4.5 && Z < 5.5 ? 'cytoplasm' : null), label = null;
     for (let p = o; p; p = p.parent) if (p.userData.label) { label = p.userData.label; break; }
@@ -817,7 +964,13 @@ export async function mount(el, opts = {}) {
       if (Z < a.z[0] || Z > a.z[1]) continue;
       if (fades[a.group] < 0.6) continue;
       if (a.cut && knifeOff < 0.03) continue;
-      const p = W3(a.frame, a.dyn && molApi ? molApi.where()[a.dyn] : a.p);
+      let p = W3(a.frame, a.dyn === 'single' ? singleAt : a.dyn && molApi ? molApi.where()[a.dyn] : a.p);
+      if (a.cands) {                               // one of its places that can be seen from here: the last one if it still can
+        const order = a.last != null ? [a.last, ...a.cands.keys()].filter((v, i, arr) => arr.indexOf(v) === i) : [...a.cands.keys()];
+        const i = order.find(j => seen(a, W3(a.frame, a.cands[j]), 0, true));
+        if (i == null) { a.last = null; continue; }
+        a.last = i; p = W3(a.frame, a.cands[i]);
+      }
       const d = p.distanceTo(camera.position);
       const rpx = a.r * SCALE[a.frame] / d * f;
       if (rpx < 5 || rpx > Hd * 0.42) continue;
@@ -826,6 +979,7 @@ export async function mount(el, opts = {}) {
       if (q.w <= 0) continue;
       const sx = (q.x / q.w * 0.5 + 0.5) * Wd, sy = (-q.y / q.w * 0.5 + 0.5) * Hd;
       if (sx < inset.left + 10 || sx + 20 + a.text.length * 7.2 > Wd - inset.right || sy < inset.top + 10 || sy > Hd - inset.bottom - 20) continue;
+      if (!a.cands && !seen(a, p, d)) continue;
       out.push({ a, sx, sy, rpx });
     }
     out.sort((m, n) => n.rpx - m.rpx);
@@ -883,6 +1037,8 @@ export async function mount(el, opts = {}) {
     if (restAt === 5 && groups.ribo) { const c = G.inside.worldToLocal(camera.position.clone()); groups.ribo.update(c); groups.vesicle.update(c); }
     if (molApi && restAt === 6) { molApi.tick(dt); molApi.update(); }
     draw();
+    // what is where on the screen, for the names' check: a small picture, at most eight times a second
+    if (!opts.notags && Z > 0.5 && now - idAt > 120) { idPass(); idAt = now; }
     drawTags();
     if (hoverWant && now - hoverLast > 80 && !tween) {
       hoverLast = now; const [hx, hy] = hoverWant; hoverWant = null;
@@ -941,7 +1097,9 @@ export async function mount(el, opts = {}) {
       if (orbit.enabled) { orbit.target.fromArray(at); orbit.update(); }
       wake();
     },
-    render() { draw(); drawTags(); },
+    render() { draw(); idPass(true); drawTags(); },
+    // for checks: the part under a point of the page (client px), as a tap would find it
+    partAt(x, y) { return pickAt(x, y).part; },
     seekFlight() { return false; },
     stopAutoRotate() { orbit.autoRotate = false; },
     dispose() { cancelAnimationFrame(raf); ro.disconnect(); orbit.dispose(); renderer.dispose(); cv.remove(); },

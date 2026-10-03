@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS } from './cell3d.js?v=1791032263';
+import { mount, PARTS, LEVELS } from './cell3d.js?v=1791034183';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -86,11 +86,11 @@ const TEXT = {
   tissue: {
     def: '<b>Tissue</b>: a group of cells with similar structures, working together to perform a shared function.',
     here: 'The lining of the cervix: one layer of tall cells, all alike, that make mucus. Each nucleus (violet) sits near the base of its cell.',
-    more: '<p>This is a <b>model</b>, built to the sizes measured in the photograph beside it. The front face is cut, as a slice for a microscope is cut: the outline shows the slice the photograph is.</p><p>The lining folds down into the wall as a <b>crypt</b>. Below the cells is <b>connective tissue</b>, with blood capillaries in it.</p><p class="hint">The colours are those of the stain on the slide: nuclei purple, the rest pink.</p>',
+    more: '<p>This is a <b>model</b>, traced from the photograph beside it. Its front face is cut, as a slice for a microscope is cut, and inside the green frame it shows what the photograph shows, in the same places: the lining with its fold, a gland cut across, small blood vessels.</p><p>The gland is a <b>crypt</b>: the lining folds deep into the wall. Below the cells is <b>connective tissue</b>.</p><p class="hint">The colours are those of the stain on the slide: nuclei purple, the rest pink.</p>',
     go: 'one cell', mag: '× 10' },
   cell: {
     def: '<b>Cell</b>: the basic unit of every living organism.',
-    here: 'One real HeLa cell: a cell like the ones lining the cervix, grown in a laboratory. An electron microscope photographed it in 3D.',
+    here: 'One real HeLa cell: a cell like the ones lining the cervix, grown in a laboratory, where it spreads flat. An electron microscope photographed it in 3D.',
     more: '<p>In 1951, cells like those in the lining of the cervix were taken from a cancer of a woman called <b>Henrietta Lacks</b>, without asking her. They still divide in laboratories today, and are called <b>HeLa cells</b>.</p>' +
       '<p>This one grew flat on a sapphire disc. Scientists froze it very fast, then set it in hard resin. A beam of ions removed a layer about 5 nanometres thick, and an electron microscope photographed the new surface. This was repeated more than 6,000 times, and a computer found every part of the cell.</p>' +
       '<ul class="chips"><li><b>48 µm</b><span>width of the block imaged</span></li><li><b>6 µm</b><span>height of the cell</span></li><li><b>21 µm</b><span>length of its nucleus</span></li></ul>' +
@@ -230,8 +230,11 @@ function inset() {
   if (!cell) return;
   const narrow = zoom.clientWidth < 760;
   const capBox = $('#cap').getBoundingClientRect();
+  // a photograph or the film at the top right takes room too: the picture (and its names) keep clear of it
+  const side = [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
+  const left = Math.min(capBox.left, side ? side.getBoundingClientRect().left : Infinity);
   cell.setInset(narrow ? { left: 30, right: 0, top: 60, bottom: zoom.clientHeight - capBox.top + 8 }
-    : { left: 230, right: zoom.clientWidth - capBox.left + 6, top: 60, bottom: 0 });
+    : { left: 230, right: zoom.clientWidth - left + 6, top: 60, bottom: 0 });
 }
 window.addEventListener('resize', () => inset());
 function setMore(open) {
@@ -287,11 +290,21 @@ function showTip(p) {
 }
 
 // ---------- the photograph beside the model (tissue level) ----------
+// each pin's name sits on the side of its dot that has room, so no name is cut by the edge of the picture
+function fitPins(fig) {
+  const box = $('.micro__img', fig); if (!box) return;
+  const W = box.clientWidth;
+  $$('.pin', fig).forEach(p => {
+    p.classList.remove('pin--left');
+    if (p.offsetLeft + p.offsetWidth > W - 4) p.classList.add('pin--left');
+  });
+}
 // The caption keeps clear of whatever stands at the top right: the film, or the photograph.
 function fitCap() {
   const side = [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
   const top = side ? side.getBoundingClientRect().bottom - zoom.getBoundingClientRect().top + 12 : 96;
   zoom.style.setProperty('--captop', Math.round(top) + 'px');
+  inset();
 }
 
 // ---------- the tap card ----------
@@ -358,7 +371,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791032263', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791034183', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
@@ -377,6 +390,7 @@ async function start() {
       const m = z > 2.9 && z <= 3.12, m2 = z > 3.12 && z < 3.48, e = z > 4.88 && z < 5.38;
       if ($('#micro').hidden === m || $('#micro2').hidden === m2 || $('#emfig').hidden === e) {
         $('#micro').hidden = !m; $('#micro2').hidden = !m2; $('#emfig').hidden = !e;
+        [$('#micro'), $('#micro2')].forEach(f => { if (!f.hidden) fitPins(f); });
         // the film and the micrograph share the top right: the film steps aside, and its button comes back after
         if (e) { video.pause(); $('#film').hidden = true; $('#filmPill').hidden = true; }
         else if (filmPlayed && z >= 3.5 && $('#film').hidden) $('#filmPill').hidden = false;
