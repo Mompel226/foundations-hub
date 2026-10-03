@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS } from './cell3d.js?v=1791034183';
+import { mount, PARTS, LEVELS } from './cell3d.js?v=1791035616';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -290,15 +290,32 @@ function showTip(p) {
 }
 
 // ---------- the photograph beside the model (tissue level) ----------
-// each pin's name sits on the side of its dot that has room, so no name is cut by the edge of the picture
+// each pin's name goes beside, below or above its dot: the first place that fits inside the picture without
+// covering another name (else the one that fits best); so no name is ever cut by the edge of the picture
 function fitPins(fig) {
   const box = $('.micro__img', fig); if (!box) return;
-  const W = box.clientWidth;
+  const W = box.clientWidth, H = box.clientHeight, placed = [];
   $$('.pin', fig).forEach(p => {
-    p.classList.remove('pin--left');
-    if (p.offsetLeft + p.offsetWidth > W - 4) p.classList.add('pin--left');
+    if (!$('span', p)) { const t = [...p.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim(); [...p.childNodes].filter(n => n.nodeType === 3).forEach(n => n.remove()); const sp = document.createElement('span'); sp.textContent = t; p.appendChild(sp); }
+    const sp = $('span', p), w = sp.offsetWidth, h = sp.offsetHeight, x = p.offsetLeft, y = p.offsetTop;
+    const tries = [[9, -h / 2], [-9 - w, -h / 2], [-w / 2, 8], [-w / 2, -8 - h]];
+    const score = ([dx, dy]) => {
+      const r = [x + dx, y + dy, x + dx + w, y + dy + h];
+      const out = Math.max(0, 2 - r[0]) + Math.max(0, r[2] - (W - 2)) + Math.max(0, 2 - r[1]) + Math.max(0, r[3] - (H - 2));
+      const hit = placed.reduce((s, q) => s + Math.max(0, Math.min(r[2], q[2]) - Math.max(r[0], q[0])) * Math.max(0, Math.min(r[3], q[3]) - Math.max(r[1], q[1])), 0);
+      return [out * 1000 + hit, r];
+    };
+    let best = null;
+    for (const t of tries) { const [sc, r] = score(t); if (!best || sc < best[0]) best = [sc, r, t]; if (sc === 0) break; }
+    let [, r, [dx, dy]] = best;
+    // still over an edge: slide the name inside (the dot stays where it is)
+    const shiftX = Math.max(2 - r[0], Math.min(0, (W - 2) - r[2])), shiftY = Math.max(2 - r[1], Math.min(0, (H - 2) - r[3]));
+    dx += shiftX; dy += shiftY;
+    placed.push([x + dx, y + dy, x + dx + w, y + dy + h]);
+    sp.style.setProperty('--tx', Math.round(dx) + 'px'); sp.style.setProperty('--ty', Math.round(dy) + 'px');
   });
 }
+
 // The caption keeps clear of whatever stands at the top right: the film, or the photograph.
 function fitCap() {
   const side = [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
@@ -371,7 +388,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791034183', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791035616', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);

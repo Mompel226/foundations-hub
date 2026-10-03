@@ -3,7 +3,9 @@
    Its front face is the micrograph beside it, traced (assets/tissue/trace.json, tools/model-build/trace_tissue.py):
    inside the green frame, the surface of the lining with its fold, the gland cut across (with a second one at
    the bottom left), and the small blood vessels are where the photograph has them, at its scale (0.38 µm a
-   pixel). Outside the frame the block goes on in the same way, with a crypt opening onto the surface.
+   pixel). Outside the frame the block goes on in the same way, with a crypt opening onto the surface. The
+   lining's surface and its base, and the glands, come ready from the trace; each cell reaches from its base to the
+   nearest point of the surface; each gland's lumen holds pale mucus, as in the photograph.
    Measured on the photograph: cells about 40 µm tall on the surface and 65 µm in the glands, each nucleus near
    the base of its cell (IARC Screening Group's atlas, "Anatomical considerations – columnar epithelium").
    Made up: the exact place of every cell, nucleus and fibre (at random, at those sizes), and the block behind
@@ -16,42 +18,9 @@
    build(THREE, group, trace) -> { target, labels, single, frameMat, materials, size }
 */
 const PITCH = 7, R_HEX = 3.9, H_GEO = 30, L = 1000, BOTTOM = -900, DEPTH = 300;
-const CRYPT_X = 640, CRYPT_HALF = 22;          // a crypt opening onto the surface, outside the photograph's frame
 const COL = { side: 0xD9B3CC, top: 0xF0E6F1, cut: 0xE8C9DD, mucin: 0xF4EDF4, nucleus: 0x5B4BB5, stromaSide: 0xDE9DB3 };
 
 function rnd(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
-
-// a polyline through points, smoothed (Catmull-Rom) and resampled every `step` µm
-function resample(P, step = 2) {
-  const out = [];
-  const at = i => P[Math.max(0, Math.min(P.length - 1, i))];
-  for (let i = 0; i < P.length - 1; i++) {
-    const p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2);
-    const len = Math.hypot(p2[0] - p1[0], p2[1] - p1[1]), n = Math.max(1, Math.ceil(len / (step / 4)));
-    for (let k = 0; k < n; k++) {
-      const t = k / n, t2 = t * t, t3 = t2 * t;
-      const f = (a, b, c, d) => 0.5 * (2 * b + (-a + c) * t + (2 * a - 5 * b + 4 * c - d) * t2 + (-a + 3 * b - 3 * c + d) * t3);
-      out.push([f(p0[0], p1[0], p2[0], p3[0]), f(p0[1], p1[1], p2[1], p3[1])]);
-    }
-  }
-  out.push(P[P.length - 1]);
-  const even = [out[0]]; let carry = 0;              // even spacing
-  for (let i = 1; i < out.length; i++) {
-    let a = out[i - 1]; const b = out[i]; let d = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    while (carry + d >= step) { const t = (step - carry) / d; a = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]; even.push(a); d = Math.hypot(b[0] - a[0], b[1] - a[1]); carry = 0; }
-    carry += d;
-  }
-  return even;
-}
-// the normal on the left of the direction of travel, smoothed over a few points
-function normals(P) {
-  const n = P.map((p, i) => {
-    const a = P[Math.max(0, i - 1)], b = P[Math.min(P.length - 1, i + 1)];
-    const tx = b[0] - a[0], ty = b[1] - a[1], l = Math.hypot(tx, ty) || 1;
-    return [-ty / l, tx / l];
-  });
-  return n.map((_, i) => { let x = 0, y = 0; for (let k = -3; k <= 3; k++) { const j = Math.max(0, Math.min(n.length - 1, i + k)); x += n[j][0]; y += n[j][1]; } const l = Math.hypot(x, y) || 1; return [x / l, y / l]; });
-}
 
 // A columnar cell: a six-sided column, base at y = 0, height H_GEO (scaled per cell), a low dome on top. cut: only
 // the half behind z = 0, with a flat face at z = 0 coloured as the stain colours it (pale above, pink below).
@@ -141,38 +110,18 @@ function stromaTexture(THREE, T) {
 export function build(THREE, group, T) {
   const r = rnd(5);
   const hS = T.heights.surface;
-  // ---- the lining's surface (the cells' tops), left to right: a flat stretch, down into a fold, the traced
-  // surface, a flat stretch, down the left wall of a crypt; then up its right wall and on to the right edge
-  const tr = T.surface;
-  const wave = x => 2.5 * Math.sin(x / 47) + 1.5 * Math.sin(x / 19 + 1.3);
-  const left = [[-L, wave(-L)], [-760, 1], [-600, -2], [-500, -10], [-420, -34], [-350, -78], [-300, -112], [-262, -130], [-232, -128]];
-  const end = tr[tr.length - 1], right = [];
-  for (let x = end[0] + 18; x < CRYPT_X - CRYPT_HALF - 50; x += 18) right.push([x, end[1] * Math.max(0, 1 - (x - end[0]) / 120) + wave(x) * Math.min(1, (x - end[0]) / 120)]);
-  const mouthL = [];
-  for (let a = 0; a <= 1.0001; a += 0.1) { const ang = a * Math.PI / 2; mouthL.push([CRYPT_X - CRYPT_HALF - 50 + 50 * Math.sin(ang), -50 + 50 * Math.cos(ang)]); }
-  const wallL = []; for (let y = -70; y >= BOTTOM - 4; y -= 20) wallL.push([CRYPT_X - CRYPT_HALF, y]);
-  const part1 = resample(left.concat(tr, right, mouthL, wallL), 2);
-  const wallR = []; for (let y = BOTTOM - 4; y <= -70; y += 20) wallR.push([CRYPT_X + CRYPT_HALF, y]);
-  const mouthR = [];
-  for (let a = 1; a >= -0.0001; a -= 0.1) { const ang = a * Math.PI / 2; mouthR.push([CRYPT_X + CRYPT_HALF + 50 - 50 * Math.sin(ang), -50 + 50 * Math.cos(ang)]); }
-  const tail = []; for (let x = CRYPT_X + CRYPT_HALF + 70; x <= L; x += 18) tail.push([x, wave(x)]);
-  const part2 = resample(wallR.concat(mouthR, tail), 2);
-  // ---- every lining as cells' bases every 2 µm: [x, y, nx, ny, height]
-  const linings = [];
-  for (const P of [part1, part2]) {
-    const N = normals(P);
-    linings.push({ closed: false, cells: P.map((p, i) => [p[0] - N[i][0] * hS, p[1] - N[i][1] * hS, N[i][0], N[i][1], hS]) });
-  }
+  // ---- every lining as cells' bases every 2 µm: [x, y, nx, ny, height]. Each cell reaches from its base to the
+  // nearest point of the surface it lines (trace.json has both lines: the surface, and its base found on a grid, so
+  // the base never crosses itself in a steep fold)
+  const toward = (B, A, closed) => B.map(b => {
+    let best = A[0], bd = Infinity;
+    for (const p of A) { const d = (p[0] - b[0]) ** 2 + (p[1] - b[1]) ** 2; if (d < bd) { bd = d; best = p; } }
+    const d = Math.sqrt(bd) || 1;
+    return [b[0], b[1], (best[0] - b[0]) / d, (best[1] - b[1]) / d, Math.max(18, d)];
+  });
+  const linings = T.linings.map(l => ({ closed: false, cells: toward(l.basal, l.apical) }));
   // the glands, cut across: their cells sit on the outer ring and reach in to the lumen
-  for (const gl of T.glands) {
-    const Lm = gl.lumen;
-    linings.push({ closed: true, cells: gl.basal.map(b => {
-      let best = Lm[0], bd = Infinity;
-      for (const p of Lm) { const d = (p[0] - b[0]) ** 2 + (p[1] - b[1]) ** 2; if (d < bd) { bd = d; best = p; } }
-      const d = Math.sqrt(bd) || 1;
-      return [b[0], b[1], (best[0] - b[0]) / d, (best[1] - b[1]) / d, Math.max(20, d)];
-    }) });
-  }
+  for (const gl of T.glands) linings.push({ closed: true, cells: toward(gl.basal, gl.lumen) });
   // ---- the cells, in rows going back from the cut face (the glands run straight back: crypts cut across)
   const full = [], front = [], rows = Math.floor(DEPTH / PITCH);
   const along = (cells, closed, s) => {
@@ -238,7 +187,15 @@ export function build(THREE, group, T) {
   const stroma = new THREE.Group();
   [solid(linings[0], -1), solid(linings[1], 1)].forEach(g => { const m = new THREE.Mesh(g, [faceMat, sideMat]); m.userData.part = 'connective'; stroma.add(m); });
   stroma.userData.part = 'connective';
-  group.add(cells, cutCells, nuclei, caps, stroma);
+  // the lumen of each gland holds mucus, pale, as in the photograph (without it, you would look down the tunnel at
+  // the cells further back, which a thin slice does not show)
+  const mucus = new THREE.Group(), mucusMat = new THREE.MeshLambertMaterial({ color: 0xF2E9F2 });
+  for (const gl of T.glands) {
+    const sh = new THREE.Shape(); gl.lumen.forEach((p, i) => (i ? sh.lineTo(p[0], p[1]) : sh.moveTo(p[0], p[1]))); sh.closePath();
+    const g = new THREE.ExtrudeGeometry(sh, { depth: DEPTH - 1, bevelEnabled: false, steps: 1, curveSegments: 2 });
+    g.translate(0, 0, -DEPTH); const m = new THREE.Mesh(g, mucusMat); m.userData.part = 'mucus'; mucus.add(m);
+  }
+  group.add(cells, cutCells, nuclei, caps, stroma, mucus);
 
   // the cell the zoom goes into next: on the surface, a few rows back from the face, inside the frame
   const pick = full.filter(e => e.ny > 0.9 && e.x > 100 && e.x < 140 && e.z < -25 && e.z > -40)[0] || full[0];
@@ -260,7 +217,7 @@ export function build(THREE, group, T) {
   const tops = full.filter(e => e.ny > 0.95 && e.x > -200 && e.x < 200 && e.z < -60 && e.z > -200);
   labels.push({ part: 'tcell', text: 'Each cell makes mucus', p: [-120, 2, -110], r: 25,
     cands: tops.filter((_, i) => i % Math.max(1, Math.floor(tops.length / 10)) === 0).slice(0, 10).map(e => [e.x + e.nx * e.h * H_GEO, e.y + e.ny * e.h * H_GEO + 1, e.z]) });
-  labels.push({ part: 'crypt', text: 'A crypt opens onto the surface', p: [CRYPT_X, -120, 0.2], r: 40, free: true });
+  labels.push({ part: 'crypt', text: 'A crypt opens onto the surface', p: [T.block.crypt_x, -120, 0.2], r: 40, free: true });
   // the slice the photograph shows: its frame on the cut face
   const frame = new THREE.Group(), fm = new THREE.MeshBasicMaterial({ color: 0x8fe3c8, transparent: true, opacity: 0, depthTest: false, toneMapped: false });
   const [fx0, fx1] = T.frame.x, [fy1, fy0] = T.frame.y, bar = 4;
@@ -271,7 +228,7 @@ export function build(THREE, group, T) {
   return {
     target: { top: top.toArray(), base: [pick.x, pick.y, pick.z], h: pick.h * H_GEO, pose: pose(pick).clone() },
     labels, single, frame, frameMat: fm,
-    materials: [mat, nucMat, faceMat, sideMat, single.material],
+    materials: [mat, nucMat, faceMat, sideMat, single.material, mucusMat],
     size: { L, BOTTOM, DEPTH, H_CELL: hS, frame: T.frame },
   };
 }

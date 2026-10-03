@@ -120,10 +120,65 @@ def basal_ring(lumen_um, h):
     c = smooth_path(c, True, sigma=3, step_px=2.0)
     return [[round(x, 2), round(y, 2)] for x, y in c]
 glands_um = [um(gland), um(second)]
+
+# The whole block's lining surface (µm), left to right, as js/tissue3d.js used to make it: a flat stretch, down into a
+# fold, the traced surface, a flat stretch, down the left wall of a crypt; then up its right wall and on to the edge.
+# Its base (where the cells sit) is every point the cell height away from the canal and the crypt, found on a 1 µm grid
+# like the glands' rings, so it never crosses itself in a steep fold (an offset along the normals did, and the
+# connective tissue then covered the cells there).
+L_BLOCK, BOTTOM, CRYPT_X, CRYPT_HALF = 1000, -900, 640, 22
+def catmull(P, step=2.0):
+    P = np.asarray(P, float); out = []
+    for i in range(len(P) - 1):
+        p0, p1, p2, p3 = P[max(0, i - 1)], P[i], P[i + 1], P[min(len(P) - 1, i + 2)]
+        n = max(1, int(np.ceil(np.hypot(*(p2 - p1)) / (step / 4))))
+        for k in range(n):
+            t = k / n; t2, t3 = t * t, t * t * t
+            out.append(0.5 * (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3))
+    out.append(P[-1]); out = np.array(out)
+    d = np.r_[0, np.cumsum(np.hypot(*np.diff(out, axis=0).T))]; t = np.arange(0, d[-1], step)
+    return np.c_[np.interp(t, d, out[:, 0]), np.interp(t, d, out[:, 1])]
+wave = lambda x: 2.5 * np.sin(x / 47) + 1.5 * np.sin(x / 19 + 1.3)
+tr = np.array(um(surf))
+left = [[-L_BLOCK, wave(-L_BLOCK)], [-760, 1], [-600, -2], [-500, -10], [-420, -34], [-350, -78], [-300, -112], [-262, -130], [-232, -128]]
+end = tr[-1]
+right = [[x, end[1] * max(0, 1 - (x - end[0]) / 120) + wave(x) * min(1, (x - end[0]) / 120)] for x in np.arange(end[0] + 18, CRYPT_X - CRYPT_HALF - 50, 18)]
+mouthL = [[CRYPT_X - CRYPT_HALF - 50 + 50 * np.sin(a), -50 + 50 * np.cos(a)] for a in np.linspace(0, np.pi / 2, 11)]
+wallL = [[CRYPT_X - CRYPT_HALF, y] for y in np.arange(-70, BOTTOM - 5, -20)]
+part1 = catmull(np.vstack([left, tr, right, mouthL, wallL]))
+wallR = [[CRYPT_X + CRYPT_HALF, y] for y in np.arange(BOTTOM - 4, -69, 20)]
+mouthR = [[CRYPT_X + CRYPT_HALF + 50 - 50 * np.sin(a), -50 + 50 * np.cos(a)] for a in np.linspace(np.pi / 2, 0, 11)]
+tail = [[x, wave(x)] for x in np.arange(CRYPT_X + CRYPT_HALF + 70, L_BLOCK + 1, 18)]
+part2 = catmull(np.vstack([wallR, mouthR, tail]))
+# the canal and the crypt as one region: above part 1, across the crypt's floor, above part 2
+TOP = 120
+from matplotlib.path import Path as MPath
+poly = np.vstack([[[-L_BLOCK - 60, part1[0][1]]], part1, [[CRYPT_X - CRYPT_HALF, BOTTOM - 80], [CRYPT_X + CRYPT_HALF, BOTTOM - 80]], part2,
+                  [[L_BLOCK + 60, part2[-1][1]], [L_BLOCK + 60, TOP], [-L_BLOCK - 60, TOP]]])
+lo = np.array([-L_BLOCK - 80, BOTTOM - 120]); n = (np.array([L_BLOCK + 80, TOP + 20]) - lo).astype(int) + 1
+yy, xx = np.mgrid[0:n[1], 0:n[0]]
+canal = MPath(poly - lo).contains_points(np.c_[xx.ravel(), yy.ravel()]).reshape(n[1], n[0])
+dist = ndi.distance_transform_edt(~canal)
+c = max(measure.find_contours(dist, H_SURF), key=len)[:, ::-1] + lo            # (x, y) µm, closed
+keep = (c[:, 1] < 60) & (c[:, 1] > BOTTOM) & (np.abs(c[:, 0]) < L_BLOCK)
+idx = np.nonzero(keep)[0]
+runs = [r for r in np.split(idx, np.nonzero(np.diff(idx) > 1)[0] + 1) if len(r) > 20]
+# a closed contour can start mid-run: join a run that ends at the end with one that starts at 0
+if len(runs) > 2 and runs[0][0] == 0 and runs[-1][-1] == len(c) - 1:
+    runs = [np.r_[runs[-1], runs[0]]] + runs[1:-1]
+basal_runs = sorted([smooth_path(c[r], False, sigma=2, step_px=2.0) for r in runs], key=lambda P: P[:, 0].mean())
+def orient(P, start_x):            # left to right along the surface (part 1 starts at the left edge; part 2 at the crypt's floor)
+    return P if abs(P[0][0] - start_x) < abs(P[-1][0] - start_x) else P[::-1]
+b1 = orient(basal_runs[0], -L_BLOCK); b2 = basal_runs[-1]
+b2 = b2 if b2[0][1] < b2[-1][1] else b2[::-1]
+r2 = lambda P: [[round(float(x), 2), round(float(y), 2)] for x, y in P]
+linings = [{"apical": r2(part1), "basal": r2(b1)}, {"apical": r2(part2), "basal": r2(b2)}]
+print(f"lining bases: {len(b1)} and {len(b2)} points; part 1 base from {b1[0].round()} to {b1[-1].round()}")
 out = {
     "photo": {"w": W, "h": H, "um_per_px": S}, "frame": {"x": [round(-x0 * S, 1), round((W - x0) * S, 1)], "y": [round(y0 * S, 1), round((y0 - H) * S, 1)]},
     "heights": {"surface": H_SURF, "gland": H_GLAND},
-    "surface": um(surf), "glands": [{"lumen": g, "basal": basal_ring(g, H_GLAND)} for g in glands_um],
+    "surface": um(surf), "linings": linings, "glands": [{"lumen": g, "basal": basal_ring(g, H_GLAND)} for g in glands_um],
+    "block": {"L": L_BLOCK, "bottom": BOTTOM, "crypt_x": CRYPT_X},
     "vessels": [{"x": round((v["x"] - x0) * S, 1), "y": round((y0 - v["y"]) * S, 1), "rx": round(v["rx"] * S, 1), "ry": round(v["ry"] * S, 1), "a": round(-v["a"], 3)} for v in vessels],
     "marks": marks,
 }
