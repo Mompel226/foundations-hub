@@ -5,7 +5,8 @@
    the bottom left), and the small blood vessels are where the photograph has them, at its scale (0.38 µm a
    pixel). Outside the frame the block goes on in the same way, with a crypt opening onto the surface. The
    lining's surface and its base, and the glands, come ready from the trace; each cell reaches from its base to the
-   nearest point of the surface; each gland's lumen holds pale mucus, as in the photograph.
+   nearest point of the surface; in a gland the cells are wedges that fill the ring from its outer edge to the lumen;
+   each gland's lumen holds pale mucus, as in the photograph.
    Measured on the photograph: cells about 40 µm tall on the surface and 65 µm in the glands, each nucleus near
    the base of its cell (IARC Screening Group's atlas, "Anatomical considerations – columnar epithelium").
    Made up: the exact place of every cell, nucleus and fibre (at random, at those sizes), and the block behind
@@ -120,8 +121,34 @@ export function build(THREE, group, T) {
     return [b[0], b[1], (best[0] - b[0]) / d, (best[1] - b[1]) / d, Math.max(18, d)];
   });
   const linings = T.linings.map(l => ({ closed: false, cells: toward(l.basal, l.apical) }));
-  // the glands, cut across: their cells sit on the outer ring and reach in to the lumen
-  for (const gl of T.glands) linings.push({ closed: true, cells: toward(gl.basal, gl.lumen) });
+  // the glands, cut across: a ring of cells from the gland's outer edge in to its lumen. Each cell is a wedge, wide at
+  // its base and narrow at the lumen, so that together they fill the ring as in the photograph (columns of one width,
+  // set round a ring, left gaps between their tops: Daniel, 4 Oct). The two rings are cut into as many pieces as there
+  // are cells, by length, and turned to match each other; the gland runs straight back, so each wedge does too.
+  const ringLen = P => P.reduce((s, p, i) => s + Math.hypot(P[(i + 1) % P.length][0] - p[0], P[(i + 1) % P.length][1] - p[1]), 0);
+  const ringArea = P => P.reduce((s, p, i) => s + p[0] * P[(i + 1) % P.length][1] - P[(i + 1) % P.length][0] * p[1], 0);
+  const resample = (P, n) => {
+    const total = ringLen(P), out = []; let i = 0, acc = 0;
+    for (let k = 0; k < n; k++) {
+      const want = k / n * total;
+      for (;;) {
+        const a = P[i % P.length], b = P[(i + 1) % P.length], seg = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (acc + seg >= want || i > 4 * P.length) { const t = seg ? (want - acc) / seg : 0; out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); break; }
+        acc += seg; i++;
+      }
+    }
+    return out;
+  };
+  const glands = T.glands.map(gl => {
+    const n = Math.max(12, Math.round(ringLen(gl.basal) / PITCH));
+    const B = resample(gl.basal, n);
+    let Lr = Math.sign(ringArea(gl.lumen)) === Math.sign(ringArea(gl.basal)) ? gl.lumen : gl.lumen.slice().reverse();
+    const L0 = resample(Lr, n);
+    let shift = 0, bd = Infinity;
+    for (let s = 0; s < n; s++) { let d = 0; for (let i = 0; i < n; i++) d += (B[i][0] - L0[(i + s) % n][0]) ** 2 + (B[i][1] - L0[(i + s) % n][1]) ** 2; if (d < bd) { bd = d; shift = s; } }
+    const Lm = B.map((_, i) => L0[(i + shift) % n]);
+    return { B, L: Lm };
+  });
   // ---- the cells, in rows going back from the cut face (the glands run straight back: crypts cut across)
   const full = [], front = [], rows = Math.floor(DEPTH / PITCH);
   const along = (cells, closed, s) => {
@@ -142,6 +169,39 @@ export function build(THREE, group, T) {
     }
   }
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  // the glands' wedge cells, each from z = 0 (the cut face, coloured as the stain colours it) straight back; a thin gap
+  // between neighbours shows where one cell ends
+  const wedges = (() => {
+    const pos = [], col = [], c = new THREE.Color(), GAP = 0.35;
+    const put = (x, y, z, hex) => { pos.push(x, y, z); c.setHex(hex); col.push(c.r, c.g, c.b); };
+    const quad = (a, b, d, e, za, zb, ca, cb, cd, ce) => {     // a-b-d-e, each [x, y], at z za (a, b) or zb (d, e)
+      put(a[0], a[1], za[0], ca); put(b[0], b[1], za[1], cb); put(d[0], d[1], zb[0], cd);
+      put(a[0], a[1], za[0], ca); put(d[0], d[1], zb[0], cd); put(e[0], e[1], zb[1], ce);
+    };
+    const toward2 = (p, q, g) => { const d = Math.hypot(q[0] - p[0], q[1] - p[1]) || 1; return [p[0] + (q[0] - p[0]) / d * g, p[1] + (q[1] - p[1]) / d * g]; };
+    const mix = (p, q, t) => [p[0] + (q[0] - p[0]) * t, p[1] + (q[1] - p[1]) * t];
+    for (const { B, L: Lm } of glands) {
+      const n = B.length;
+      for (let i = 0; i < n; i++) {
+        let b0 = B[i], b1 = B[(i + 1) % n], l0 = Lm[i], l1 = Lm[(i + 1) % n];
+        const gl = Math.min(GAP, 0.2 * Math.hypot(l1[0] - l0[0], l1[1] - l0[1]));
+        b0 = toward2(b0, b1, GAP / 2); b1 = toward2(b1, B[i], GAP / 2); l0 = toward2(l0, l1, gl / 2); l1 = toward2(l1, Lm[i], gl / 2);
+        const m0 = mix(b0, l0, 0.42), m1 = mix(b1, l1, 0.42), Z = [0, 0];
+        quad(b0, b1, m1, m0, Z, Z, COL.cut, COL.cut, COL.cut, COL.cut);                       // the cut face: pink below,
+        quad(m0, m1, l1, l0, Z, Z, COL.cut, COL.cut, COL.mucin, COL.mucin);                   // pale with mucus above
+        quad(b0, b0, l0, l0, [0, -DEPTH], [-DEPTH, 0], COL.side, COL.side, COL.side, COL.side);   // the sides between cells
+        quad(b1, b1, l1, l1, [0, -DEPTH], [-DEPTH, 0], COL.side, COL.side, COL.side, COL.side);
+        quad(l0, l0, l1, l1, [0, -DEPTH], [-DEPTH, 0], COL.top, COL.top, COL.top, COL.top);       // the top, facing the lumen
+      }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+    m.userData.part = 'tcell';
+    return m;
+  })();
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), nv = new THREE.Vector3();
   const pose = e => { q.setFromUnitVectors(up, nv.set(e.nx, e.ny, 0)); m4.compose(v.set(e.x, e.y, e.z), q, sc.set(1, e.h, 1)); return m4; };
   const cells = new THREE.InstancedMesh(cellGeometry(THREE, false), mat, full.length);
@@ -155,9 +215,15 @@ export function build(THREE, group, T) {
   const ng = new THREE.SphereGeometry(1, 16, 10, Math.PI, Math.PI); ng.scale(2.5, 5.2, 2.5);
   const capG = new THREE.CircleGeometry(1, 16); capG.scale(2.5, 5.2, 1);
   const nucMat = new THREE.MeshLambertMaterial({ color: COL.nucleus, side: THREE.DoubleSide });
-  const nuclei = new THREE.InstancedMesh(ng, nucMat, front.length), caps = new THREE.InstancedMesh(capG, nucMat, front.length);
+  // (and one in each of the glands' wedge cells, near its base, along the cell)
+  const withNuc = front.concat(glands.flatMap(({ B, L: Lm }) => B.map((b, i) => {
+    const b1 = B[(i + 1) % B.length], l0 = Lm[i], l1 = Lm[(i + 1) % B.length];
+    const bx = (b[0] + b1[0]) / 2, by = (b[1] + b1[1]) / 2, ax = (l0[0] + l1[0]) / 2, ay = (l0[1] + l1[1]) / 2, h = Math.hypot(ax - bx, ay - by) || 1;
+    return { x: bx, y: by, nx: (ax - bx) / h, ny: (ay - by) / h, h: h / H_GEO };
+  })));
+  const nuclei = new THREE.InstancedMesh(ng, nucMat, withNuc.length), caps = new THREE.InstancedMesh(capG, nucMat, withNuc.length);
   const nucleiAt = [];                           // where each cut nucleus is (its names go on these)
-  front.forEach((e, i) => {
+  withNuc.forEach((e, i) => {
     const hgt = 7 + r() * 2.5 + (e.h * H_GEO - 40) * 0.12;
     nucleiAt.push([e.x + e.nx * hgt, e.y + e.ny * hgt]);
     q.setFromUnitVectors(up, nv.set(e.nx, e.ny, 0));
@@ -175,7 +241,7 @@ export function build(THREE, group, T) {
     if (side < 0) { sh.moveTo(-L, BOTTOM); sh.lineTo(-L, B[0][1]); B.forEach(p => sh.lineTo(p[0], p[1])); sh.lineTo(B[B.length - 1][0], BOTTOM); }
     else { sh.moveTo(B[0][0], BOTTOM); B.forEach(p => sh.lineTo(p[0], p[1])); sh.lineTo(L, B[B.length - 1][1]); sh.lineTo(L, BOTTOM); }
     sh.closePath();
-    if (side < 0) for (const gl of T.glands) { const h = new THREE.Path(); gl.basal.filter((_, i) => i % 2 === 0).forEach((p, i) => (i ? h.lineTo(p[0], p[1]) : h.moveTo(p[0], p[1]))); h.closePath(); sh.holes.push(h); }
+    if (side < 0) for (const { B } of glands) { const h = new THREE.Path(); B.forEach((p, i) => (i ? h.lineTo(p[0], p[1]) : h.moveTo(p[0], p[1]))); h.closePath(); sh.holes.push(h); }
     const geo = new THREE.ExtrudeGeometry(sh, { depth: DEPTH, bevelEnabled: false, steps: 1, curveSegments: 2 });
     geo.translate(0, 0, -DEPTH);
     const uv = geo.attributes.uv;
@@ -190,12 +256,12 @@ export function build(THREE, group, T) {
   // the lumen of each gland holds mucus, pale, as in the photograph (without it, you would look down the tunnel at
   // the cells further back, which a thin slice does not show)
   const mucus = new THREE.Group(), mucusMat = new THREE.MeshLambertMaterial({ color: 0xF2E9F2 });
-  for (const gl of T.glands) {
-    const sh = new THREE.Shape(); gl.lumen.forEach((p, i) => (i ? sh.lineTo(p[0], p[1]) : sh.moveTo(p[0], p[1]))); sh.closePath();
+  for (const { L: Lm } of glands) {
+    const sh = new THREE.Shape(); Lm.forEach((p, i) => (i ? sh.lineTo(p[0], p[1]) : sh.moveTo(p[0], p[1]))); sh.closePath();
     const g = new THREE.ExtrudeGeometry(sh, { depth: DEPTH - 1, bevelEnabled: false, steps: 1, curveSegments: 2 });
     g.translate(0, 0, -DEPTH); const m = new THREE.Mesh(g, mucusMat); m.userData.part = 'mucus'; mucus.add(m);
   }
-  group.add(cells, cutCells, nuclei, caps, stroma, mucus);
+  group.add(cells, cutCells, wedges, nuclei, caps, stroma, mucus);
 
   // the cell the zoom goes into next: on the surface, a few rows back from the face, inside the frame
   const pick = full.filter(e => e.ny > 0.9 && e.x > 100 && e.x < 140 && e.z < -25 && e.z > -40)[0] || full[0];
@@ -228,7 +294,7 @@ export function build(THREE, group, T) {
   return {
     target: { top: top.toArray(), base: [pick.x, pick.y, pick.z], h: pick.h * H_GEO, pose: pose(pick).clone() },
     labels, single, frame, frameMat: fm,
-    materials: [mat, nucMat, faceMat, sideMat, single.material, mucusMat],
+    materials: [mat, wedges.material, nucMat, faceMat, sideMat, single.material, mucusMat],
     size: { L, BOTTOM, DEPTH, H_CELL: hS, frame: T.frame },
   };
 }
