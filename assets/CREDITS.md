@@ -60,22 +60,28 @@ freeze-substituted, imaged by FIB-SEM at 4 × 4 × 5.24 nm), CC BY 4.0, s3://jan
 Xu, C.S. et al. 2021. An open-access volume electron microscopy atlas of whole cells and tissues. *Nature* 599:147.
 Heinrich, L. et al. 2021. Whole-cell organelle segmentation in volume electron microscopy. *Nature* 599:141.
 - `whole.glb`: the cell (split from its two neighbours by a watershed from each nucleus), its nucleus,
-  mitochondria, Golgi, lysosomes and endosomes, at 64 nm (Golgi 32 nm); `tools/build_whole.py`.
-- `organelles.glb`: 7.5 × 4.2 × 7.5 µm round the centrosome at 16 nm: ER (the nuclear envelope moved from the
-  ER to the nucleus), mitochondria, Golgi, endosomes, lysosomes, lipid droplets, nucleus, cell membrane;
-  smoothed, simplified by distance from the reader's start (`tools/build_meshes.py`, `gltf/zones.mjs`), with
-  ambient occlusion baked into the vertex colours.
-- `small.bin`: every ribosome (257,653), vesicle (12,853) and nuclear pore (791) in the region as a position and
-  size, the centre lines of the microtubules (485 µm) and the two centrioles' positions and axes, from the
-  instance segmentations at 8 nm (`tools/instances.py`, `tools/build_small.py`). Their shapes are drawn at
-  real size: ribosome 25–30 nm, pore 120 nm, microtubule 25 nm, centriole 250 × 500 nm.
-- The way in: round to the cell's thin edge, through the membrane there, and under the rim of the nucleus
-  (a gap about 1 µm high, measured) into the box. (`tools/path_in.py`, the earlier way in through the measured
-  gaps, narrowest 64 nm, is kept for reference.)
-- `em-slice.webp`, `em-outline.png`, `em-slice.json`: one slice of the raw FIB-SEM volume (scale s2, 16 × 16 ×
-  21 nm), at x = 26.5 µm of the dataset, 12 × 6.4 µm, straight across the reader's view among the organelles;
-  contrast stretched, the ion beam's faint stripes lightened, pixels made square. The outlines are the same
-  segmentations the 3D was built from, inside the detailed box only (`tools/build_em_slice.py`).
+  mitochondria, ER, Golgi, lysosomes and endosomes, at 64 nm (Golgi 32 nm); `tools/build_whole.py`. The imaged
+  block (48 × 33 × 6.4 µm) cuts the cell on three sides: those faces are a separate mesh (`w_cut`), drawn as
+  faint striped faces and named "Edge of the imaged block", so they are not taken for the cell's edge. What is
+  shown is the middle of one cell; in the block the nucleus is about a quarter of the cell's volume.
+- `organelles.glb`: 7.5 × 4.6 × 7.5 µm of the cytoplasm beside the nucleus, on its left, at 16 nm (until 3 Oct
+  2026 the box was under the nucleus, round the centrosome): ER (the nuclear envelope moved from the ER to the
+  nucleus), mitochondria, endosomes, lysosomes, lipid droplets, nucleus, cell membrane; smoothed, simplified by
+  distance from what the reader looks at (`tools/build_meshes.py`, `gltf/zones.mjs`), with ambient occlusion
+  baked into the vertex colours.
+- `small.bin`: every ribosome (553,130), vesicle (2,361) and nuclear pore (144) in the region as a position and
+  size, and the centre lines of the microtubules (225 µm), from the instance segmentations at 8 nm
+  (`tools/instances.py`, `tools/build_small.py`). Their shapes are drawn at real size: ribosome 25–30 nm, pore
+  120 nm, microtubule 25 nm. Ribosomes are drawn only in a shell 0.35–0.7 µm round the reader, with faint dots
+  out to 1.8 µm: there are about 2,000 in each µm³, so a line of sight meets one within about 1 µm, and all of
+  them would hide everything else.
+- The way in: one straight line from the cell's view to a place about 0.3 µm under the membrane, where the cell
+  is thick, chosen so that the nearest organelles are about 1 µm away across the whole view (deeper in, sheets of
+  ER fill the view within half a micrometre).
+- `em-slice.webp`, `em-outline.png`, `em-slice.json`: one image of the raw FIB-SEM stack (scale s2, 16 × 16 nm
+  pixels), the plane z = 13.2 µm of the dataset, 12 × 6.4 µm, across the reader's view about 2 µm ahead;
+  contrast stretched, the ion beam's faint stripes lightened. The outlines are the same segmentations the 3D was
+  built from, inside the detailed box only (`tools/build_em_slice.py`).
 
 ## 7. The molecules (`mol/*`) — a model
 

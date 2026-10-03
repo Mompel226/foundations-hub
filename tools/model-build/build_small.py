@@ -20,12 +20,14 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import dijkstra, connected_components
 from scipy.spatial import cKDTree
 from fetch_roi import OUT as ROI, ROI_UM
-from build_meshes import ORIGIN_UM
+from build_meshes import ORIGIN_UM, SCENE_UM
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEST = os.path.join(HERE, "..", "..", "assets", "cell", "small.bin")
-LO = np.array([ROI_UM["x"][0], ROI_UM["y"][0], ROI_UM["z"][0]]) - ORIGIN_UM
-HI = np.array([ROI_UM["x"][1], ROI_UM["y"][1], ROI_UM["z"][1]]) - ORIGIN_UM
+# everything is kept only inside the detailed box (and a quarter of a micrometre round it), where the meshes are
+LO = np.array([SCENE_UM["x"][0], SCENE_UM["y"][0], SCENE_UM["z"][0]]) - ORIGIN_UM - 0.25
+HI = np.array([SCENE_UM["x"][1], SCENE_UM["y"][1], SCENE_UM["z"][1]]) - ORIGIN_UM + 0.25
+inbox = lambda P: np.all((P >= LO) & (P <= HI), axis=1)
 
 
 def q16(p):
@@ -87,6 +89,7 @@ def main():
     # ribosomes
     r = inst("ribo_seg")
     keep = r["count"] >= 3
+    keep &= inbox(r["centre"] - ORIGIN_UM)
     P = r["centre"][keep] - ORIGIN_UM
     order = np.lexsort((P[:, 0], P[:, 1], P[:, 2]))
     P = P[order]
@@ -96,7 +99,7 @@ def main():
 
     # vesicles
     v = inst("vesicle_seg")
-    keep = v["count"] >= 3
+    keep = (v["count"] >= 3) & inbox(v["centre"] - ORIGIN_UM)
     P = v["centre"][keep] - ORIGIN_UM
     rad = (3 * v["count"][keep] * np.prod(v["vox_nm"]) / 4 / np.pi) ** (1 / 3)
     out += b"VESI" + struct.pack("<I", len(P)) + q16(P).tobytes() + np.clip(np.round(rad), 1, 255).astype("u1").tobytes()
@@ -108,7 +111,7 @@ def main():
     gz, gy, gx = np.gradient(nuc)
     ov, vox = d["origin_vox"], d["vox_nm"]
     npi = inst("np_seg")
-    keep = npi["count"] >= 50
+    keep = (npi["count"] >= 50) & inbox(npi["centre"] - ORIGIN_UM)
     C = npi["centre"][keep]
     idx = np.round((C * 1000 / vox) - ov).astype(int)            # x, y, z voxel
     idx = np.clip(idx, 0, np.array(nuc.shape[::-1]) - 1)
@@ -127,7 +130,9 @@ def main():
         Pi = V[V[:, 3] == i, :3].astype(np.float64)
         ln = centreline(Pi)
         if ln is not None:
-            lines.append(ln - ORIGIN_UM)
+            ln = ln - ORIGIN_UM
+            ln = ln[inbox(ln)]
+            if len(ln) >= 2: lines.append(ln)
     pts = np.concatenate(lines)
     out += b"MTUB" + struct.pack("<I", len(lines)) + np.array([len(l) for l in lines], "<u2").tobytes() + q16(pts).tobytes()
     summary["microtubules"] = dict(pieces=len(lines), total_length_um=float(sum(np.linalg.norm(np.diff(l, axis=0), axis=1).sum() for l in lines)))

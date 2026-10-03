@@ -67,6 +67,9 @@ console.log('scroll down and up again:', JSON.stringify(res));
 console.log('   the slowest frames [Z, ms]:', await ev(`return JSON.stringify(window.__zg.slice(-1500).filter(x => x[1] > 100).map(([z, g]) => [+z.toFixed(2), Math.round(g)]))`));
 console.log('   median frame ms by stretch of the zoom:', await ev(`const b = {}; for (const [z, g] of window.__zg.slice(-1500)) { const k = (Math.floor(z * 4) / 4).toFixed(2); (b[k] = b[k] || []).push(g); }
   return Object.keys(b).sort((x, y) => x - y).map(k => k + ':' + Math.round(b[k].sort((x, y) => x - y)[b[k].length >> 1])).join(' ');`));
+// a median of 33 can be half the frames on time and half late: the share of late frames (over 20 ms) tells which
+console.log('   frames over 20 ms by stretch (% of n):', await ev(`const b = {}; for (const [z, g] of window.__zg.slice(-1500)) { const k = (Math.floor(z * 4) / 4).toFixed(2); (b[k] = b[k] || []).push(g); }
+  return Object.keys(b).sort((x, y) => x - y).map(k => k + ':' + Math.round(100 * b[k].filter(g => g > 20).length / b[k].length) + '%/' + b[k].length).join(' ');`));
 if (argv.includes('--profile')) {
   const { profile } = await send('Profiler.stop');
   const self = new Map(), byId = new Map(profile.nodes.map(n => [n.id, n]));
