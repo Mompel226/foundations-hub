@@ -171,7 +171,7 @@ a{color:inherit}
 .micro figcaption{padding:8px 11px 9px;font-size:12px;line-height:1.4;color:#C7D2DC}
 
 /* the electron micrograph: wide, with its colour key */
-.micro--em{width:clamp(220px,calc((100vh - 460px) * 0.95),340px)}
+.micro--em{width:clamp(240px,calc((100vh - 400px) * 1.5),420px)}
 .micro--wide{width:min(400px,30vw)} .micro--wide .micro__img img{width:100%;height:auto}
 @media (max-height:780px){.micro figcaption{display:none}}
 .micro--em .micro__img img{width:100%;height:auto}
@@ -247,7 +247,7 @@ a{color:inherit}
   .pin span{display:none}
   .top__mark{padding-right:128px}
   .micro figcaption{display:none}
-  .micro--em{width:min(52vw,210px)} .key{display:none}
+  .micro--em{width:calc(100% - 16px)} .key{display:none}
   .micro--wide{width:62vw}
   .filmpill{top:112px;right:8px}
   .scalebar{right:10px;bottom:auto;top:calc(112px + min(30vh,230px) + 10px)}

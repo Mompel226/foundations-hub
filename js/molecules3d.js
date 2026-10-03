@@ -37,6 +37,22 @@ export async function build(THREE, group, opts = {}) {
     geo[k] = g;
   });
   const mat = k => new THREE.MeshLambertMaterial({ color: meta.colours[k] ?? 0x999999 });
+  // the crowd ends in a disc with a soft edge, not in the slab's square corners (seen from further away on the
+  // way in, a square of molecules floating among the organelles looked made up); the microtubule runs on past it
+  const DISC = { c: [0, 0.015], r: 0.1, soft: 0.014 };
+  const discMat = k => {
+    const m = mat(k);
+    m.onBeforeCompile = sh => {
+      sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vDisc;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\n  { vec4 dp = vec4(transformed, 1.0);\n  #ifdef USE_INSTANCING\n  dp = instanceMatrix * dp;\n  #endif\n  vDisc = dp.xy; }');
+      sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying vec2 vDisc;')
+        .replace('void main() {', `void main() {
+  { float rr = length(vDisc - vec2(${DISC.c[0]}, ${DISC.c[1]})), e = rr - ${(DISC.r - DISC.soft).toFixed(4)};
+    if (rr > ${DISC.r.toFixed(4)} || (e > 0.0 && fract(sin(dot(gl_FragCoord.xy, vec2(12.9898, 78.233))) * 43758.5453) < e / ${DISC.soft.toFixed(4)})) discard; }`);
+    };
+    m.customProgramCacheKey = () => 'disc';
+    return m;
+  };
   const labels = meta.labels;
 
   // ---------- the crowd ----------
@@ -64,7 +80,7 @@ export async function build(THREE, group, opts = {}) {
   }
   for (const [k, list] of Object.entries(byType)) {
     if (!geo[k]) continue;
-    const mesh = new THREE.InstancedMesh(geo[k], mat(k), list.length);
+    const mesh = new THREE.InstancedMesh(geo[k], discMat(k), list.length);
     mesh.userData.part = 'molecule'; mesh.userData.label = labels[k];
     geo[k].computeBoundingSphere();
     const r = geo[k].boundingSphere.radius;

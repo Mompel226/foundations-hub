@@ -78,10 +78,11 @@ Heinrich, L. et al. 2021. Whole-cell organelle segmentation in volume electron m
 - The way in: one straight line from the cell's view to a place about 0.3 µm under the membrane, where the cell
   is thick, chosen so that the nearest organelles are about 1 µm away across the whole view (deeper in, sheets of
   ER fill the view within half a micrometre).
-- `em-slice.webp`, `em-outline.png`, `em-slice.json`: one image of the raw FIB-SEM stack (scale s2, 16 × 16 nm
-  pixels), the plane z = 13.2 µm of the dataset, 12 × 6.4 µm, across the reader's view about 2 µm ahead;
-  contrast stretched, the ion beam's faint stripes lightened. The outlines are the same segmentations the 3D was
-  built from, inside the detailed box only (`tools/build_em_slice.py`).
+- `em-section.webp`, `em-section-outline.png`, `em-slice.json`: one image of the raw FIB-SEM stack (scale s2,
+  16 × 16 nm pixels), the plane z = 13.2 µm of the dataset, 12 × 6.4 µm, from the glass up; contrast stretched, the
+  ion beam's faint stripes lightened. The outlines are the same segmentations the 3D was built from, inside the
+  detailed box only, which is outlined in green, as the green frame drawn across the cell in the 3D
+  (`tools/build_em_slice.py`). Shown beside the organelles and in the cell's "More".
 
 ## 7. The molecules (`mol/*`) — a model
 
@@ -93,6 +94,9 @@ Numbers: Mueller, T. et al. 2020, *Nature* 583:819 (HeLa), through PaxDb; 3 mill
 volume). Where each sits and which way it points are at random; the kinesin stalk and light chains are simple
 shapes; kinesin steps 8 nm, hand over hand (Yildiz et al. 2004, *Science* 303:676), slowed 100 times.
 `tools/build_molecules.py`, `crowd.json` lists every count.
+Where it sits: the model's microtubule is laid along a real microtubule of this cell (from `small.bin`), the first
+of a short list in front of the reader that can be seen from where they stop among the organelles, so the zoom goes
+into that tube; the crowd is shown as a disc round it.
 
 ## The film (`film/*`)
 

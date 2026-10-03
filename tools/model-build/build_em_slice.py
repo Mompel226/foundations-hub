@@ -1,22 +1,14 @@
-"""Two real electron-microscope pictures of the same HeLa cell (jrc_hela-2, Janelia, CC BY 4.0), from the raw
-FIB-SEM volume, with each organelle the computer found outlined in the colour it has in the 3D.
+"""The real electron-microscope picture of the same HeLa cell (jrc_hela-2, Janelia, CC BY 4.0), from the raw FIB-SEM
+volume, with each organelle the computer found outlined in the colour it has in the 3D.
 
-    python3 build_em_slice.py   -> ../../assets/cell/em-slice.webp, em-outline.png, em-slice.json
-                                       the organelles level's picture: the cut through the green frame in front
-                                       of the reader, square to their gaze (the frame is drawn in the 3D)
-                                   ../../assets/cell/em-section.webp, em-section-outline.png
-                                       the cell level's picture ("More"): one image of the stack across the
-                                       whole width, so it shows the block is a section of the cell
+    python3 build_em_slice.py   -> ../../assets/cell/em-section.webp, em-section-outline.png, em-slice.json
 
-The window. The reader stops at the end of the straight way in (cell3d.js DIVE_END), looking along DIVE. The
-window is a plane square to that gaze, 2 µm ahead, 1.4 x 1.3 µm: it fills the part of the screen the panels leave
-free. The microscope photographed planes of constant z; this plane is tipped to them, so it is re-sampled from
-the stack (full resolution, 4 x 4 x 5.24 nm voxels, trilinear): real measurements, on a plane the reader faces.
-The outlines come from the same segmentations the 3D was built from (fetch_roi.py, scale s2), smoothed.
-Image axes: right = the reader's right, up = the reader's up. If DIVE_END moves, run this again.
-
-The section: the plane z = 13.2 µm of the dataset, one image of the stack (scale s2, 16 nm pixels), from the
-coverslip up (dataset y 0-6.4 µm), across 12 µm of x; the detailed box outlined in green.
+One image of the stack, the plane z = 13.2 µm of the dataset (scene z = -2.55 µm), from the coverslip up (dataset y
+0-6.4 µm), across 12 µm of x (scale s2, 16 nm pixels): the cell membrane on top, the nucleus on the right, the
+cytoplasm between, the glass below; the detailed box outlined in green, as the green frame in the 3D. It is shown
+beside the organelles, and in the cell's "More" (it shows that the block is a section of the cell).
+(A window square to the reader's gaze, re-sampled at 4 nm, was tried on 4 Oct and taken out the same day: Daniel,
+"you don't really know what you're looking at… show the whole image". It is in the git history.)
 """
 import json, os
 import numpy as np
@@ -91,46 +83,6 @@ def outline(masks, W, H, keep, pm_width=1):
     return ov, d, labels
 
 
-def window():
-    d = DIVE_END - CELL_VIEW; d /= np.linalg.norm(d)
-    r = np.array([-d[2], 0, d[0]]); r /= np.linalg.norm(r)
-    u = np.cross(r, d)
-    C = DIVE_END + AHEAD * d
-    W, H = int(round((A[1] - A[0]) * 1000 / NM)), int(round((B[1] - B[0]) * 1000 / NM))
-    a = A[0] + (np.arange(W) + 0.5) * NM / 1000
-    b = B[1] - (np.arange(H) + 0.5) * NM / 1000                                      # rows from the top
-    P = C[:, None, None] + r[:, None, None] * a[None, None, :] + u[:, None, None] * b[None, :, None]   # [3, H, W] scene
-    D = P + np.array(ORIGIN_UM)[:, None, None]                                         # dataset µm
-    vx, vy, vz = N.voxel_nm(RAW, "s0")
-    lo = [int(np.floor(D[i].min() * 1000 / s)) - 2 for i, s in enumerate((vx, vy, vz))]
-    hi = [int(np.ceil(D[i].max() * 1000 / s)) + 2 for i, s in enumerate((vx, vy, vz))]
-    vol = N.read(RAW, "s0", lo[0], hi[0], lo[1], hi[1], lo[2], hi[2]).astype(np.float32)   # [z, y, x]
-    idx = [D[2] * 1000 / vz - lo[2], D[1] * 1000 / vy - lo[1], D[0] * 1000 / vx - lo[0]]
-    img = ndi.map_coordinates(vol, idx, order=1)
-    g = contrast(img, img > 0)
-    Image.fromarray((g * 255).astype(np.uint8)).save(OUT + "em-slice.webp", quality=88, method=6)
-    ov, dr, labels = outline(masks_at(D), W, H, np.ones((H, W), bool))
-    # the ribosomes the plane cuts (instance segmentation, as small.bin): a ring round each, in their 3D colour
-    rb = np.load(os.path.join(ROI, "inst_ribo_seg_s1.npz"))
-    keep = rb["count"] >= 3
-    Q = rb["centre"][keep] - np.array(ORIGIN_UM) - C                                   # scene µm, from the window's middle
-    rad = (3 * rb["count"][keep] * np.prod(rb["vox_nm"]) / 4 / np.pi) ** (1 / 3) / 1000
-    off, qa, qb = Q @ np.cross(r, u), Q @ r, Q @ u
-    cut = (np.abs(off) < rad) & (qa > A[0]) & (qa < A[1]) & (qb > B[0]) & (qb < B[1])
-    ring = (0x6a, 0x46, 0xa8, 245)
-    for x_, y_ in zip((qa[cut] - A[0]) * 1000 / NM, (B[1] - qb[cut]) * 1000 / NM):
-        dr.ellipse([x_ - 4, y_ - 4, x_ + 4, y_ + 4], outline=ring, width=2)
-    if cut.any():
-        k = int(np.argmin((qa[cut] - 0.0) ** 2 + (qb[cut] + 0.3) ** 2))
-        labels["ribo"] = [round((qa[cut][k] - A[0]) / (A[1] - A[0]) * 100, 1), round((B[1] - qb[cut][k]) / (B[1] - B[0]) * 100, 1)]
-    print(f"ribosomes cut by the window: {int(cut.sum())}")
-    ov.save(OUT + "em-outline.png", optimize=True)
-    meta = {"plane": {"c": C.round(4).tolist(), "r": r.round(5).tolist(), "u": u.round(5).tolist(), "a": list(A), "b": list(B)},
-            "size": [W, H], "nm_per_px": NM, "labels": labels, "block_vox": [hi[i] - lo[i] for i in range(3)]}
-    json.dump(meta, open(OUT + "em-slice.json", "w"), indent=1)
-    print(f"window {W} x {H} px ({W * NM / 1000:.2f} x {H * NM / 1000:.2f} µm) at {C.round(2)}; labels {labels}")
-
-
 def section():
     vx, vy, vz = N.voxel_nm(RAW, "s2")
     zi = int(round(SECTION_Z * 1000 / vz))
@@ -154,9 +106,12 @@ def section():
     bx0 = (SCENE_UM["x"][0] - SECTION_X[0]) * 1000 / vx; bx1 = (SCENE_UM["x"][1] - SECTION_X[0]) * 1000 / vx
     dr.rectangle([bx0, H - 1 - SCENE_UM["y"][1] * 1000 / vy, bx1, H - 1], outline=(143, 227, 200, 255), width=3)
     ov.save(OUT + "em-section-outline.png", optimize=True)
+    # where it is in the 3D (scene µm): the plane z, and the detailed box on it (the green frame drawn there)
+    json.dump({"z": round(SECTION_Z - ORIGIN_UM[2], 4), "x": [SECTION_X[0] - ORIGIN_UM[0], SECTION_X[1] - ORIGIN_UM[0]],
+               "box": {"x": [SCENE_UM["x"][0] - ORIGIN_UM[0], SCENE_UM["x"][1] - ORIGIN_UM[0]], "y": list(SCENE_UM["y"])},
+               "size": [W, H], "nm_per_px": vx}, open(OUT + "em-slice.json", "w"), indent=1)
     print(f"section {W} x {H} px ({W * vx / 1000:.1f} x {H * vy / 1000:.1f} µm); cache {N.cache_mb():.0f} MB")
 
 
 if __name__ == "__main__":
-    window()
     section()
