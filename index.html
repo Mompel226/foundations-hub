@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Cells Lab — IGCSE Biology 0610 Topic 2, Organisation of the organism</title>
+<meta name="description" content="Zoom from a real woman's body to one of her organ systems, an organ, a tissue, one real cell, its organelles and its molecules: every step real, from a medical atlas and a 3D electron microscope. Cambridge IGCSE Biology 0610 Topic 2, Organisation of the organism.">
+<meta name="author" content="Dr Daniel Mompel Riera">
+<meta name="copyright" content="Dr Daniel Mompel Riera, NLCS Jeju">
+<meta name="theme-color" content="#0E141B">
+<!-- The tab icon: a cell with its nucleus, on the dark of the zoom. -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%230E141B'/><ellipse cx='16' cy='16.5' rx='11.5' ry='9' fill='none' stroke='%238FE3C8' stroke-width='2.2'/><ellipse cx='17' cy='16' rx='4.6' ry='3.6' fill='%238FB4FF'/><circle cx='9.5' cy='19' r='1.3' fill='%23F28B5B'/><circle cx='22.5' cy='20.5' r='1.1' fill='%23F28B5B'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Loaded without blocking the first paint: behind a school captive portal a cross-origin stylesheet hangs
+     rather than fails. Offline, the page uses the system fallbacks in --sans and --mono. -->
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"></noscript>
+<link rel="stylesheet" href="css/app.css?v=1791022401">
+</head>
+<body>
+<main class="zoom" id="zoom">
+  <div class="zoom__gl" id="gl" role="img" aria-label="A 3D picture that zooms from a whole body to the molecules of one cell. Drag to turn it."></div>
+
+  <header class="top">
+    <a class="up" href="https://nlcsbiology.com/biology-hub/" title="Every door: revision, the labs, and what NLCS Biology offers beyond the course">← Biology Hub</a>
+    <div class="top__mark">
+      <h1 class="top__title">Cells Lab</h1>
+      <span class="top__sub">IGCSE 0610 · Topic 2 · Organisation of the organism</span>
+      <a class="top__by" href="https://github.com/Mompel226" target="_blank" rel="noopener" title="Who made this — Biology, NLCS Jeju. Opens my GitHub">by Dr Daniel Mompel Riera</a>
+    </div>
+  </header>
+
+  <!-- the size ruler: 1 m at the top, 1 nm at the bottom; the seven levels sit at their real sizes -->
+  <nav class="ruler" id="ruler" aria-label="The seven levels, from 1 metre to 1 nanometre">
+    <div class="ruler__scale" id="rulerScale" aria-hidden="true"></div>
+    <button class="stop" data-level="organism"  data-m="1.7"><b>Organism</b></button>
+    <button class="stop" data-level="system"    data-m="0.2"><b>Organ system</b></button>
+    <button class="stop" data-level="organ"     data-m="0.08"><b>Organ</b></button>
+    <button class="stop" data-level="tissue"    data-m="5e-4"><b>Tissue</b></button>
+    <button class="stop" data-level="cell"      data-m="5e-5"><b>Cell</b></button>
+    <button class="stop" data-level="inside"    data-m="7.5e-6"><b>Organelles</b></button>
+    <button class="stop" data-level="molecules" data-m="1.5e-7"><b>Molecules</b></button>
+  </nav>
+
+  <button class="sylswitch" id="sylSwitch" type="button" aria-pressed="false" hidden
+          title="Hide every part the syllabus does not name">Only the syllabus parts</button>
+
+  <div class="scalebar" id="scalebar" aria-hidden="true"><i></i><span></span></div>
+
+  <!-- the caption: what this level is, in the words the exam uses, and what you are looking at -->
+  <section class="cap" id="cap" aria-live="polite">
+    <p class="cap__eyebrow"><span id="capN">Level 1 of 7</span> · <b id="capLevel">Organism</b> · <span id="capView"></span></p>
+    <p class="cap__def" id="capDef"></p>
+    <p class="cap__here" id="capHere"></p>
+    <div class="cap__more" id="capMore" hidden></div>
+    <div class="cap__go">
+      <button class="btn btn--more" id="btnMore" type="button" aria-expanded="false">More</button>
+      <span class="cap__spacer"></span>
+      <button class="btn btn--back" id="btnBack" type="button" hidden>Back</button>
+      <button class="btn btn--go" id="btnGo" type="button"></button>
+    </div>
+  </section>
+
+  <!-- Eric Betzig: appears, and plays, when you reach the cell -->
+  <figure class="film" id="film" hidden>
+    <video id="filmVideo" playsinline preload="metadata" poster="assets/film/betzig-poster.jpg">
+      <source src="assets/film/betzig-632nm.mp4" type="video/mp4">
+    </video>
+    <button class="film__sound" id="filmSound" type="button" hidden>🔊 Tap for sound</button>
+    <div class="film__bar">
+      <button class="film__play" id="filmPlay" type="button" aria-label="Pause">❚❚</button>
+      <span class="film__who">Eric Betzig · Nobel Prize 2014</span>
+      <button class="film__x" id="filmClose" type="button" aria-label="Close the film">×</button>
+    </div>
+  </figure>
+  <button class="filmpill" id="filmPill" type="button" hidden>▶ Eric Betzig</button>
+
+  <div class="tapcard" id="tapcard" hidden role="status" aria-live="polite">
+    <button class="tapcard__x" type="button" aria-label="Close">×</button>
+    <h3 class="tapcard__name"></h3>
+    <p class="tapcard__badge"></p>
+    <p class="tapcard__does"></p>
+    <p class="tapcard__size"></p>
+  </div>
+
+  <button class="aboutbtn" id="aboutBtn" type="button">About this picture</button>
+
+  <div class="loading" id="loading"><span>Loading…</span><i><b id="loadBar"></b></i></div>
+  <div class="nogl" id="nogl" hidden><p>This browser cannot draw 3D. Open the lab in Chrome, Edge, Safari or Firefox on a laptop.</p></div>
+</main>
+
+<!-- what is real, the sources, the film's words, the contact line -->
+<dialog class="about" id="about" aria-label="About this picture">
+  <button class="about__x" id="aboutClose" type="button" aria-label="Close">×</button>
+  <h2>About this picture</h2>
+  <h3>Real</h3>
+  <ul>
+    <li><b>The body and her organs</b>: the Visible Human Female, a real woman's body that was cut into thin slices and photographed for a medical atlas (US National Library of Medicine). The organs were traced for the HuBMAP Human Reference Atlas.</li>
+    <li><b>The tissue</b>: two photographs of the lining of a cervix, taken through a light microscope.</li>
+    <li><b>The cell and its organelles</b>: measured by an electron microscope. The shape, size and place of the cell, its nucleus, mitochondria, endoplasmic reticulum, Golgi apparatus, lysosomes, endosomes and lipid droplets; the place of every ribosome, vesicle and pore in the nucleus; the path of every microtubule; where the two centrioles are and which way they point.</li>
+  </ul>
+  <h3>Drawn from what is known</h3>
+  <ul>
+    <li>The shape of a ribosome, a pore in the nucleus and a centriole: the microscope shows where each one is; the shape is drawn at its real size from other studies. A vesicle is a ball of the volume that was measured; a microtubule is a tube 25&nbsp;nm wide along the path that was measured.</li>
+    <li><b>The molecules are a model.</b> Measured, and used: the shape and size of each kind of protein (Protein Data Bank), how many of each kind a HeLa cell holds (Mueller et al. 2020), about 3 million protein molecules in every cubic micrometre (Milo 2013), kinesin's 8&nbsp;nm steps. Made up: where each molecule sits, the kinesin's stalk, and the speed. Kinesin takes about 100 steps a second; here it takes one. At that speed the other molecules would be a blur, so here they move only when the vesicle reaches them.</li>
+  </ul>
+  <h3>Not the same person</h3>
+  <ul><li>The body, the tissue and the cell come from three different people. The cell is a HeLa cell grown in a laboratory, not a cell from this body.</li></ul>
+  <h3>Not shown</h3>
+  <ul>
+    <li>Water and ions, and at the organelle level almost all the proteins: too small to see at that zoom, and far too many to draw.</li>
+    <li>Movement inside the cell. It was frozen, so the cell is one moment. In a living cell all of it moves, all the time.</li>
+  </ul>
+  <h3>Chosen</h3>
+  <ul><li>The colours of the 3D parts: most of the parts of a cell are smaller than a wave of light, so they have no colour of their own. The haze shows how far away something is.</li></ul>
+  <p class="fineprint">The computer that found each part of the cell makes some mistakes, so a few small pieces are missing or wrongly named.</p>
+  <h3>Sources</h3>
+  <p class="fineprint">
+    The body: <a href="https://doi.org/10.48539/HBM637.DWBM.744" target="_blank" rel="noopener">HuBMAP Human Reference Atlas, United Female v1.10</a> (Visible Human Female, US National Library of Medicine), CC&nbsp;BY&nbsp;4.0.
+    The tissue: photographs by Mikael Häggström, M.D. (Wikimedia Commons), CC0.
+    The cell: <a href="https://openorganelle.janelia.org/datasets/jrc_hela-2" target="_blank" rel="noopener">OpenOrganelle, jrc_hela-2</a>, Janelia Research Campus, CC&nbsp;BY&nbsp;4.0 (Xu et al. 2021 and Heinrich et al. 2021, <i>Nature</i> 599).
+    The molecules: Protein Data Bank structures (CC0); HeLa protein numbers from Mueller et al. 2020, <i>Nature</i> 583, through PaxDb.
+    The film: <a href="https://www.youtube.com/watch?v=RUB37QhWNkw" target="_blank" rel="noopener">632nm podcast, episode 61</a> (8 September 2026), three swear words silenced.
+    The 3D models were made from these data for this lab.
+  </p>
+  <p class="fineprint">Something wrong, or a suggestion? Please contact me: <a href="mailto:dmompelriera@nlcsjeju.kr">dmompelriera@nlcsjeju.kr</a>. Checked against the Cambridge IGCSE Biology 0610 syllabus for 2026–2028.</p>
+</dialog>
+
+<script type="module" src="js/intro.js?v=1791022401"></script>
+</body>
+</html>
