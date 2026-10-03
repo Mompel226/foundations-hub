@@ -1,0 +1,29 @@
+Copyright (c) 2026 Dr Daniel Mompel Riera
+
+This repository holds two different kinds of work, under two licences.
+
+  THE SOFTWARE — everything that runs: JavaScript, HTML structure, CSS and the build tools.
+      GNU Affero General Public License v3.0 — see LICENSE
+
+  THE TEACHING MATERIAL — the text, explanations and diagrams made by the author, wherever they are
+  stored (including inside .js files).
+      CC BY-NC-SA 4.0 — see LICENSE-CONTENT
+
+NOT COVERED BY EITHER: third-party data, images and media keep their own terms. In this lab:
+
+  assets/body/      HuBMAP Human Reference Atlas, United Female v1.10 (Visible Human Female, US National
+                    Library of Medicine), CC BY 4.0. Parts chosen, simplified and coloured.
+  assets/tissue/    photographs by Mikael Häggström, M.D., Wikimedia Commons, CC0.
+  assets/cell/      Janelia Research Campus, OpenOrganelle jrc_hela-2 (Xu et al. 2021; Heinrich et al.
+                    2021, Nature 599), CC BY 4.0. Meshes made from the data for this lab.
+  assets/mol/       shapes from Protein Data Bank structures (CC0); protein numbers from Mueller et al.
+                    2020 (Nature 583) through PaxDb.
+  assets/film/      a short clip of Eric Betzig from the 632nm podcast (episode 61), as the podcast posted
+                    it, with three swear words silenced. It belongs to 632nm and to the people it credits;
+                    it is shown with its source and a link to the full episode, and is not licensed here.
+  js/vendor/three/  three.js, MIT licence (its own LICENSE file).
+
+assets/CREDITS.md lists every source and every change.
+
+The copyright is held by one person, so other terms can be granted. If you want to use any of this
+commercially, ask: dmompelriera@nlcsjeju.kr

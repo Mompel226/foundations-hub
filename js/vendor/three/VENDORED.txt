@@ -1,0 +1,22 @@
+three.js r185.1 — vendored for the heart3d widget (js/heart3d.js), 25 September 2026
+
+Source: the npm package three@0.185.1 (released 1 July 2026), tarball
+  https://registry.npmjs.org/three/-/three-0.185.1.tgz
+Licence: MIT, copied unchanged as LICENSE.
+
+Files (same folder tree as the package, so the addons' own relative imports still work):
+  build/three.core.min.js
+  build/three.module.min.js
+  examples/jsm/loaders/GLTFLoader.js
+  examples/jsm/controls/OrbitControls.js
+  examples/jsm/utils/BufferGeometryUtils.js      (imported by GLTFLoader)
+  examples/jsm/utils/SkeletonUtils.js            (imported by GLTFLoader)
+  examples/jsm/libs/meshopt_decoder.module.js    (decodes assets/3d/heart.glb)
+  examples/jsm/environments/RoomEnvironment.js
+
+The ONLY change to any file is to its import specifiers:
+  - the bare 'three' is rewritten to the relative path of build/three.module.min.js;
+  - every import specifier gets the same query, ?v=0.185.1.
+So each module has exactly one URL (one instance), no import map is needed, and the lab's service worker
+(which keeps only ?v=-stamped .js files) keeps them for offline use. Nothing is loaded from a CDN.
+To upgrade: copy the same files from a newer package and apply the same two rewrites to every import.

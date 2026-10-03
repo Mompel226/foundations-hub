@@ -1,0 +1,15 @@
+.DS_Store
+Thumbs.db
+
+# The build scripts and data live in ../cells-lab-source/ and must never be published.
+stations.master.js
+*.master.js
+js/data/keys.enc.js
+*-Daniel Mompel Riera.*
+*[Cc]onflicted copy*
+
+# test harnesses: built in the repo so they can load the lab as same-origin, never shipped
+_*.html
+_*.js
+_*.svg
+_*.json
