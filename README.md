@@ -30,7 +30,7 @@ Topic 2 by being it, and each topic sits at the level it is about:
 | **Organism** | a real woman's body, from a medical atlas | 2 |
 | **Organ system** | her reproductive system | 2 |
 | **Organ** | the uterus and its cervix, cut open: muscle tissue, connective tissue and a lining | 2 |
-| **Tissue** | a model of the lining of the cervix, cut like a slide, with a real micrograph beside it | 2 |
+| **Tissue** | a model of the lining of the cervix, cut like a slide and traced from the real micrograph beside it | 2 |
 | **Cell** | one real HeLa cell, imaged in 3D by an electron microscope; Eric Betzig (Nobel Prize in Chemistry 2014) says why the pictures in biology books are wrong | 2 · 3 |
 | **Organelles** | inside that cell, every part at its measured size and place: 257,653 ribosomes in one small box, and a real electron micrograph of the same cell beside it | 2 · 3 |
 | **Molecules** | a model, labelled as one: real protein shapes in the numbers a HeLa cell holds, and a kinesin walking a microtubule through the crowd | 4 · 5, the Protein & Enzyme Sim |
@@ -63,8 +63,9 @@ and the sitemap. Run `node tools/stamp.mjs` here before pushing, so browsers fet
   from the atlas's 375 MB file.
 - **The organ cut open**: the Atlas's own outline of the uterus and cervix, sliced through the canal; the layers
   inside the wall drawn at the widths histology describes, in the colours of a stained slide.
-- **The tissue**: a model, built to the sizes measured on two micrographs of the endocervix by Mikael
-  Häggström, M.D. (CC0), which are shown beside it.
+- **The tissue**: a model whose cut face is traced from a micrograph of the endocervix by Mikael Häggström,
+  M.D. (CC0), shown beside it with a closer one; one lining cell then rises out and spreads flat, as such cells
+  do in a dish, and becomes the HeLa cell.
 - **The electron micrograph**: one raw slice of the same HeLa cell, with the parts the computer found outlined.
 - **The cell and its organelles**: Janelia Research Campus, OpenOrganelle *jrc_hela-2* (CC BY 4.0): a
   HeLa cell frozen under high pressure, set in resin and imaged by focused-ion-beam scanning electron

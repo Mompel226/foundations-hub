@@ -165,6 +165,7 @@ a{color:inherit}
 
 /* the electron micrograph: wide, with its colour key */
 .micro--em{width:clamp(240px,calc((100vh - 400px) * 1.5),420px)}
+.micro--wide{width:min(400px,30vw)} .micro--wide .micro__img img{width:100%;height:auto}
 @media (max-height:780px){.micro figcaption{display:none}}
 .micro--em .micro__img img{width:100%;height:auto}
 .micro__over{position:absolute;inset:0}
@@ -240,6 +241,7 @@ a{color:inherit}
   .top__mark{padding-right:128px}
   .micro figcaption{display:none}
   .micro--em{width:calc(100% - 16px)} .key{display:none}
+  .micro--wide{width:62vw}
   .filmpill{top:112px;right:8px}
   .scalebar{right:10px;bottom:auto;top:calc(112px + min(30vh,230px) + 10px)}
   .topbtns{right:8px;top:10px;flex-direction:column;align-items:flex-end;gap:4px}

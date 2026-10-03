@@ -9,7 +9,7 @@ web files into `../../assets/`. Python needs numpy, scipy, scikit-image, trimesh
 |---|---|---|
 | organism, system, organ | `python3 fetch_hra.py` → `python3 build_anatomy.py` → `node gltf/pack.mjs ../../assets/body/anatomy.glb <cache>/anatomy/a_*.glb` (not the old `a_bones.glb`) | `assets/body/anatomy.glb` |
 | the organ cut open | `python3 build_section.py` | `assets/body/section.*`, `section-map.png` |
-| tissue | none: `js/tissue3d.js` builds the model in the browser | — |
+| tissue | `python3 trace_tissue.py` (traces the micrograph; `js/tissue3d.js` builds the model from it in the browser) | `assets/tissue/trace.json` |
 | cell | `python3 build_whole.py` → `node gltf/pack.mjs ../../assets/cell/whole.glb <cache>/openorganelle/whole/w_*.glb` | `assets/cell/whole.glb` |
 | organelles | `python3 fetch_roi.py` → `python3 build_meshes.py` → `node gltf/zones.mjs <cache>/openorganelle/cell3d <name> <budget>` for each organelle → `node gltf/pack.mjs ../../assets/cell/organelles.glb …` | `assets/cell/organelles.glb` |
 | organelles (small things) | `python3 instances.py <class> s1 [--voxels]` (ribo, vesicle, np, mt-out with --voxels, cent with --voxels) → `python3 build_small.py` | `assets/cell/small.bin` |

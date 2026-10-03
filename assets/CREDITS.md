@@ -31,18 +31,27 @@ Inside the wall the layers are drawn, not measured, at the widths histology desc
 screening.iarc.fr).
 Coloured as a slide stained with haematoxylin and eosin.
 
-## 4. The tissue: a model (`js/tissue3d.js`), and two photographs beside it (`tissue/*.jpg`)
+## 4. The tissue: a model (`js/tissue3d.js`), traced from the photograph beside it (`tissue/*`)
 
 The 3D tissue is a **model** of a block of the lining of the canal of the cervix, 2 mm across, cut open on its
-front face: one layer of tall columnar cells about 30 µm tall and 7 µm across, each nucleus (about 5 × 10 µm)
-near the base of its cell; one crypt; connective tissue with fibres, fibroblasts, white blood cells and
-capillaries about 8 µm across with red blood cells. The sizes are measured on the photographs (same scale as
-below); where each cell and fibre sits is made up. It sits on the cut face of the organ where the zoom dives in.
+front face. Inside the green frame its face is the first photograph, traced (`tools/trace_tissue.py` →
+`tissue/trace.json`): the surface of the lining with its fold (the edge of the empty canal), the gland cut
+across (the edge of its empty lumen), a second gland at the bottom left (only its lining is in the picture),
+and the small blood vessels (the pink of their red cells), at the photograph's scale. Measured on the
+photograph: cells about 40 µm tall on the surface and 65 µm in the glands, each nucleus near the base of its
+cell. Made up: where each cell, nucleus and fibre sits, and the block behind the face (each gland runs straight
+back into the wall: a crypt cut across). A crypt opening onto the surface is added outside the frame.
 
 The photographs: the endocervix through a light microscope (H&E stain), by Mikael Häggström, M.D., Wikimedia
 Commons, CC0: *Histology of endocervix.jpg* and *Columnar cell mucosa of endocervix.jpg*. Changes: the first
-resized to 1100 px wide; both saved as JPEG. Their size (about 0.5 mm and 0.06–0.09 mm across) is worked out
-from the nuclei; the photographs have no scale bar. Each shows pins on what the model names.
+resized to 1100 px wide; the second turned a quarter turn so that its surface is at the top, as in the model;
+both saved as JPEG. Scale (the photographs have no scale bar): 0.38 µm a pixel for the first, from the round
+nuclei of white blood cells (about 6–7 µm, 17–18 px), so about 0.4 × 0.65 mm. Pins on each mark what the model
+names.
+
+From the tissue to the cell: the lining cell the zoom goes into rises out of the tissue and spreads flat, as a
+cell of this kind does when it is grown in a dish; then the real HeLa cell takes its place. The rising and the
+spreading are a picture of that, not a measurement.
 
 ## 5–6. The cell and its organelles (`cell/*`)
 
