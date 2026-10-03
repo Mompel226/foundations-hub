@@ -1,6 +1,7 @@
 # Foundations: the zoom's sources, licences and changes
 
-Every picture in the zoom is made from real data. The scripts that made the files are in
+Every picture in the zoom is made from real data, except the two models, which say so: the tissue and the
+molecules. The scripts that made the files are in
 `tools/model-build/`; the downloaded data are kept outside the estate, in
 `~/Library/Caches/biology-hub/`, and can be fetched again by the same scripts.
 
@@ -12,15 +13,36 @@ Library of Medicine). Only the parts used were read, by HTTP range requests on t
 (`tools/fetch_hra.py`): the skin, the uterus (body, fundus, walls, lower segment, internal os), the cervix
 and external os, the vagina, both oviducts and ovaries, the bladder, the rectum, the sacrum, coccyx,
 both hip bones, the fourth and fifth lumbar vertebrae and both femurs.
-Changes (`tools/build_anatomy.py`): parts joined into nine groups; each simplified (the skin from 266,696 to
-22,000 triangles); colours added; the skin drawn as see-through glass.
+Changes (`tools/build_anatomy.py`): parts joined into groups (the bones one group per kind, so each can be
+named); each simplified (the skin from 266,696 to 22,000 triangles); colours added; the skin drawn as see-through
+glass. One change of place: each ovary moved by about 2 mm (left 1.7 mm, right 1.9 mm), the smallest move that
+brings its upper pole to 0.2–0.7 mm from the fimbriae of its oviduct, where they fold over it in life; the Atlas
+leaves a gap of about 2.3 mm. Every other organ is where the Atlas puts it (tubes, uterus, cervix and vagina meet
+within 0.2 mm).
 
-## 4. The tissue (`tissue/*.jpg`)
+## 3b. The organ, cut open (`body/section.webp`, `section-map.png`, `section.json`)
 
-Two photographs of the endocervix through a light microscope (H&E stain), by Mikael Häggström, M.D.,
-Wikimedia Commons, CC0: *Histology of endocervix.jpg* and *Columnar cell mucosa of endocervix.jpg*.
-Changes: the first resized to 1100 px wide; both saved as JPEG. Their size in the lab (about 0.5 mm and
-0.09 mm across) is worked out from the nuclei (about 6 µm across); the photographs have no scale bar.
+The Atlas's uterus and cervix are hollow; one slice down the middle (through the canal of the cervix,
+x = −10.5 mm) gives the real outline of the wall, the cavity of the uterus and the canal (`tools/build_section.py`).
+Inside the wall the layers are drawn, not measured, at the widths histology describes: the lining of the uterus
+1.2 mm (thin: the Visible Human Female was 59, after the menopause), the muscle the rest, an outer covering
+0.15 mm; in the cervix, mostly connective tissue with bundles of smooth muscle, and crypts of the canal's lining
+3–5 mm deep (IARC Screening Group's atlas, "Anatomical considerations – columnar epithelium",
+screening.iarc.fr).
+Coloured as a slide stained with haematoxylin and eosin.
+
+## 4. The tissue: a model (`js/tissue3d.js`), and two photographs beside it (`tissue/*.jpg`)
+
+The 3D tissue is a **model** of a block of the lining of the canal of the cervix, 2 mm across, cut open on its
+front face: one layer of tall columnar cells about 30 µm tall and 7 µm across, each nucleus (about 5 × 10 µm)
+near the base of its cell; one crypt; connective tissue with fibres, fibroblasts, white blood cells and
+capillaries about 8 µm across with red blood cells. The sizes are measured on the photographs (same scale as
+below); where each cell and fibre sits is made up. It sits on the cut face of the organ where the zoom dives in.
+
+The photographs: the endocervix through a light microscope (H&E stain), by Mikael Häggström, M.D., Wikimedia
+Commons, CC0: *Histology of endocervix.jpg* and *Columnar cell mucosa of endocervix.jpg*. Changes: the first
+resized to 1100 px wide; both saved as JPEG. Their size (about 0.5 mm and 0.06–0.09 mm across) is worked out
+from the nuclei; the photographs have no scale bar. Each shows pins on what the model names.
 
 ## 5–6. The cell and its organelles (`cell/*`)
 
@@ -38,7 +60,13 @@ Heinrich, L. et al. 2021. Whole-cell organelle segmentation in volume electron m
   size, the centre lines of the microtubules (485 µm) and the two centrioles' positions and axes, from the
   instance segmentations at 8 nm (`tools/instances.py`, `tools/build_small.py`). Their shapes are drawn at
   real size: ribosome 25–30 nm, pore 120 nm, microtubule 25 nm, centriole 250 × 500 nm.
-- The way in (`tools/path_in.py`): a path through the measured gaps, narrowest 64 nm.
+- The way in: round to the cell's thin edge, through the membrane there, and under the rim of the nucleus
+  (a gap about 1 µm high, measured) into the box. (`tools/path_in.py`, the earlier way in through the measured
+  gaps, narrowest 64 nm, is kept for reference.)
+- `em-slice.webp`, `em-outline.png`, `em-slice.json`: one slice of the raw FIB-SEM volume (scale s2, 16 × 16 ×
+  21 nm), at x = 26.5 µm of the dataset, 12 × 6.4 µm, straight across the reader's view among the organelles;
+  contrast stretched, the ion beam's faint stripes lightened, pixels made square. The outlines are the same
+  segmentations the 3D was built from, inside the detailed box only (`tools/build_em_slice.py`).
 
 ## 7. The molecules (`mol/*`) — a model
 
@@ -55,5 +83,5 @@ shapes; kinesin steps 8 nm, hand over hand (Yildiz et al. 2004, *Science* 303:67
 
 Eric Betzig on the 632nm podcast, episode 61 (8 September 2026), the podcast's own short clip, which includes
 animation and microscope footage it credits to others. Three swear words silenced (18.5 s, 41.1 s, 45.3 s);
-re-encoded at a lower bit rate. **Not licensed for this site yet: permission from 632nm is needed before it is
-published.**
+re-encoded at a lower bit rate. Shown with its source and a link to the full episode; not licensed here (see
+NOTICE).

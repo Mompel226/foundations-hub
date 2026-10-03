@@ -29,11 +29,17 @@ Topic 2 by being it, and each topic sits at the level it is about:
 |---|---|---|
 | **Organism** | a real woman's body, from a medical atlas | 2 |
 | **Organ system** | her reproductive system | 2 |
-| **Organ** | the uterus and its cervix | 2 |
-| **Tissue** | two real photographs of the lining of the cervix | 2 |
+| **Organ** | the uterus and its cervix, cut open: muscle tissue, connective tissue and a lining | 2 |
+| **Tissue** | a model of the lining of the cervix, cut like a slide, with a real micrograph beside it | 2 |
 | **Cell** | one real HeLa cell, imaged in 3D by an electron microscope; Eric Betzig (Nobel Prize in Chemistry 2014) says why the pictures in biology books are wrong | 2 · 3 |
-| **Organelles** | inside that cell, every part at its measured size and place: 257,653 ribosomes in one small box | 2 · 3 |
+| **Organelles** | inside that cell, every part at its measured size and place: 257,653 ribosomes in one small box, and a real electron micrograph of the same cell beside it | 2 · 3 |
 | **Molecules** | a model, labelled as one: real protein shapes in the numbers a HeLa cell holds, and a kinesin walking a microtubule through the crowd | 4 · 5, the Protein & Enzyme Sim |
+
+**One zoom, no jumps.** Scroll (or pinch) to move in and out through all seven levels: the camera flies on, the
+organ is cut open, the tissue grows out of the cut face, one lining cell becomes the HeLa cell, and the way into
+the organelles passes through the cell membrane and under the nucleus. Where two levels meet, each is drawn
+whole and the two pictures are blended, so the screen never goes dark. Names appear on the parts as they come
+into reach, and on whatever the pointer is on; a colour means the same thing at every level.
 
 A size ruler runs from 1 m to 10 nm, with each topic bracketed beside its levels; the caption gives each
 level's definition in the words the exam uses, and how many times bigger the next step makes things.
@@ -55,8 +61,11 @@ and the sitemap. Run `node tools/stamp.mjs` here before pushing, so browsers fet
 - **The body and her organs**: the HuBMAP Human Reference Atlas, *United Female* v1.10, made from the
   Visible Human Female of the US National Library of Medicine (CC BY 4.0). Only the parts used were read
   from the atlas's 375 MB file.
-- **The tissue**: two micrographs of the endocervix by Mikael Häggström, M.D. (CC0). Their size is
-  worked out from the nuclei, because the photographs have no scale bar.
+- **The organ cut open**: the Atlas's own outline of the uterus and cervix, sliced through the canal; the layers
+  inside the wall drawn at the widths histology describes, in the colours of a stained slide.
+- **The tissue**: a model, built to the sizes measured on two micrographs of the endocervix by Mikael
+  Häggström, M.D. (CC0), which are shown beside it.
+- **The electron micrograph**: one raw slice of the same HeLa cell, with the parts the computer found outlined.
 - **The cell and its organelles**: Janelia Research Campus, OpenOrganelle *jrc_hela-2* (CC BY 4.0): a
   HeLa cell frozen under high pressure, set in resin and imaged by focused-ion-beam scanning electron
   microscopy, about 6,400 slices 5 nm apart (Xu et al. 2021), its organelles found by machine learning

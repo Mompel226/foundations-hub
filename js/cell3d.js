@@ -1,16 +1,23 @@
 /* Foundations, the shelf for topics 2–5: a zoom from a whole human down to the molecules of one real cell.
 
-   The seven rungs of Topic 2's ladder, one scene, each rung in its own units:
-     organism   a real woman's body                    metres   assets/body/anatomy.glb
-     system     her reproductive system                metres     HuBMAP Human Reference Atlas, United Female
-     organ      the uterus and its cervix              metres     v1.10 (Visible Human Female, NLM), CC BY 4.0
-     tissue     two photographs of the cervix lining   µm       assets/tissue/*.jpg (M. Häggström, CC0)
-     cell       one real HeLa cell, whole              µm       assets/cell/whole.glb
-     inside     the organelles round its centrosome    µm       assets/cell/organelles.glb + small.bin
-     molecules  a model of 0.15 µm of cytoplasm        µm       js/molecules3d.js, loaded only when asked for
+   The seven levels of Topic 2's ladder, one scene:
+     organism   a real woman's body                     assets/body/anatomy.glb   HuBMAP Human Reference Atlas,
+     system     her reproductive system                                            United Female v1.10 (Visible
+     organ      the uterus and its cervix, cut open      assets/body/section.*      Human Female, NLM), CC BY 4.0
+     tissue     a model of the lining of the cervix      js/tissue3d.js (sizes measured on M. Häggström's micrographs)
+     cell       one real HeLa cell, whole                assets/cell/whole.glb
+     inside     the organelles round its centrosome      assets/cell/organelles.glb + small.bin
+     molecules  a model of 0.15 µm of cytoplasm          js/molecules3d.js, loaded only when asked for
    The cell: Janelia Research Campus, FIB-SEM (Xu et al. 2021, Nature 599:147), organelles found by Heinrich
-   et al. 2021 (Nature 599:141); OpenOrganelle jrc_hela-2, CC BY 4.0. Meshes made by tools/model-build/
-   (never published). Sizes and places are the measured ones; the colours are chosen.
+   et al. 2021 (Nature 599:141); OpenOrganelle jrc_hela-2, CC BY 4.0. Meshes made by tools/model-build/.
+
+   ONE ZOOM, NO JUMPS. Everything is drawn in micrometres, in one frame: the tissue's (its origin is the point on
+   the lining of the cervix's canal where the zoom dives in; +y out of the lining). The body is scaled a million
+   times and turned to fit round it; the HeLa cell sits where one lining cell is; the organelles sit in the cell.
+   The reader's place in the zoom is one number, Z: 0 organism, 1 organ system ... 6 molecules. Scrolling moves Z,
+   so does every button; everything that is shown (which level fades in, the knife that opens the organ, the haze)
+   follows from Z (stateAt), and the camera follows the path between the two levels on either side of Z. Coming
+   back out is the same path, backwards.
 
    mount(el, opts) -> controller (see the return at the end).
 */
@@ -19,24 +26,44 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
+import { build as buildTissue } from './tissue3d.js?v=1791032263';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
+const FRAME = { body: 'body', tissue: 'tissue', cell: 'cell', inside: 'cell', mol: 'mol' };
+const SCALE = { body: 1e6, tissue: 1, cell: 1, mol: 1 };          // µm in one unit of each frame
 
-// Colours are a choice: most of these structures are smaller than the wavelength of light.
+// Colours are a choice: most of these structures are smaller than the wavelength of light. The same thing keeps
+// its colour at every level: the nucleus is the same violet in the tissue, the cell and the organelles; the cells of
+// the lining and the HeLa cell are the same pale lilac; the uterus is the pink of its muscle and the cervix the
+// pale pink of its connective tissue, as their cut faces show.
 export const PARTS = {
   body:      { name: 'the body (her skin)', col: 0xb9cfdd },
-  pelvis:    { name: 'pelvis (hip bones)', col: 0xb9b2a2 },
+  hip:       { name: 'hip bone', col: 0xb9b2a2 },
+  sacrum:    { name: 'sacrum', col: 0xb9b2a2 },
+  coccyx:    { name: 'coccyx (tail bone)', col: 0xb9b2a2 },
+  vertebrae: { name: 'lumbar vertebrae (backbone)', col: 0xb9b2a2 },
+  femur:     { name: 'femur (thigh bone)', col: 0xb9b2a2 },
   bladder:   { name: 'bladder', col: 0xd8b85a },
   rectum:    { name: 'rectum', col: 0xa98063 },
-  vagina:    { name: 'vagina', col: 0xc76f8b },
-  uterus:    { name: 'uterus', col: 0xd65a74 },
-  cervix:    { name: 'cervix', col: 0xf2a057 },
+  vagina:    { name: 'vagina', col: 0xc77d98 },
+  uterus:    { name: 'uterus', col: 0xc8566f },
+  cervix:    { name: 'cervix', col: 0xebb0c3 },
   oviduct:   { name: 'oviduct', col: 0xe58fa0 },
   ovary:     { name: 'ovary', col: 0xf1c34f },
-  cell:      { name: 'cell membrane', col: 0xd8c6a2 },
-  membrane:  { name: 'cell membrane', col: 0xd8c6a2 },
-  nucleus:   { name: 'nucleus', col: 0x4a63c9 },
+  muscle:    { name: 'muscle tissue', col: 0xc2566f },
+  lining_u:  { name: 'lining of the uterus', col: 0x9c5fa8 },
+  connective:{ name: 'connective tissue', col: 0xebb0c3 },
+  lining_c:  { name: 'lining of the cervix', col: 0x6a3f9c },
+  cover:     { name: 'outer covering', col: 0xf4d6df },
+  canal:     { name: 'canal of the cervix', col: 0x3b2742 },
+  tcell:     { name: 'lining cell', col: 0xd9b3cc },
+  tnucleus:  { name: 'nucleus', col: 0x5b4bb5 },
+  capillary: { name: 'blood capillary', col: 0xd9364c },
+  crypt:     { name: 'crypt', col: 0x6a3f9c },
+  cell:      { name: 'cell membrane', col: 0xe2c6dd },
+  membrane:  { name: 'cell membrane', col: 0xe2c6dd },
+  nucleus:   { name: 'nucleus', col: 0x5b4bb5 },
   nucleolus: { name: 'nucleolus', col: 0x2b3a86 },
   er:        { name: 'endoplasmic reticulum', col: 0x2fa38c },
   golgi:     { name: 'Golgi apparatus', col: 0xe3a72f },
@@ -50,46 +77,46 @@ export const PARTS = {
   mt:        { name: 'microtubule', col: 0x9fe7f5 },
   npore:     { name: 'nuclear pore', col: 0xf08a7a },
   centriole: { name: 'centriole', col: 0xb9d36a },
+  cytoplasm: { name: 'cytoplasm', col: 0x8a7f99 },
+  emslice:   { name: 'the slice in the photograph', col: 0x8fe3c8 },
+  molecule:  { name: 'a molecule', col: 0x9aa7b3 },
 };
-const BODY_PART = { skin: 'body', bones: 'pelvis', bladder: 'bladder', rectum: 'rectum', vagina: 'vagina', uterus: 'uterus',
-  cervix: 'cervix', tubes: 'oviduct', ovaries: 'ovary' };
-// How see-through each body part is at the three body rungs (1 = solid)
+const BONES = new Set(['hip', 'sacrum', 'coccyx', 'vertebrae', 'femur']);
+const BODY_PART = { skin: 'body', tubes: 'oviduct', ovaries: 'ovary' };
+// How see-through each body part is at the three body levels (1 = solid)
 const BODY_LOOK = {
   organism: { skin: 1.0, bones: 0.0, bladder: 0.0, rectum: 0.0, vagina: 1, uterus: 1, cervix: 1, tubes: 1, ovaries: 1 },
   system:   { skin: 0.16, bones: 0.10, bladder: 0.18, rectum: 0.18, vagina: 1, uterus: 1, cervix: 1, tubes: 1, ovaries: 1 },
   organ:    { skin: 0.0, bones: 0.05, bladder: 0.08, rectum: 0.08, vagina: 0.30, uterus: 1, cervix: 1, tubes: 0.35, ovaries: 0.35 },
 };
 
-const FOG = 0x1d2733;
-// How each rung is drawn: haze per unit, ambient-occlusion radius (in that rung's units) and strength, outlines.
+const FOG = 0x1d2733, CYTO = 0x3a3550;   // the background outside cells, and the haze of the cytoplasm
+// How each level is drawn, in its own frame's units: haze per unit, ambient-occlusion radius and strength, outlines.
 const LOOK = {
   organism:  { fog: 0.0,   aoRadius: 0.03,  ao: 0.6, edge: 0.5 },
   system:    { fog: 0.0,   aoRadius: 0.006, ao: 0.8, edge: 0.8 },
   organ:     { fog: 0.0,   aoRadius: 0.002, ao: 0.8, edge: 0.9 },
-  tissue:    { fog: 0.0,   aoRadius: 1,     ao: 0.0, edge: 0.0 },
+  tissue:    { fog: 0.0,   aoRadius: 5,     ao: 0.8, edge: 0.7 },
   cell:      { fog: 0.010, aoRadius: 0.9,   ao: 0.9, edge: 0.7 },
   inside:    { fog: 0.55,  aoRadius: 0.06,  ao: 1.0, edge: 1.0 },
   molecules: { fog: 2.2,   aoRadius: 0.005, ao: 1.0, edge: 0.6 },
 };
-const RANGE = { organism: [0.01, 30], system: [0.002, 6], organ: [0.0005, 2], tissue: [1, 6000], cell: [0.05, 200], inside: [0.004, 9], molecules: [0.0004, 0.9] };
-// Where each rung's camera stands (in that rung's units)
+const RANGE = { organism: [0.01, 30], system: [0.002, 6], organ: [0.0004, 2], tissue: [0.6, 9000], cell: [0.05, 200], inside: [0.004, 9], molecules: [0.0004, 0.9] };
+// Where each level's camera stands, in its frame's units (body: metres; tissue, cell: µm)
 export const VIEWS = {
-  organism: { pos: [0.95, 0.32, 2.15], at: [0, 0.04, -0.05], orbit: [1.1, 3.6] },
-  system:   { pos: [0.15, 0.21, 0.24], at: [-0.012, 0.052, -0.05], orbit: [0.16, 0.9] },
-  organ:    { pos: [0.085, 0.07, 0.035], at: [-0.012, 0.033, -0.055], orbit: [0.05, 0.3] },
-  tissue:   { pos: [0, 0, 760], at: [0, 0, 0] },
-  cell:     { pos: [30, 26, 34], at: [-1, 1.5, -1], orbit: [12, 85] },
-  inside:   { pos: [-0.248, 1.104, -0.826], at: [0.55, 1.42, -1.1] },
+  organism:  { pos: [0.95, 0.32, 2.15], at: [0, 0.04, -0.05], orbit: [1.1, 3.6] },
+  system:    { pos: [0.15, 0.21, 0.24], at: [-0.012, 0.052, -0.05], orbit: [0.16, 0.9] },
+  organ:     { pos: [0.078, 0.052, -0.012], at: [-0.0105, 0.031, -0.057], orbit: [0.04, 0.3] },
+  tissue:    { pos: [520, 420, 1050], at: [120, -230, -60], orbit: [180, 2400] },
+  cell:      { pos: [30, 26, 34], at: [-1, 1.5, -1], orbit: [12, 85] },
+  inside:    { pos: [-0.248, 1.104, -0.826], at: [0.55, 1.42, -1.1] },
+  molecules: { pos: [0.0, 0.03, 0.17], at: [-0.01, 0.03, 0.0] },
 };
-// The way into the organelles: a gap through the measured cell (tools/path_in.py; every organelle, vesicle,
-// ribosome and microtubule counted as solid; narrowest 64 nm). It runs low, just above the cell's base.
-const PATH_IN = [[-0.120, 0.944, -3.048], [-0.297, 0.671, -2.943], [-0.280, 0.420, -2.697], [-0.088, 0.464, -2.399],
-  [-0.181, 0.400, -2.084], [-0.429, 0.464, -1.847], [-0.632, 0.432, -1.538], [-0.632, 0.368, -1.173],
-  [-0.519, 0.368, -0.846], [-0.408, 0.618, -0.708], [-0.347, 0.877, -0.613], [-0.248, 1.104, -0.826]];
-const BOX = { lo: [-3.75, 0.0, -4.65], hi: [3.75, 4.2, 2.85] };   // the detailed region (build_meshes.SCENE_UM)
-// The two photographs, in µm. Their size is estimated from the nuclei (about 6 µm across): they have no scale bar.
-const TISSUE = { w: 525, h: 808 };
-const CELLS = { w: 90, h: 189, at: [63, 287], cell: [53.5, 296] };   // the closer photograph, turned to lie along the lining
+const BOX = { lo: [-3.75, 0.0, -4.65], hi: [3.75, 4.2, 2.85] };   // the detailed region (build_meshes.SCENE_UM), cell frame
+const SECONDS = [4, 5, 9, 8, 12, 6];                              // each step down, when a button is pressed
+
+const sm = (x, a, b) => THREE.MathUtils.smoothstep(x, a, b);
+const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 export async function mount(el, opts = {}) {
   const W = () => Math.max(1, el.clientWidth), H = () => Math.max(1, el.clientHeight);
@@ -102,6 +129,7 @@ export async function mount(el, opts = {}) {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.15;
+  renderer.localClippingEnabled = true;
   el.appendChild(renderer.domElement);
   const cv = renderer.domElement;
   cv.style.touchAction = 'none';
@@ -109,24 +137,51 @@ export async function mount(el, opts = {}) {
 
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(FOG);
-  const camera = new THREE.PerspectiveCamera(50, W() / H(), 0.01, 30);
+  const camera = new THREE.PerspectiveCamera(50, W() / H(), 1e4, 3e7);
   scene.add(camera);
   scene.add(new THREE.HemisphereLight(0xf2f4ff, 0x4a4038, 1.6));
   const head = new THREE.DirectionalLight(0xffffff, 1.4); head.position.set(0.3, 0.4, 1); camera.add(head);
-  const post = makePost(renderer, { ...LOOK.organism, fogColor: FOG, samples: opts.samples ?? 4, depthUint: !!opts.depthUint });
+  // Smoothing of edges (multisampling) only where pixels are big: on a Retina screen the pixels are already half
+  // the size, and 4 samples there halved the frame rate while the zoom moved (tools/model-build/perf.mjs)
+  const post = makePost(renderer, { ...LOOK.organism, fogColor: FOG, samples: opts.samples ?? (dpr >= 1.75 ? 0 : 4), depthUint: !!opts.depthUint });
   post.setSize(W(), H(), dpr);
 
   const G = { body: new THREE.Group(), tissue: new THREE.Group(), cell: new THREE.Group(), inside: new THREE.Group(), mol: new THREE.Group() };
-  Object.values(G).forEach(g => { g.visible = false; scene.add(g); });
+  Object.values(G).forEach(g => { g.visible = false; g.matrixAutoUpdate = false; scene.add(g); });
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   const v = opts.v || '1';
-  const listeners = { level: [], pick: [], scale: [], progress: [], arrive: [] };
+  const listeners = { level: [], pick: [], hover: [], scale: [], progress: [], arrive: [], z: [] };
   const emit = (k, x) => listeners[k].forEach(f => f(x));
-  const groups = {}, counts = {}, bodyMat = {};
-  let molApi = null, level = 'organism', flight = null;
+  const groups = {}, counts = {}, bodyMat = {}, anchors = [];
+  let molApi = null;
 
-  // ---------- rungs 1-3: the body (loaded first: it is what the reader sees first) ----------
-  const body = await loader.loadAsync('assets/body/anatomy.glb?v=' + v);
+  // ---------- the frames ----------
+  const [body, SEC] = await Promise.all([
+    loader.loadAsync('assets/body/anatomy.glb?v=' + v),
+    fetch('assets/body/section.json?v=' + v).then(r => r.json()),
+  ]);
+  // body (metres) -> tissue frame (µm): the dive point to the origin, the lining's normal to +y, the cut face's
+  // normal (+x of the body, towards the reader) to +z
+  const P = { tissue: new THREE.Matrix4(), cell: new THREE.Matrix4(), mol: new THREE.Matrix4(), body: new THREE.Matrix4() };
+  {
+    const e = new THREE.Vector3(1, 0, 0), n = new THREE.Vector3().fromArray(SEC.normal).normalize(), t = new THREE.Vector3().crossVectors(n, e);
+    const R = new THREE.Matrix4().makeBasis(t, n, e).transpose();
+    P.body.makeTranslation(-SEC.dive[0], -SEC.dive[1], -SEC.dive[2]).premultiply(R).premultiply(new THREE.Matrix4().makeScale(1e6, 1e6, 1e6));
+  }
+  const Wm = new THREE.Matrix4();                 // the world from the tissue frame: moved only for the molecules
+  const F = f => new THREE.Matrix4().multiplyMatrices(Wm, P[f]);
+  const W3 = (f, p) => new THREE.Vector3().fromArray(p).applyMatrix4(F(f));
+  const levelFrame = l => FRAME[GROUP[l]];
+  const upOf = l => new THREE.Vector3(0, 1, 0).transformDirection(F(levelFrame(l)));
+  const sc = l => SCALE[levelFrame(l)];
+  function placeGroups() {
+    for (const k in G) { G[k].matrix.copy(F(FRAME[k])); G[k].matrixWorldNeedsUpdate = true; }
+    updateClips();
+  }
+
+  // ---------- levels 1-3: the body ----------
+  body.scene.updateMatrixWorld(true);
+  const bodyParts = {};
   body.scene.traverse(o => {
     if (!o.isMesh) return;
     const id = o.name.replace(/^a_/, '').replace(/_\d+$/, '');
@@ -137,32 +192,117 @@ export async function mount(el, opts = {}) {
     bodyMat[id] = o.material;
     if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
     o.renderOrder = id === 'skin' ? 3 : 1;
+    bodyParts[id] = o;
   });
   G.body.add(body.scene);
-  function bodyLook(a, b, k) {      // see-through-ness between two body rungs, k from 0 (a) to 1 (b)
+  // the cut face of the uterus and cervix (tools/model-build/build_section.py), just in front of the cut
+  const sectionTex = await new THREE.TextureLoader().loadAsync('assets/body/section.webp?v=' + v);
+  sectionTex.colorSpace = THREE.SRGBColorSpace; sectionTex.anisotropy = 8;
+  const capGeo = new THREE.BufferGeometry();
+  const cc = SEC.corners.map(p => [p[0] + 2e-5, p[1], p[2]]);
+  capGeo.setAttribute('position', new THREE.Float32BufferAttribute([...cc[0], ...cc[1], ...cc[2], ...cc[3]], 3));
+  capGeo.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 1, 1, 1, 0, 0, 0], 2));
+  capGeo.setIndex([0, 3, 1, 1, 3, 2]); capGeo.computeVertexNormals();
+  const cap = new THREE.Mesh(capGeo, new THREE.MeshLambertMaterial({ map: sectionTex, alphaTest: 0.5, side: THREE.DoubleSide }));
+  cap.userData.part = 'section'; cap.renderOrder = 2;
+  G.body.add(cap);
+  // which tissue each point of the cut face is (for naming what the pointer is on)
+  const secMap = await new Promise(res => {
+    const im = new Image(); im.onload = () => {
+      const c = document.createElement('canvas'); c.width = im.width; c.height = im.height;
+      const g = c.getContext('2d'); g.drawImage(im, 0, 0); res({ w: im.width, h: im.height, d: g.getImageData(0, 0, im.width, im.height).data });
+    }; im.onerror = () => res(null); im.src = 'assets/body/section-map.png?v=' + v;
+  });
+  const SEC_PART = [null, 'muscle', 'lining_u', 'connective', 'lining_c', 'cover', 'canal'];
+  // the knife: everything of the body on the reader's side of the cut is clipped away (not the skin: it has gone)
+  const knife = new THREE.Plane();
+  let knifeOff = 1;                              // metres beyond the cut; 1 = no cut
+  // (always on, parked a metre away when there is no cut: switching it off and on would rebuild the shaders)
+  for (const id in bodyMat) if (id !== 'skin') bodyMat[id].clippingPlanes = [knife];
+  function setKnife(off) {
+    knifeOff = off;
+    knife.set(new THREE.Vector3(-1, 0, 0), SEC.x + off).applyMatrix4(F('body'));
+  }
+  function bodyLook(a, b, k, fade) {      // see-through-ness between two body levels, k from 0 (a) to 1 (b)
     for (const id in bodyMat) {
-      const x = THREE.MathUtils.lerp(BODY_LOOK[a][id], BODY_LOOK[b][id], k);
+      const key = BONES.has(id) ? 'bones' : id;
+      const x = THREE.MathUtils.lerp(BODY_LOOK[a][key], BODY_LOOK[b][key], k) * fade;
       const m = bodyMat[id];
       if (m.uniforms) m.uniforms.uOpacity.value = x; else { m.opacity = x; m.depthWrite = x > 0.95; }
       m.visible = x > 0.004;
     }
   }
+  // where the organs are named: the middle of each (the two ovaries and the two oviducts each on their own)
+  {
+    const box = (o, side) => {
+      const p = o.geometry.attributes.position, b = new THREE.Box3(), q = new THREE.Vector3();
+      for (let i = 0; i < p.count; i++) { q.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); if (side == null || Math.sign(q.x - SEC.x) === side) b.expandByPoint(q); }
+      return b;
+    };
+    const organ = (id, text, side, z) => {
+      const b = box(bodyParts[id], side), c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3());
+      anchors.push({ group: 'body', frame: 'body', p: c.toArray(), r: Math.max(s.x, s.y, s.z) / 2, text, part: BODY_PART[id] || id, z, cut: side === 1 });
+    };
+    for (const sd of [-1, 1]) { organ('ovaries', 'Ovary', sd, [0.55, 2.4]); organ('tubes', 'Oviduct', sd, [0.55, 2.4]); }
+    organ('uterus', 'Uterus', null, [0.55, 1.88]); organ('cervix', 'Cervix', null, [0.55, 1.75]); organ('vagina', 'Vagina', null, [0.55, 1.75]);
+    organ('bladder', 'Bladder', null, [0.75, 1.6]); organ('rectum', 'Rectum', null, [0.75, 1.6]);
+    const L = SEC.labels;
+    const face = (k, text, part) => anchors.push({ group: 'body', frame: 'body', p: [L[k][0] + 3e-5, L[k][1], L[k][2]], r: 0.004, text, part, z: [1.9, 2.75], face: true });
+    face('muscle', 'Uterus: muscle tissue', 'muscle'); face('lining_u', 'Lining of the uterus', 'lining_u');
+    face('connective', 'Cervix: connective tissue', 'connective'); face('lining_c', 'Lining of the canal', 'lining_c');
+  }
 
-  // ---------- rung 4: the tissue, two real photographs ----------
-  const texLoader = new THREE.TextureLoader();
-  const tissueReady = Promise.all([texLoader.loadAsync('assets/tissue/endocervix-tissue.jpg?v=' + v), texLoader.loadAsync('assets/tissue/endocervix-cells.jpg?v=' + v)])
-    .then(([t1, t2]) => {
-      [t1, t2].forEach(t => { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; });
-      const p1 = new THREE.Mesh(new THREE.PlaneGeometry(TISSUE.w, TISSUE.h), new THREE.MeshBasicMaterial({ map: t1, toneMapped: false }));
-      p1.userData.part = 'tissue';
-      const p2 = new THREE.Mesh(new THREE.PlaneGeometry(CELLS.w, CELLS.h), new THREE.MeshBasicMaterial({ map: t2, toneMapped: false, transparent: true, opacity: 0 }));
-      p2.position.set(CELLS.at[0], CELLS.at[1], 0.5); p2.rotation.z = Math.PI / 2; p2.userData.part = 'tissue';
-      G.tissue.add(p1, p2);
-      groups.closer = p2;
-    });
+  // ---------- level 4: the tissue, a model (js/tissue3d.js), built just after the first picture ----------
+  let tissue = null, slideLine = null;
+  const tissueReady = new Promise(res => setTimeout(() => {
+    tissue = buildTissue(THREE, G.tissue);
+    tissue.labels.forEach(a => anchors.push({ group: 'tissue', frame: 'tissue', p: a.p, r: a.r, text: a.text, part: a.part, z: [2.86, 3.45] }));
+    // the slice the photograph beside it shows is outlined on the block's cut face (tissue3d's frame)
+    slideLine = { material: tissue.frameMat };
+    // the HeLa cell sits where the lining cell the zoom goes into is: its base 3 µm below that cell's top
+    const A = tissue.target.top;
+    P.cell.makeTranslation(A[0] + 1, A[1] - 3, A[2] + 1);
+    placeGroups(); lastState = null; stateAt(Z);
+    precompile(G.tissue);
+    res();
+  }, 60));
+  // As soon as a level's files are here, its shaders are made in the background and its shapes are sent to the
+  // graphics card (drawn once, every part, into one hidden pixel), so that scrolling into it never stalls: the
+  // first drawing of the organelles moves about 50 MB and held the screen for more than a second.
+  const warmRT = new THREE.WebGLRenderTarget(1, 1), warmScene = new THREE.Scene();
+  // the same kinds of light as the scene's, so the shaders made here are the ones used later
+  warmScene.add(new THREE.HemisphereLight(0xffffff, 0x000000, 1), new THREE.DirectionalLight(0xffffff, 1));
+  async function precompile(g) {
+    const was = g.visible; g.visible = true;
+    try { await renderer.compileAsync(g, camera, scene); } catch (e) { /* made when first drawn instead */ }
+    g.visible = was;
+    await new Promise(r => setTimeout(r, 30));
+    const parent = g.parent, culled = [];
+    g.traverse(o => { if (o.frustumCulled) { culled.push(o); o.frustumCulled = false; } });
+    const vis = g.visible; g.visible = true; warmScene.add(g);
+    const prev = renderer.getRenderTarget();
+    renderer.setRenderTarget(warmRT); renderer.render(warmScene, camera); renderer.setRenderTarget(prev);
+    parent.add(g); g.visible = vis; culled.forEach(o => { o.frustumCulled = true; });
+    wake();
+  }
 
-  // ---------- rung 5: the whole cell ----------
+  // ---------- level 5: the whole cell ----------
+  const clipOut = [], clipIn = [];             // the whole cell's organelles outside / inside the detailed box
+  for (let i = 0; i < 6; i++) { clipOut.push(new THREE.Plane()); clipIn.push(new THREE.Plane()); }
+  function updateClips() {
+    const M = F('cell');
+    const ax = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
+    for (let i = 0; i < 3; i++) {
+      // outward normals: a point inside the box is behind all six (clipped by all of them: intersection)
+      clipOut[2 * i].set(ax[i].clone(), -BOX.hi[i]).applyMatrix4(M);
+      clipOut[2 * i + 1].set(ax[i].clone().negate(), BOX.lo[i]).applyMatrix4(M);
+      clipIn[2 * i].copy(clipOut[2 * i]).negate(); clipIn[2 * i + 1].copy(clipOut[2 * i + 1]).negate();
+    }
+    setKnife(knifeOff);
+  }
+  const wholeIn = [];                          // the copies inside the box, which fade as the detail comes in
   const cellReady = loader.loadAsync('assets/cell/whole.glb?v=' + v).then(whole => {
+    const add = [];
     whole.scene.traverse(o => {
       if (!o.isMesh) return;
       const id = o.name.replace(/^w_/, '').replace(/_\d+$/, '');
@@ -172,24 +312,39 @@ export async function mount(el, opts = {}) {
         o.material = new THREE.MeshLambertMaterial({ color: PARTS.cell.col, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide });
         o.renderOrder = 2;
       } else {
-        o.material = new THREE.MeshLambertMaterial({ color: (PARTS[id] || { col: 0x999999 }).col });
+        o.material = new THREE.MeshLambertMaterial({ color: (PARTS[id] || { col: 0x999999 }).col, clippingPlanes: clipOut, clipIntersection: true });
+        const twin = new THREE.Mesh(o.geometry, new THREE.MeshLambertMaterial({ color: o.material.color, clippingPlanes: clipIn }));
+        twin.userData.part = id; twin.position.copy(o.position); twin.quaternion.copy(o.quaternion); twin.scale.copy(o.scale);
+        add.push([o.parent, twin]); wholeIn.push(twin);
       }
       if (!o.geometry.attributes.normal) o.geometry.computeVertexNormals();
       if (id === 'nucleolus') o.visible = false;
     });
+    add.forEach(([p, t]) => { if (t.userData.part !== 'nucleolus') p.add(t); });
     G.cell.add(whole.scene);
     const glass = new THREE.Mesh(new THREE.PlaneGeometry(52, 37), new THREE.MeshLambertMaterial({ color: 0x9fb4c6, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }));
-    glass.rotation.x = -Math.PI / 2; glass.position.set(-0.5, -0.02, 0.9); glass.userData.part = 'glass';
-    G.cell.add(glass);
-    const boxLine = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.BoxGeometry(BOX.hi[0] - BOX.lo[0], BOX.hi[1] - BOX.lo[1], BOX.hi[2] - BOX.lo[2])),
-      new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthTest: false }));
-    boxLine.position.set((BOX.lo[0] + BOX.hi[0]) / 2, (BOX.lo[1] + BOX.hi[1]) / 2, (BOX.lo[2] + BOX.hi[2]) / 2);
-    boxLine.renderOrder = 5;
-    G.cell.add(boxLine);
+    glass.rotation.x = -Math.PI / 2; glass.position.set(-0.5, -0.02, 0.9); glass.updateMatrix(); glass.userData.part = 'glass';
+    G.cell.add(glass); groups.glass = glass;
+    precompile(G.cell);
+    // names at the cell level: a point on each part, the one nearest the middle of the part
+    whole.scene.updateMatrixWorld(true);
+    const near = (id, toward) => {
+      let o = null; whole.scene.traverse(x => { if (x.isMesh && x.userData.part === id && !o) o = x; });
+      if (!o) return null;
+      const p = o.geometry.attributes.position, q = new THREE.Vector3(), t = new THREE.Vector3().fromArray(toward);
+      let best = null, bd = Infinity;
+      for (let i = 0; i < p.count; i += 7) { q.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); const d = q.distanceToSquared(t); if (d < bd) { bd = d; best = q.clone(); } }
+      return best;
+    };
+    const add2 = (id, toward, text, r) => { const p = near(id, toward); if (p) anchors.push({ group: 'cell', frame: 'cell', p: p.toArray(), r, text, part: id, z: [3.6, 4.45] }); };
+    add2('nucleus', [-1, 8, -1], 'Nucleus', 9); add2('cell', [-18, 4, 10], 'Cell membrane', 8);
+    add2('mito', [12, 4, 8], 'Mitochondria', 3); add2('golgi', [4, 4, 4], 'Golgi apparatus', 3);
+    // named again on the way in: where the camera passes through the membrane, and the nucleus seen from below
+    anchors.push({ group: 'cell', frame: 'cell', p: [0.6, 1.62, -15.4], r: 1.2, text: 'Cell membrane', part: 'cell', z: [4.36, 4.56] });
+    anchors.push({ group: 'cell', frame: 'cell', p: [0.3, 1.45, -6.5], r: 2.5, text: 'Nucleus, seen from below', part: 'nucleus', z: [4.52, 4.76] });
   });
 
-  // ---------- rung 6: the organelles (the biggest file, loaded last) ----------
+  // ---------- level 6: the organelles (the biggest file, loaded last) ----------
   const insideReady = cellReady.then(async () => {
     const [gltf, buf] = await Promise.all([
       loader.loadAsync('assets/cell/organelles.glb?v=' + v, e => { if (e.total) emit('progress', e.loaded / e.total); }),
@@ -204,6 +359,7 @@ export async function mount(el, opts = {}) {
     });
     G.inside.add(gltf.scene);
     const small = parseSmall(buf);
+    setTimeout(() => precompile(G.inside), 0);
     groups.ribo = ribosomes(small.RIBO, G.inside);
     groups.vesicle = balls(small.VESI, PARTS.vesicle.col, G.inside);
     groups.npore = pores(small.NPOR, G.inside);
@@ -213,234 +369,533 @@ export async function mount(el, opts = {}) {
       ribosomes: small.RIBO.length / 3, vesicles: small.VESI.r.length, pores: small.NPOR.n.length / 3,
       microtubuleUm: small.MTUB.reduce((s, L) => { let d = 0; for (let i = 3; i < L.length; i += 3) d += Math.hypot(L[i] - L[i - 3], L[i + 1] - L[i - 2], L[i + 2] - L[i - 1]); return s + d; }, 0),
     });
+    // names among the organelles: for each part, the points of it nearest to places along the way in and the
+    // last view (they are named when they are near enough to see and far enough to read)
+    gltf.scene.updateMatrixWorld(true);
+    const spots = [[0.3, 2.6, -0.9], [0.4, 1.5, -1.0], [1.4, 1.5, -1.2], [-0.3, 1.2, -0.4], [0.9, 1.0, -0.6], [0.2, 2.2, -1.8]];
+    const TEXT = { nucleus: 'Nucleus', er: 'Endoplasmic reticulum', golgi: 'Golgi apparatus', mito: 'Mitochondrion', lyso: 'Lysosome', endo: 'Endosome', ld: 'Lipid droplet', membrane: 'Cell membrane' };
+    gltf.scene.traverse(o => {
+      if (!o.isMesh || !TEXT[o.userData.part]) return;
+      const p = o.geometry.attributes.position, q = new THREE.Vector3();
+      const used = [];
+      for (const s of spots) {
+        const t = new THREE.Vector3().fromArray(s); let best = null, bd = Infinity;
+        for (let i = 0; i < p.count; i += 11) { q.fromBufferAttribute(p, i).applyMatrix4(o.matrixWorld); const d = q.distanceToSquared(t); if (d < bd) { bd = d; best = q.clone(); } }
+        if (best && bd < 0.36 && !used.some(u => u.distanceTo(best) < 0.8)) { used.push(best); anchors.push({ group: 'inside', frame: 'cell', p: best.toArray(), r: o.userData.part === 'nucleus' ? 1.5 : 0.18, text: TEXT[o.userData.part], part: o.userData.part, z: [4.7, 5.45] }); }
+      }
+    });
+    const nearest = (arr, t, stride = 3) => { let best = null, bd = Infinity; for (let i = 0; i < arr.length; i += stride) { const d = (arr[i] - t[0]) ** 2 + (arr[i + 1] - t[1]) ** 2 + (arr[i + 2] - t[2]) ** 2; if (d < bd) { bd = d; best = [arr[i], arr[i + 1], arr[i + 2]]; } } return best; };
+    const R1 = nearest(small.RIBO, [0.35, 1.3, -1.0]); if (R1) anchors.push({ group: 'inside', frame: 'cell', p: R1, r: 0.03, text: 'Ribosomes', part: 'ribo', z: [4.7, 5.45] });
+    const V1 = nearest(small.VESI.p, [0.5, 1.6, -1.2]); if (V1) anchors.push({ group: 'inside', frame: 'cell', p: V1, r: 0.06, text: 'Vesicle', part: 'vesicle', z: [4.7, 5.45] });
+    const mtAll = []; small.MTUB.forEach(L => { for (let i = 0; i < L.length; i += 9) mtAll.push(L[i], L[i + 1], L[i + 2]); });
+    const M1 = nearest(mtAll, [0.6, 1.5, -1.3]); if (M1) anchors.push({ group: 'inside', frame: 'cell', p: M1, r: 0.05, text: 'Microtubule', part: 'mt', z: [4.6, 5.45] });
+    if (small.CENT.length) { const c = small.CENT.find(x => x.len >= 0.3) || small.CENT[0]; anchors.push({ group: 'inside', frame: 'cell', p: c.c, r: 0.25, text: 'Centrioles', part: 'centriole', z: [4.5, 5.45] }); }
+    const NP = nearest(small.NPOR.p, [0.3, 2.4, -1.0]); if (NP) anchors.push({ group: 'inside', frame: 'cell', p: NP, r: 0.06, text: 'Nuclear pore', part: 'npore', z: [4.6, 5.45] });
+    // the electron-microscope slice shown beside the organelles (build_em_slice.py): where it lies, marked in the 3D
+    // by a faint sheet and a green frame, as the photograph's box is
+    fetch('assets/cell/em-slice.json?v=' + v).then(r => r.json()).then(E => {
+      const z0 = E.box.z[0], z1 = E.box.z[1], y0 = E.box.y[0], y1 = E.box.y[1], x = E.x;
+      const sheet = new THREE.Mesh(new THREE.PlaneGeometry(z1 - z0, y1 - y0), new THREE.MeshBasicMaterial({ color: 0x8fe3c8, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide, toneMapped: false }));
+      sheet.rotation.y = Math.PI / 2; sheet.position.set(x, (y0 + y1) / 2, (z0 + z1) / 2);
+      const fm = new THREE.MeshBasicMaterial({ color: 0x8fe3c8, transparent: true, depthTest: false, toneMapped: false }), bar = 0.025, frame = new THREE.Group();
+      for (const [zc, yc, w, h] of [[(z0 + z1) / 2, y0 + bar / 2, z1 - z0, bar], [(z0 + z1) / 2, y1 - bar / 2, z1 - z0, bar], [z0 + bar / 2, (y0 + y1) / 2, bar, y1 - y0], [z1 - bar / 2, (y0 + y1) / 2, bar, y1 - y0]]) {
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), fm); m.rotation.y = Math.PI / 2; m.position.set(x, yc, zc); m.renderOrder = 6; frame.add(m);
+      }
+      const emMark = new THREE.Group(); emMark.add(sheet, frame); emMark.visible = false; emMark.userData.part = 'emslice';
+      G.inside.add(emMark); groups.emMark = emMark; groups.emFrame = fm; groups.emSheet = sheet.material;
+      anchors.push({ group: 'inside', frame: 'cell', p: [x, 1.75, -0.75], r: 0.3, text: 'The slice in the photograph', part: 'emslice', z: [4.9, 5.36] });
+      lastState = null; stateAt(Z);
+    }).catch(() => {});
+    // the molecules' model (small) is made in the background a little later, so the last step never waits
+    setTimeout(() => { if (!molApi) ensure(5); }, 2500);
     return small;
   });
 
-  // ---------- controls: orbit for the body and the whole cell, look-around inside ----------
+  // ---------- what is shown, at every point of the zoom ----------
+  // Where two levels meet, each is drawn whole on its own and the two pictures are blended (post.render with
+  // `to` and `under`): no level is ever half drawn, so nothing turns grainy, and the screen is never empty.
+  // A layer is the set of things one level shows.
+  const LAYER = {
+    body:   { body: 1 },
+    tissue: { tissue: 1 },
+    cell:   { cell: 1, twins: 1 },             // the whole cell, its organelles all coarse
+    inside: { cell: 1, inside: 1 },            // the whole cell round the box, the detail in the box
+    mol:    { mol: 1 },
+  };
+  let layers = [[LAYER.body, 1]];
+  const fades = { body: 1, tissue: 0, cell: 0, inside: 0, mol: 0 };
+  function showLayer(L) {
+    for (const k in G) G[k].visible = !!L[k];
+    for (const t of wholeIn) t.visible = !!L.twins;
+  }
+  let lastState = null;
+  function stateAt(Z) {
+    const key = Z.toFixed(5); if (key === lastState) return; lastState = key;
+    // the body: see-through-ness by level, then the knife that cuts the organ open
+    if (Z <= 1) bodyLook('organism', 'system', sm(Z, 0.1, 0.8), 1);
+    else bodyLook('system', 'organ', sm(Z, 1.1, 1.7), 1);
+    setKnife(Z < 1.4 ? 1 : 0.06 * (1 - sm(Z, 1.4, 1.92)));
+    cap.visible = Z > 1.84;
+    // which levels are drawn, and how much of each: [layer, weight]
+    const mixes = [[2.78, 2.92, LAYER.body, LAYER.tissue], [3.45, 3.72, LAYER.tissue, LAYER.cell],
+      [4.58, 4.72, LAYER.cell, LAYER.inside], [5.35, 5.6, LAYER.inside, LAYER.mol]];
+    const order = [LAYER.body, LAYER.tissue, LAYER.cell, LAYER.inside, LAYER.mol];
+    layers = null;
+    for (const [a, b, A, B] of mixes) if (Z > a && Z < b) { const k = sm(Z, a, b); layers = [[A, 1 - k], [B, k]]; }
+    if (!layers) layers = [[order[Z <= 2.78 ? 0 : Z <= 3.45 ? 1 : Z <= 4.58 ? 2 : Z <= 5.35 ? 3 : 4], 1]];
+    if (layers.some(([L]) => L === LAYER.mol) && !molApi) layers = [[LAYER.inside, 1]];
+    for (const k in fades) fades[k] = layers.reduce((s, [L, w]) => s + (L[k] ? w : 0), 0);
+    // the one lining cell the zoom goes into lights up; the slice the photograph shows is outlined
+    if (tissue) {
+      tissue.single.visible = Z > 3.05;
+      tissue.single.material.emissive.setHex(0x3a1640).multiplyScalar(sm(Z, 3.05, 3.3));
+      slideLine.material.opacity = 0.9 * sm(Z, 2.9, 2.98) * (1 - sm(Z, 3.08, 3.2));
+    }
+    if (groups.glass) groups.glass.visible = Z < 4.45;
+    if (groups.emMark) {                         // the slice the electron micrograph shows
+      const k = sm(Z, 4.86, 4.96) * (1 - sm(Z, 5.3, 5.4));
+      groups.emMark.visible = k > 0.01; groups.emFrame.opacity = 0.9 * k; groups.emSheet.opacity = 0.16 * k;
+    }
+  }
+  function draw() {
+    const live = layers.filter(([, w]) => w > 0.002);
+    if (live.length < 2) { showLayer(live[0][0]); post.render(scene, camera); return; }
+    showLayer(live[0][0]); post.render(scene, camera, { to: true });
+    showLayer(live[1][0]); post.render(scene, camera, { under: true, mix: live[1][1] });
+  }
+
+  // ---------- controls at a level: orbit for the body, the tissue and the whole cell; look-around inside ----------
   const orbit = new OrbitControls(camera, cv);
-  orbit.enableDamping = true; orbit.dampingFactor = 0.08; orbit.enablePan = false;
+  orbit.enableDamping = true; orbit.dampingFactor = 0.08; orbit.enablePan = false; orbit.enableZoom = false;
   orbit.autoRotate = !reduced && !opts.test; orbit.autoRotateSpeed = 0.35;
   orbit.addEventListener('change', () => wake());
   orbit.addEventListener('start', () => { orbit.autoRotate = false; });
-
   const look = { yaw: 0, pitch: 0, on: false };
   function syncLook() { const d = new THREE.Vector3(); camera.getWorldDirection(d); look.yaw = Math.atan2(d.x, -d.z); look.pitch = Math.asin(Math.max(-1, Math.min(1, d.y))); }
   function applyLook() {
     const cp = Math.cos(look.pitch);
     camera.lookAt(camera.position.clone().add(new THREE.Vector3(Math.sin(look.yaw) * cp, Math.sin(look.pitch), -Math.cos(look.yaw) * cp)));
   }
+  function setControls(l) {
+    const V = VIEWS[l];
+    camera.up.copy(upOf(l));
+    orbit._quat.setFromUnitVectors(camera.up, new THREE.Vector3(0, 1, 0)); orbit._quatInverse.copy(orbit._quat).invert();
+    orbit.enabled = !!(V && V.orbit);
+    look.on = l === 'inside';
+    if (orbit.enabled) {
+      orbit.target.copy(W3(levelFrame(l), V.at)); orbit.minDistance = V.orbit[0] * sc(l); orbit.maxDistance = V.orbit[1] * sc(l);
+      orbit.minPolarAngle = 0; orbit.maxPolarAngle = l === 'cell' ? Math.PI * 0.49 : l === 'tissue' ? Math.PI * 0.62 : Math.PI;
+      orbit.update();
+    }
+    if (look.on) syncLook();
+    if (l === 'molecules' && molApi) molApi.enterControls(camera, cv, wake);
+  }
+  function freeControls() {
+    orbit.enabled = false; look.on = false;
+    if (molApi) molApi.leaveControls();
+  }
+
+  // ---------- the paths between levels ----------
+  // Each is a list of camera stops, in the frames' own units; the first is the upper level's view, the last the
+  // lower level's. The camera moves along a smooth curve through them, at a speed that keeps the zoom even (a
+  // stretch that magnifies ten times takes as long wherever it is).
+  const view = l => ({ f: levelFrame(l), pos: VIEWS[l].pos, at: VIEWS[l].at });
+  let membraneTop = 6.4;
+  const PATHS = [
+    () => [view('organism'), { f: 'body', pos: [0.5, 0.2, 1.0], at: VIEWS.system.at }, view('system')],
+    () => [view('system'), { f: 'body', pos: [0.12, 0.11, 0.07], at: [-0.011, 0.04, -0.055] }, view('organ')],
+    () => [view('organ'), { f: 'tissue', pos: [6000, 9000, 26000], at: [0, 0, 0] }, { f: 'tissue', pos: [700, 1200, 4200], at: [0, -120, 0] },
+      { f: 'tissue', pos: [420, 450, 1400], at: [30, -140, -40] }, view('tissue')],
+    () => { const t = tissue.target.top; return [view('tissue'), { f: 'tissue', pos: [t[0] + 60, t[1] + 220, t[2] + 140], at: t },
+      { f: 'tissue', pos: [t[0] + 12, t[1] + 60, t[2] + 30], at: [t[0], t[1] - 2, t[2]] }, view('cell')]; },
+    // into the cell: round to its thin edge, through the membrane there, under the rim of the nucleus (the gap
+    // between it and the base of the cell is about 1 µm high) and into the box of organelles from its side
+    () => [view('cell'), { f: 'cell', pos: [9, 8, -36], at: [0.3, 1.4, -13] }, { f: 'cell', pos: [0.8, 2.4, -23], at: [0.3, 1.25, -9] },
+      { f: 'cell', pos: [0.3, 1.6, -15.6], at: [0.3, 1.15, -6] }, { f: 'cell', pos: [0.25, 1.05, -8.5], at: [0.2, 1.15, -2] },
+      { f: 'cell', pos: [-0.05, 1.0, -3.6], at: [0.3, 1.25, -1.0] }, view('inside')],
+    () => [{ f: 'mol', pos: [0, 0.03, 0.6], at: [0, 0.03, 0] }, { f: 'mol', pos: [0.012, 0.035, 0.4], at: [-0.005, 0.03, 0] }, view('molecules')],
+  ];
+  function makeFlight(i, poseA, poseB) {
+    let keys = PATHS[i]();
+    keys = keys.map(k => ({ pos: W3(k.f, k.pos), at: W3(k.f, k.at) }));
+    if (i === 5) keys[0] = poseA || keys[0];     // the molecules are placed where the reader was looking
+    else if (poseA) keys[0] = poseA;
+    if (poseB) keys[keys.length - 1] = poseB;
+    const posC = new THREE.CatmullRomCurve3(keys.map(k => k.pos), false, 'centripetal');
+    const atC = new THREE.CatmullRomCurve3(keys.map(k => k.at), false, 'centripetal');
+    const N = 600, cum = [0]; let pp = posC.getPoint(0), pa = atC.getPoint(0);
+    for (let j = 1; j <= N; j++) {
+      const s = j / N, p = posC.getPoint(s), a = atC.getPoint(s);
+      const d = Math.max(1e-9, p.distanceTo(a));
+      cum.push(cum[j - 1] + (p.distanceTo(pp) + a.distanceTo(pa)) / d + 0.004);
+      pp = p; pa = a;
+    }
+    const tot = cum[N];
+    const sOf = u => {                           // the path's parameter at an even share u of the zoom
+      const w = u * tot; let lo = 0, hi = N;
+      while (hi - lo > 1) { const m = (lo + hi) >> 1; if (cum[m] < w) lo = m; else hi = m; }
+      return (lo + (w - cum[lo]) / Math.max(1e-12, cum[hi] - cum[lo])) / N;
+    };
+    return { i, posC, atC, sOf, upA: upOf(LEVELS[i]), upB: upOf(LEVELS[i + 1]),
+      d0: keys[0].pos.distanceTo(keys[0].at), d1: keys[keys.length - 1].pos.distanceTo(keys[keys.length - 1].at) };
+  }
+  const lookW = l => { const o = LOOK[l], s = sc(l); return { fog: o.fog / s, aoRadius: o.aoRadius * s, ao: o.ao, edge: o.edge }; };
+  const rangeW = l => RANGE[l].map(x => x * sc(l));
+  const hazeOf = l => (l === 'inside' || l === 'molecules' ? 1 : 0);
+  const cFog = new THREE.Color(FOG), cCyto = new THREE.Color(CYTO);
+  function haze(k) { scene.background.copy(cFog).lerp(cCyto, k); post.fogColor(scene.background); }
+  let aimDist = 1;
+  function applyFlight(fl, u) {
+    const s = fl.sOf(u), p = fl.posC.getPoint(s), a = fl.atC.getPoint(s);
+    camera.position.copy(p);
+    camera.up.copy(fl.upA).lerp(fl.upB, sm(u, 0.15, 0.85)).normalize();
+    camera.lookAt(a);
+    const D = Math.max(1e-9, p.distanceTo(a)); aimDist = D;
+    camera.near = D / 400; camera.far = D * 60; applyInset();
+    // the look between the two levels, by how far the zoom has got
+    const k = Math.abs(Math.log(fl.d1 / fl.d0)) > 0.3 ? THREE.MathUtils.clamp(Math.log(D / fl.d0) / Math.log(fl.d1 / fl.d0), 0, 1) : u;
+    const A = lookW(LEVELS[fl.i]), B = lookW(LEVELS[fl.i + 1]), lg = (x, y) => Math.exp(THREE.MathUtils.lerp(Math.log(x), Math.log(y), k));
+    post.set({ fog: THREE.MathUtils.lerp(A.fog, B.fog, k * k), aoRadius: lg(A.aoRadius, B.aoRadius), ao: THREE.MathUtils.lerp(A.ao, B.ao, k), edge: THREE.MathUtils.lerp(A.edge, B.edge, k) });
+    haze(THREE.MathUtils.lerp(hazeOf(LEVELS[fl.i]), hazeOf(LEVELS[fl.i + 1]), k));
+  }
+
+  // ---------- Z: where the reader is in the zoom ----------
+  let Z = 0, Zt = 0, tween = null, flight = null, restAt = 0, shownLevel = 'organism';
+  const poses = {};                              // the camera where the reader left each level (they may have turned it)
+  const pose = aim => ({ pos: camera.position.clone(), at: aim ? aim.clone() : orbit.enabled ? orbit.target.clone() : camera.position.clone().add(camera.getWorldDirection(new THREE.Vector3()).multiplyScalar(look.on ? 0.8 : aimDist)) });
+  let rebased = false;
+  function rebase(toMol) {
+    // the molecules' model works at the world's origin: when the zoom goes there, the world is moved round it
+    const before = Wm.clone();
+    if (toMol) Wm.copy(F('mol')).invert().multiply(Wm); else Wm.identity();
+    rebased = toMol;
+    const change = new THREE.Matrix4().multiplyMatrices(Wm, before.clone().invert());
+    camera.position.applyMatrix4(change); camera.up.transformDirection(change);
+    const q = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().extractRotation(change));
+    camera.quaternion.premultiply(q);
+    for (const k in poses) { poses[k].pos.applyMatrix4(change); poses[k].at.applyMatrix4(change); }
+    placeGroups();
+  }
+  async function ensure(i) {                     // what the step from level i to i+1 needs, loaded
+    if (i >= 2) await tissueReady;
+    if (i >= 3) await cellReady;
+    if (i >= 4) {
+      await insideReady;
+      // where the camera passes through the top of the cell, above the way in
+      const cellMesh = G.cell.getObjectByProperty('name', 'w_cell') || (() => { let o; G.cell.traverse(x => { if (x.isMesh && x.userData.part === 'cell') o = x; }); return o; })();
+      if (cellMesh) {
+        const r = new THREE.Raycaster(W3('cell', [0.4, 30, -0.8]), new THREE.Vector3(0, -1, 0).transformDirection(F('cell')));
+        const h = r.intersectObject(cellMesh, false)[0];
+        if (h) membraneTop = h.point.clone().applyMatrix4(F('cell').invert()).y;
+      }
+    }
+    if (i >= 5 && !molApi) await (molMaking ||= makeMolecules());
+  }
+  let molMaking = null;                          // made once, whoever asks first
+  async function makeMolecules() {
+    {
+      const M = await import('./molecules3d.js?v=' + v);
+      molApi = await M.build(THREE, G.mol, { v, small: await insideReady });
+      molApi.recut({ position: new THREE.Vector3(0, 0.02, 1) });
+      const m = (text, p, r, extra = {}) => anchors.push({ group: 'mol', frame: 'mol', p, r, text, part: 'molecule', z: [5.62, 6.01], ...extra });
+      m('Microtubule', [-0.05, -0.006, 0.0125], 0.012);
+      m('Kinesin, a motor protein', [0, 0.02, 0.01], 0.008, { dyn: 'kinesin' });
+      m('Vesicle (its cargo)', [0, 0.05, 0], 0.028, { dyn: 'vesicle' });
+      m('Protein molecules, packed close', [-0.065, 0.075, -0.02], 0.02);
+      precompile(G.mol);
+    }
+  }
+  function placeMolecules() {
+    // the model's slab, 0.6 µm in front of the reader, level, facing them
+    const d = camera.getWorldDirection(new THREE.Vector3()); d.y = 0; if (d.lengthSq() < 1e-6) d.set(0, 0, -1); d.normalize();
+    const camC = camera.position.clone().applyMatrix4(F('cell').invert());
+    const o = camC.clone().addScaledVector(d, 0.6).add(new THREE.Vector3(0, -0.03, 0));
+    const yaw = Math.atan2(-d.x, -d.z);
+    P.mol.copy(P.cell).multiply(new THREE.Matrix4().makeTranslation(o.x, o.y, o.z).multiply(new THREE.Matrix4().makeRotationY(yaw)));
+  }
+  function setZ(z) {
+    z = THREE.MathUtils.clamp(z, 0, LEVELS.length - 1);
+    const i = Math.min(LEVELS.length - 2, Math.floor(z)), u = z - i;
+    const atLevel = Math.abs(z - Math.round(z)) < 1e-4;
+    if (atLevel) {
+      const L = Math.round(z);
+      if (flight) { flight = null; }
+      if (restAt !== L || Z !== z) arrive(L);
+      Z = L; stateAt(Z);
+      return;
+    }
+    if (!flight || flight.i !== i) {
+      if (flight) {                            // passing a level without stopping: start the next path exactly there
+        const end = i > flight.i ? 1 : 0;
+        applyFlight(flight, end);
+        restAt = flight.i + end; poses[restAt] = pose(flight.atC.getPoint(end));
+      } else if (restAt != null) poses[restAt] = pose();
+      freeControls();
+      if (i === 5 && !rebased) { placeMolecules(); rebase(true); }
+      else if (i !== 5 && rebased) rebase(false);
+      flight = makeFlight(i, poses[i] || null, poses[i + 1] || null);
+      restAt = null;
+    }
+    Z = z; stateAt(Z);
+    applyFlight(flight, u);
+    if (groups.ribo && Z > 4.3 && Z < 5.8) { const c = G.inside.worldToLocal(camera.position.clone()); groups.ribo.update(c); groups.vesicle.update(c); }
+    if (molApi && Z > 5.2) molApi.recut(camera);
+    const near = LEVELS[Math.round(Z)];
+    if (near !== shownLevel) { shownLevel = near; emit('level', near); }
+    emit('z', Z);
+  }
+  function arrive(L) {
+    const l = LEVELS[L];
+    if (L !== 6 && rebased) rebase(false);
+    restAt = L; flight = null;
+    const p = poses[L];
+    const V = VIEWS[l];
+    camera.up.copy(upOf(l));
+    if (p) { camera.position.copy(p.pos); camera.lookAt(p.at); }
+    else { camera.position.copy(W3(levelFrame(l), V.pos)); camera.lookAt(W3(levelFrame(l), V.at)); }
+    aimDist = camera.position.distanceTo(p ? p.at : W3(levelFrame(l), V.at));
+    [camera.near, camera.far] = rangeW(l); applyInset();
+    post.set(lookW(l)); haze(hazeOf(l));
+    setControls(l);
+    if (groups.ribo && l === 'inside') { const c = G.inside.worldToLocal(camera.position.clone()); groups.ribo.update(c, true); groups.vesicle.update(c, true); }
+    if (shownLevel !== l) { shownLevel = l; emit('level', l); }
+    emit('arrive', l); emit('z', L);
+    measureScale();
+  }
+
+  // the wheel and a pinch move Z; a button glides Z to a level
+  let scrollLock = false;
+  async function nudge(dz) {
+    if (tween) { tween.cancel(); }
+    const base = Zt;
+    const next = THREE.MathUtils.clamp(base + dz, 0, LEVELS.length - 1);
+    const i = Math.floor(Math.min(next, base) + 1e-6);
+    if (next > base && !scrollLock) {           // load what the next step needs before moving into it
+      const need = Math.min(LEVELS.length - 2, Math.floor(next - 1e-6));
+      if ((need >= 2 && !tissue) || (need >= 3 && !groups.glass) || (need >= 4 && !groups.ribo) || (need >= 5 && !molApi)) {
+        scrollLock = true; emit('progress', 0); await ensure(need); scrollLock = false;
+      }
+    }
+    if (scrollLock) return;
+    Zt = next; wake();
+    void i;
+    // when the scrolling stops close to a level, the zoom settles on it (so that the picture can be turned).
+    // Never during the scrolling: a trackpad moves Z a hundredth at a time.
+    clearTimeout(settle);
+    settle = setTimeout(() => { const r = Math.round(Zt); if (!tween && Math.abs(Zt - r) < 0.08 && Zt !== r) { Zt = r; wake(); } }, 450);
+  }
+  let settle = 0;
+  cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+    nudge(-px * 0.0011);
+  }, { passive: false });
+  function glide(to, secs) {
+    return new Promise(async res => {
+      const from = Z;
+      await ensure(Math.max(0, Math.ceil(Math.max(from, to)) - 1));
+      if (tween) tween.cancel();
+      const t0 = performance.now(), dur = reduced ? 1 : secs * 1000;
+      tween = { cancel() { tween = null; res(); }, step(now) {
+        const k = Math.min(1, (now - t0) / dur);
+        Zt = from + (to - from) * ease(k); Z = Zt;
+        if (k >= 1) { tween = null; Zt = to; res(); }
+      } };
+      wake();
+    });
+  }
+
+  // ---------- the pointer: turn, look, pinch to zoom, and name what is under it ----------
   const ptrs = new Map(); let downAt = null, moved = 0;
   cv.addEventListener('pointerdown', e => { ptrs.set(e.pointerId, [e.clientX, e.clientY]); downAt = [e.clientX, e.clientY]; moved = 0; if (look.on) cv.setPointerCapture(e.pointerId); });
   cv.addEventListener('pointermove', e => {
-    if (!ptrs.has(e.pointerId)) return;
+    if (!ptrs.has(e.pointerId)) { if (e.pointerType === 'mouse') hoverAt(e.clientX, e.clientY); return; }
     const prev = ptrs.get(e.pointerId); ptrs.set(e.pointerId, [e.clientX, e.clientY]);
     moved += Math.abs(e.clientX - prev[0]) + Math.abs(e.clientY - prev[1]);
-    if (!look.on) return;
     if (ptrs.size === 2) {
       const pts = [...ptrs.values()], other = [...ptrs.entries()].find(([k]) => k !== e.pointerId)[1];
       const d0 = Math.hypot(prev[0] - other[0], prev[1] - other[1]), d1 = Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]);
-      walk((d1 - d0) * 0.003); return;
+      nudge((d1 - d0) * 0.004); return;
     }
+    if (!look.on) return;
     look.yaw += (e.clientX - prev[0]) * 0.004; look.pitch = Math.max(-1.45, Math.min(1.45, look.pitch - (e.clientY - prev[1]) * 0.004));
     applyLook(); wake();
   });
-  cv.addEventListener('pointerup', e => { ptrs.delete(e.pointerId); if (downAt && moved < 6 && !flight) pickAt(e.clientX, e.clientY); downAt = null; });
+  cv.addEventListener('pointerup', e => { ptrs.delete(e.pointerId); if (downAt && moved < 6 && !tween) { const p = pickAt(e.clientX, e.clientY); emit('pick', p); } downAt = null; });
   cv.addEventListener('pointercancel', e => ptrs.delete(e.pointerId));
-  cv.addEventListener('wheel', e => { if (!look.on) return; e.preventDefault(); walk(-Math.sign(e.deltaY) * Math.min(0.12, Math.abs(e.deltaY) * 0.0015)); }, { passive: false });
-  function walk(d) {
-    const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-    const p = camera.position.clone().addScaledVector(dir, d);
-    for (let i = 0; i < 3; i++) p.setComponent(i, Math.max(BOX.lo[i] + (i === 1 ? 0.15 : 0.6), Math.min(BOX.hi[i] - (i === 1 ? 0.4 : 0.6), p.getComponent(i))));
-    camera.position.copy(p); wake();
-  }
-  function setControls(l) {
-    const V = VIEWS[l];
-    orbit.enabled = !!(V && V.orbit);
-    look.on = l === 'inside';
-    if (orbit.enabled) { orbit.target.fromArray(V.at); orbit.minDistance = V.orbit[0]; orbit.maxDistance = V.orbit[1];
-      orbit.maxPolarAngle = l === 'cell' ? Math.PI * 0.49 : Math.PI; orbit.update(); }
-    if (look.on) syncLook();
-  }
+  cv.addEventListener('pointerleave', () => emit('hover', null));
+  let hoverWant = null, hoverLast = 0;
+  function hoverAt(x, y) { hoverWant = [x, y]; wake(); }
 
-  // ---------- picking ----------
-  const ray = new THREE.Raycaster();
-  function isShown(o) { for (let p = o; p; p = p.parent) if (!p.visible) return false; if (o.material && o.material.opacity !== undefined && o.material.opacity < 0.2) return false; return true; }
-  function pickables() {
-    const out = [];
-    G[GROUP[level]].traverse(o => { if ((o.isMesh || o.isInstancedMesh) && o.userData.part && o.userData.part !== 'glass' && isShown(o)) out.push(o); });
-    return out;
+  // GPU picking: the scene drawn once into one pixel under the pointer, each part in its own colour
+  const pickRT = new THREE.WebGLRenderTarget(1, 1);
+  const pickCam = new THREE.Camera(); pickCam.matrixWorldAutoUpdate = false; pickCam.matrixAutoUpdate = false;
+  const pickBuf = new Uint8Array(4), pickMats = [];
+  const PICK_VS = `varying vec2 vUv;
+    #include <common>
+    #include <clipping_planes_pars_vertex>
+    void main(){ vUv = uv;
+    #include <begin_vertex>
+    #include <project_vertex>
+    #include <clipping_planes_vertex>
+    }`;
+  const PICK_FS = `uniform vec3 uId; uniform sampler2D map; uniform float useMap; varying vec2 vUv;
+    #include <clipping_planes_pars_fragment>
+    void main(){
+    #include <clipping_planes_fragment>
+    if (useMap > 0.5 && texture2D(map, vUv).a < 0.5) discard;
+    gl_FragColor = vec4(uId, 1.0); }`;
+  function pickMat(n, src) {
+    if (!pickMats[n]) pickMats[n] = new THREE.ShaderMaterial({ vertexShader: PICK_VS, fragmentShader: PICK_FS, clipping: true, side: THREE.DoubleSide,
+      uniforms: { uId: { value: new THREE.Color((n & 255) / 255, ((n >> 8) & 255) / 255, 0) }, map: { value: null }, useMap: { value: 0 } } });
+    const m = pickMats[n];
+    m.clippingPlanes = src.clippingPlanes || null; m.clipIntersection = !!src.clipIntersection;
+    m.uniforms.map.value = src.map || null; m.uniforms.useMap.value = src.map ? 1 : 0;
+    return m;
+  }
+  function shownEnough(o) {
+    for (let p = o; p; p = p.parent) if (!p.visible) return false;
+    const m = Array.isArray(o.material) ? o.material[0] : o.material;
+    if (!m) return false;
+    const op = m.uniforms && m.uniforms.uOpacity ? m.uniforms.uOpacity.value : m.opacity;
+    return op >= (m.transparent ? 0.06 : 0.5);
   }
   function partOf(o) { for (let p = o; p; p = p.parent) if (p.userData.part) return p.userData.part; return null; }
-  function pickAt(x, y) {
+  function gpuPick(x, y, skipShells) {
     const r = cv.getBoundingClientRect();
-    ray.setFromCamera(new THREE.Vector2((x - r.left) / r.width * 2 - 1, -((y - r.top) / r.height) * 2 + 1), camera);
-    ray.near = camera.near; ray.far = camera.far;
-    let hits = ray.intersectObjects(pickables(), false);
-    // a see-through skin or cell membrane counts only when nothing inside it is under the pointer
-    if (hits.length > 1 && (hits[0].object.userData.part === 'cell' || hits[0].object.userData.part === 'body')) hits = hits.slice(1);
-    const h = hits[0];
-    const part = h ? partOf(h.object) : (level === 'inside' || level === 'molecules' ? 'cytoplasm' : null);
-    let label = null; for (let o = h && h.object; o; o = o.parent) if (o.userData.label) { label = o.userData.label; break; }
-    emit('pick', { part, label, x: x - r.left, y: y - r.top, distance: h ? h.distance : null, level });
+    const px = x - r.left, py = y - r.top, w = r.width, h = r.height;
+    const cx = (px / w) * 2 - 1, cy = 1 - (py / h) * 2, hx = 1 / w, hy = 1 / h;
+    const Mp = new THREE.Matrix4().set(1 / hx, 0, 0, -cx / hx, 0, 1 / hy, 0, -cy / hy, 0, 0, 1, 0, 0, 0, 0, 1);
+    camera.updateMatrixWorld();
+    pickCam.projectionMatrix.multiplyMatrices(Mp, camera.projectionMatrix); pickCam.projectionMatrixInverse.copy(pickCam.projectionMatrix).invert();
+    pickCam.matrixWorld.copy(camera.matrixWorld); pickCam.matrixWorldInverse.copy(camera.matrixWorldInverse);
+    const list = [], hidden = [], swapped = [];
+    scene.traverse(o => {
+      if (!(o.isMesh || o.isInstancedMesh || o.isPoints || o.isLine)) return;
+      const shell = o.userData.part === 'body' || o.userData.part === 'cell' || o.userData.part === 'glass';
+      if (o.isMesh && o.visible && o.userData.part !== 'glass' && partOf(o) && shownEnough(o) && !(skipShells && shell)) {
+        list.push(o); swapped.push([o, o.material]); o.material = pickMat(list.length, Array.isArray(o.material) ? o.material[0] : o.material);
+      } else if (o.visible) { hidden.push(o); o.visible = false; }
+    });
+    const bg = scene.background; scene.background = null;
+    const prevRT = renderer.getRenderTarget(), prevClear = renderer.getClearColor(new THREE.Color()), prevA = renderer.getClearAlpha();
+    renderer.setRenderTarget(pickRT); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, pickCam);
+    renderer.readRenderTargetPixels(pickRT, 0, 0, 1, 1, pickBuf);
+    renderer.setRenderTarget(prevRT); renderer.setClearColor(prevClear, prevA);
+    scene.background = bg;
+    for (const [o, m] of swapped) o.material = m;
+    for (const o of hidden) o.visible = true;
+    const n = pickBuf[0] + pickBuf[1] * 256;
+    return n > 0 && pickBuf[3] > 0 ? list[n - 1] : null;
+  }
+  function pickAt(x, y) {
+    let o = gpuPick(x, y, true) || gpuPick(x, y, false);
+    const r = cv.getBoundingClientRect();
+    let part = o ? partOf(o) : (Z > 4.5 && Z < 5.5 ? 'cytoplasm' : null), label = null;
+    for (let p = o; p; p = p.parent) if (p.userData.label) { label = p.userData.label; break; }
+    if (part === 'section' && secMap) {           // which tissue of the cut face
+      const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2((x - r.left) / r.width * 2 - 1, -((y - r.top) / r.height) * 2 + 1), camera);
+      const h = ray.intersectObject(cap, false)[0];
+      if (h && h.uv) {
+        const i = Math.min(secMap.w - 1, Math.floor(h.uv.x * secMap.w)), j = Math.min(secMap.h - 1, Math.floor((1 - h.uv.y) * secMap.h));
+        part = SEC_PART[Math.round(secMap.d[(j * secMap.w + i) * 4] / 40)] || null;
+      } else part = null;
+    }
+    return { part, label, x: x - r.left, y: y - r.top, level: shownLevel };
   }
 
-  // ---------- scale bar: the screen length of a round size, at the distance of what is in the middle ----------
+  // ---------- names on the picture ----------
+  const tagLayer = document.createElement('div'); tagLayer.className = 'tags'; el.appendChild(tagLayer);
+  const tagPool = [];
+  function drawTags() {
+    if (opts.notags) return;
+    const Wd = W(), Hd = H(), out = [];
+    const f = 1 / Math.tan(camera.fov * Math.PI / 360) * Hd / 2;
+    const vp = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    const q = new THREE.Vector4();
+    for (const a of anchors) {
+      if (Z < a.z[0] || Z > a.z[1]) continue;
+      if (fades[a.group] < 0.6) continue;
+      if (a.cut && knifeOff < 0.03) continue;
+      const p = W3(a.frame, a.dyn && molApi ? molApi.where()[a.dyn] : a.p);
+      const d = p.distanceTo(camera.position);
+      const rpx = a.r * SCALE[a.frame] / d * f;
+      if (rpx < 5 || rpx > Hd * 0.42) continue;
+      if (Z > 4.4 && Z < 5.6 && d > 2.6) continue;   // too deep in the haze
+      q.set(p.x, p.y, p.z, 1).applyMatrix4(vp);
+      if (q.w <= 0) continue;
+      const sx = (q.x / q.w * 0.5 + 0.5) * Wd, sy = (-q.y / q.w * 0.5 + 0.5) * Hd;
+      if (sx < inset.left + 10 || sx + 20 + a.text.length * 7.2 > Wd - inset.right || sy < inset.top + 10 || sy > Hd - inset.bottom - 20) continue;
+      out.push({ a, sx, sy, rpx });
+    }
+    out.sort((m, n) => n.rpx - m.rpx);
+    const placed = [];
+    let k = 0;
+    for (const t of out) {
+      const w = 14 + t.a.text.length * 7.2, h = 24;
+      const box = [t.sx - 6, t.sy - h / 2, t.sx + w, t.sy + h / 2];
+      if (placed.some(b => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]))) continue;
+      placed.push(box);
+      let n = tagPool[k];
+      if (!n) { n = document.createElement('div'); n.className = 'tag'; n.innerHTML = '<i></i><span></span>'; tagLayer.appendChild(n); tagPool.push(n); }
+      // only the position changes from frame to frame: the name, its colour and its showing are written when
+      // they change (writing them every frame made the browser restyle every name, every frame)
+      if (n.dataset.t !== t.a.text) {
+        n.dataset.t = t.a.text; n.lastChild.textContent = t.a.text;
+        n.style.setProperty('--c', '#' + (PARTS[t.a.part] ? PARTS[t.a.part].col : 0xffffff).toString(16).padStart(6, '0'));
+      }
+      n.style.transform = `translate(${Math.round(t.sx)}px,${Math.round(t.sy)}px)`;
+      if (n.hidden) n.hidden = false;
+      k++;
+      if (k >= 7) break;
+    }
+    for (; k < tagPool.length; k++) if (!tagPool[k].hidden) tagPool[k].hidden = true;
+  }
+
+  // ---------- scale bar: a round size at the distance of what is in the middle ----------
   let scaleTimer = 0;
-  const UNIT_UM = { organism: 1e6, system: 1e6, organ: 1e6, tissue: 1, cell: 1, inside: 1, molecules: 1 };
   function measureScale() {
     clearTimeout(scaleTimer);
     scaleTimer = setTimeout(() => {
-      // the distance to what is in the middle of the view: from a ray where the scene is light, and where it is
-      // heavy (1.2 million triangles among the organelles, thousands of molecules) a fixed typical distance,
-      // because testing every triangle there stalled the page for a quarter of a second each time the view stopped
-      let dist = null;
-      if (level !== 'inside' && level !== 'molecules') {
-        ray.setFromCamera(new THREE.Vector2(0, 0), camera); ray.near = camera.near; ray.far = camera.far;
-        const h = ray.intersectObjects(pickables(), false).find(x => x.object.userData.part !== 'cell' && x.object.userData.part !== 'body');
-        if (h) dist = h.distance;
-      }
-      if (dist == null) dist = orbit.enabled ? camera.position.distanceTo(orbit.target) : level === 'inside' ? 0.8 : 0.17;
-      const pxPerUnit = H() / (2 * dist * Math.tan(camera.fov * Math.PI / 360));
-      const pxPerUm = pxPerUnit / UNIT_UM[level];
+      const dist = orbit.enabled ? camera.position.distanceTo(orbit.target) : look.on ? 0.8 : aimDist;
+      const pxPerUm = H() / (2 * dist * Math.tan(camera.fov * Math.PI / 360));
       const want = W() * 0.16 / pxPerUm;
       const steps = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1e3, 2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5];
       const um = steps.reduce((b, s) => (Math.abs(Math.log(s / want)) < Math.abs(Math.log(b / want)) ? s : b), 1);
       const label = um >= 1e5 ? um / 1e4 + ' cm' : um >= 1000 ? um / 1000 + ' mm' : um < 1 ? Math.round(um * 1000) + ' nm' : um + ' µm';
       emit('scale', { px: um * pxPerUm, um, label, distance: dist });
-    }, 120);
-  }
-
-  // ---------- flights between rungs ----------
-  // A flight has two legs joined by a moment of thick haze in which the scene changes: legA (from where the
-  // camera is) runs from 0 to swapAt, legB (in the new rung) from swapAt to 1, then the view settles. Between
-  // rungs of the same scene (the body) there is no haze: the parts fade as the camera moves (bodyFrom/bodyTo).
-  function flyTo(t, seconds, onDone) {
-    const v3 = p => new THREE.Vector3().fromArray(p);
-    const legA = new THREE.CatmullRomCurve3([camera.position.clone(), ...t.legA.map(v3)], false, 'centripetal');
-    const legB = t.legB && t.legB.length > 1 ? new THREE.CatmullRomCurve3(t.legB.map(v3), false, 'centripetal') : null;
-    const endQ = new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(v3(t.end.pos), v3(t.end.at), new THREE.Vector3(0, 1, 0)));
-    flight = { t: 0, dur: reduced ? 0.001 : seconds, legA, legB, fromQ: camera.quaternion.clone(), endQ, target: t, onDone, aimA: t.aimA && v3(t.aimA) };
-    orbit.enabled = false; orbit.autoRotate = false; look.on = false;
-    wake();
-  }
-  const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
-  const easeOut = t => 1 - Math.pow(1 - t, 2.2);
-  const lookQ = (from, to) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().lookAt(from, to, new THREE.Vector3(0, 1, 0)));
-  function stepFlight(dt) {
-    const f = flight, T = f.target, sw = T.swapAt ?? 1;
-    f.t = Math.min(1, f.t + dt / f.dur);
-    const a = LOOK[T.from], b = LOOK[T.to];
-    if (sw >= 1) {                                  // one scene: move and fade, no haze
-      const s = ease(f.t);
-      camera.position.copy(f.legA.getPointAt(s));
-      const aim = f.aimA || new THREE.Vector3().fromArray(T.end.at);
-      camera.quaternion.copy(f.fromQ).slerp(lookQ(camera.position, aim), THREE.MathUtils.smoothstep(f.t, 0, 0.35)).slerp(f.endQ, THREE.MathUtils.smoothstep(f.t, 0.7, 1));
-      if (T.bodyFrom) bodyLook(T.bodyFrom, T.bodyTo, THREE.MathUtils.smoothstep(f.t, 0.1, 0.8));
-      post.set({ fog: 0, aoRadius: THREE.MathUtils.lerp(a.aoRadius, b.aoRadius, s), ao: b.ao, edge: b.edge });
-      if (T.during) T.during(f.t);
-    } else {
-      const thick = Math.max(a.fog, b.fog, T.thick || 0) * 4;
-      if (f.t < sw) {
-        const s = ease(f.t / sw);
-        camera.position.copy(f.legA.getPointAt(s));
-        const ahead = f.aimA || f.legA.getPointAt(Math.min(1, s + 0.05));
-        camera.quaternion.copy(f.fromQ).slerp(lookQ(camera.position, ahead), THREE.MathUtils.smoothstep(f.t / sw, 0, 0.3));
-        const k = THREE.MathUtils.smoothstep(f.t, sw - 0.2, sw);
-        post.set({ fog: THREE.MathUtils.lerp(a.fog, thick, k * k), aoRadius: a.aoRadius, ao: a.ao, edge: a.edge });
-        if (T.during) T.during(f.t);
-      } else {
-        if (!f.swapped) { f.swapped = true; showLevel(T.to); }
-        const u = (f.t - sw) / (1 - sw), s = easeOut(u);
-        if (f.legB) {
-          camera.position.copy(f.legB.getPointAt(s));
-          const ahead = f.legB.getPointAt(Math.min(1, s + 0.06));
-          camera.quaternion.copy(lookQ(camera.position, ahead)).slerp(f.endQ, THREE.MathUtils.smoothstep(u, 0.75, 1));
-        } else { camera.position.fromArray(T.end.pos); camera.quaternion.copy(f.endQ); }
-        const k = THREE.MathUtils.smoothstep(u, 0, 0.35);
-        post.set({ fog: THREE.MathUtils.lerp(thick, b.fog, k), aoRadius: b.aoRadius, ao: b.ao, edge: b.edge });
-      }
-    }
-    if (f.t >= 1) {
-      flight = null;
-      if (level !== T.to) showLevel(T.to);
-      if (T.bodyTo) bodyLook(T.bodyTo, T.bodyTo, 1);
-      camera.position.fromArray(T.end.pos); camera.lookAt(new THREE.Vector3().fromArray(T.end.at));
-      post.set(b);
-      setControls(level);
-      emit('arrive', level);
-      f.onDone && f.onDone();
-      measureScale();
-    }
-  }
-  function showLevel(l) {
-    level = l;
-    for (const k in G) G[k].visible = GROUP[l] === k;
-    camera.near = RANGE[l][0]; camera.far = RANGE[l][1]; applyInset();
-    if (GROUP[l] === 'body') bodyLook(l, l, 1);
-    if (l === 'tissue' && groups.closer) groups.closer.material.opacity = 0;
-    emit('level', l);
-  }
-
-  // The flight for each step down (and the way back up). Units change at each haze.
-  const C = new THREE.Vector3(CELLS.cell[0], CELLS.cell[1], 0);
-  const FLIGHTS = {
-    'organism>system': () => ({ legA: [[0.5, 0.2, 1.0], VIEWS.system.pos], end: VIEWS.system, from: 'organism', to: 'system', bodyFrom: 'organism', bodyTo: 'system' }),
-    'system>organ':    () => ({ legA: [[0.12, 0.10, 0.12], VIEWS.organ.pos], end: VIEWS.organ, from: 'system', to: 'organ', bodyFrom: 'system', bodyTo: 'organ' }),
-    'organ>tissue':    () => ({ legA: [[0.03, 0.03, -0.03], [0.002, 0.022, -0.068]], aimA: [-0.011, 0.02, -0.074],
-                                legB: [[40, 120, 1900], [10, 60, 1200], VIEWS.tissue.pos], end: VIEWS.tissue, swapAt: 0.45, thick: 2, from: 'organ', to: 'tissue' }),
-    'tissue>cell':     () => ({ legA: [[C.x * 0.5, C.y * 0.6, 420], [C.x, C.y, 160], [C.x, C.y, 40], [C.x, C.y, 9]], aimA: C.toArray(),
-                                during: t => { if (groups.closer) groups.closer.material.opacity = THREE.MathUtils.smoothstep(t, 0.12, 0.32); },
-                                legB: [[95, 110, 120], [55, 45, 62], VIEWS.cell.pos], end: VIEWS.cell, swapAt: 0.55, thick: 0.05, from: 'tissue', to: 'cell' }),
-    'cell>inside':     () => ({ legA: [[14, 14, 10], [3, 8.5, -1.5], [0.2, 6.2, -2.4]], aimA: [0, 1, -1.5], legB: PATH_IN, end: VIEWS.inside, swapAt: 0.42, from: 'cell', to: 'inside' }),
-    'inside>molecules': () => { const s = molApi.start; return { legA: s.legA, legB: s.legB, end: s.end, swapAt: 0.55, from: 'inside', to: 'molecules' }; },
-    // back up
-    'system>organism': () => ({ legA: [[0.5, 0.25, 1.1], VIEWS.organism.pos], end: VIEWS.organism, from: 'system', to: 'organism', bodyFrom: 'system', bodyTo: 'organism' }),
-    'organ>system':    () => ({ legA: [VIEWS.system.pos], end: VIEWS.system, from: 'organ', to: 'system', bodyFrom: 'organ', bodyTo: 'system' }),
-    'tissue>organ':    () => ({ legA: [[0, 0, 1600]], legB: [[0.002, 0.022, -0.068], [0.03, 0.04, -0.01], VIEWS.organ.pos], end: VIEWS.organ, swapAt: 0.3, thick: 2, from: 'tissue', to: 'organ' }),
-    'cell>tissue':     () => ({ legA: [[60, 60, 80]], legB: [[C.x, C.y, 60], [0, 0, 500], VIEWS.tissue.pos], end: VIEWS.tissue, swapAt: 0.3, thick: 0.05, from: 'cell', to: 'tissue' }),
-    'inside>cell':     () => ({ legA: [[camera.position.x, camera.position.y + 0.3, camera.position.z + 0.2]], legB: [[0.2, 6.2, -2.4], [3, 8.5, -1.5], [14, 14, 10], VIEWS.cell.pos], end: VIEWS.cell, swapAt: 0.2, from: 'inside', to: 'cell' }),
-    'molecules>inside': () => ({ legA: [camera.position.toArray()], end: VIEWS.inside, swapAt: 0.4, from: 'molecules', to: 'inside' }),
-  };
-  const SECONDS = { 'organism>system': 4, 'system>organ': 3.5, 'organ>tissue': 5, 'tissue>cell': 7, 'cell>inside': 9, 'inside>molecules': 3.5 };
-
-  async function step(to) {
-    const key = level + '>' + to;
-    if (to === 'tissue' || level === 'tissue') await tissueReady;
-    if (to === 'cell' || level === 'cell') await cellReady;
-    if (to === 'inside') await insideReady;
-    if (to === 'molecules' && !molApi) {
-      const M = await import('./molecules3d.js?v=' + v);
-      molApi = await M.build(THREE, G.mol, { v, small: await insideReady });
-    }
-    if (level === 'molecules' && molApi) molApi.leaveControls();
-    if (to === 'molecules') { molApi.setFrom(camera); molApi.recut({ position: new THREE.Vector3(0, 0.02, 1) }); }
-    const secs = SECONDS[key] || 3;
-    return new Promise(res => flyTo(FLIGHTS[key](), secs * (api._chain ? 0.55 : 1), () => {
-      if (to === 'molecules') molApi.enterControls(camera, cv, wake);
-      res();
-    }));
+    }, 60);
   }
 
   // ---------- render loop: runs only while something changes ----------
   // One frame is booked at a time. Anything that asks for a frame while one is being drawn (the orbit
   // controls report every turn they make, from inside the frame) only keeps the loop awake: booking a
   // second frame there doubled the work at every frame until the page froze.
-  let raf = 0, awake = 0, lastT = 0, inFrame = false;
+  let raf = 0, awake = 0, lastT = 0, inFrame = false, lastScale = 0;
   function wake() { awake = 3; if (!raf && !inFrame) raf = requestAnimationFrame(frame); }
   function frame(now) {
     raf = 0; inFrame = true;
     const dt = lastT ? Math.min(0.05, (now - lastT) / 1000) : 0.016; lastT = now;
-    if (flight) stepFlight(dt);
+    if (tween) tween.step(now);
+    else if (Math.abs(Zt - Z) > 1e-5) { const k = 1 - Math.exp(-dt * 5); Z += (Zt - Z) * k; if (Math.abs(Zt - Z) < 2e-4) Z = Zt; }
+    if (Z !== restAt || flight) setZ(Z);
     if (orbit.enabled) orbit.update();
-    if (level === 'inside' && groups.ribo) { groups.ribo.update(camera.position); groups.vesicle.update(camera.position); }
-    if (molApi && level === 'molecules') { molApi.tick(dt); molApi.update(); }
-    post.render(scene, camera);
+    if (restAt === 5 && groups.ribo) { const c = G.inside.worldToLocal(camera.position.clone()); groups.ribo.update(c); groups.vesicle.update(c); }
+    if (molApi && restAt === 6) { molApi.tick(dt); molApi.update(); }
+    draw();
+    drawTags();
+    if (hoverWant && now - hoverLast > 80 && !tween) {
+      hoverLast = now; const [hx, hy] = hoverWant; hoverWant = null;
+      const p = pickAt(hx, hy); emit('hover', p.part ? p : null);
+    }
+    if (flight && now - lastScale > 200) { lastScale = now; measureScale(); }
     inFrame = false;
-    const busy = flight || (orbit.enabled && orbit.autoRotate) || (molApi && level === 'molecules' && molApi.animating());
+    const moving = tween || Math.abs(Zt - Z) > 1e-5 || hoverWant;
+    const busy = moving || (orbit.enabled && orbit.autoRotate) || (molApi && restAt === 6 && molApi.animating());
     if (!busy && --awake <= 0) { lastT = 0; measureScale(); return; }
     raf = requestAnimationFrame(frame);
   }
-  // the picture's subject is centred in the space the page leaves free (beside the ruler, above the caption)
+  // the picture's subject is centred in the space the page leaves free (beside the ruler and the caption)
   const inset = { left: 0, right: 0, top: 0, bottom: 0 };
   function applyInset() {
     const dx = (inset.left - inset.right) / 2, dy = (inset.bottom - inset.top) / 2;
@@ -450,27 +905,31 @@ export async function mount(el, opts = {}) {
   const ro = new ResizeObserver(() => { camera.aspect = W() / H(); applyInset(); renderer.setSize(W(), H()); post.setSize(W(), H(), dpr); wake(); measureScale(); });
   ro.observe(el);
 
-  showLevel('organism');
-  camera.position.fromArray(VIEWS.organism.pos); camera.lookAt(new THREE.Vector3().fromArray(VIEWS.organism.at));
-  setControls('organism'); post.set(LOOK.organism);
+  placeGroups();
+  stateAt(0); arrive(0);
   wake();
 
   const api = {
     THREE, camera, scene, renderer, post, groups, counts, insideReady, cellReady, tissueReady,
-    get level() { return level; },
-    get flying() { return !!flight; },
+    get tissue() { return tissue; },
+    get level() { return LEVELS[Math.round(Z)]; },
+    get Z() { return Z; },
+    get Zt() { return Zt; },
+    get flying() { return !!tween || Math.abs(Zt - Z) > 1e-5; },
     get molecules() { return molApi; },
     on(k, f) { listeners[k].push(f); return api; },
     setInset(o) { Object.assign(inset, o); applyInset(); wake(); },
-    // go to any rung, one step at a time
+    // glide to any level; a button press. Several levels in one glide go faster.
     async goTo(to) {
-      const a = LEVELS.indexOf(level), b = LEVELS.indexOf(to);
-      if (a < 0 || b < 0 || a === b || flight) return;
-      const dir = b > a ? 1 : -1;
-      api._chain = Math.abs(b - a) > 1;
-      for (let i = a; i !== b; i += dir) await step(LEVELS[i + dir]);
-      api._chain = false;
+      const b = LEVELS.indexOf(to); if (b < 0) return;
+      const a = Z;
+      let secs = 0; for (let i = Math.floor(Math.min(a, b)); i < Math.ceil(Math.max(a, b)); i++) secs += SECONDS[i] || 3;
+      if (Math.abs(b - a) > 1.01) secs = Math.min(12, secs * 0.55);
+      await glide(b, secs);
     },
+    // scrub: put the zoom at Z at once (for checks)
+    async setZ(z) { await ensure(Math.min(5, Math.floor(z))); if (tween) tween.cancel(); Zt = z; Z = z; setZ(z); draw(); drawTags(); },
+    nudge,
     setShown(part, on) {
       G.inside.traverse(o => { if (o.userData.part === part) o.visible = on; });
       if (groups[part] && groups[part].mesh) { groups[part].mesh.visible = on; if (groups[part].pts) groups[part].pts.visible = on; }
@@ -478,14 +937,12 @@ export async function mount(el, opts = {}) {
     },
     view(pos, at) {
       camera.position.fromArray(pos); camera.lookAt(new THREE.Vector3().fromArray(at));
-      if (level === 'molecules' && molApi) molApi.recut(camera);
       if (look.on) syncLook();
       if (orbit.enabled) { orbit.target.fromArray(at); orbit.update(); }
       wake();
     },
-    render() { if (groups.ribo && level === 'inside') { groups.ribo.update(camera.position, true); groups.vesicle.update(camera.position, true); } post.render(scene, camera); },
-    // for checks: put a running flight at time t (0..1) and draw that frame
-    seekFlight(t) { if (!flight) return false; flight.t = Math.min(1, Math.max(0, t)); stepFlight(0); post.render(scene, camera); return true; },
+    render() { draw(); drawTags(); },
+    seekFlight() { return false; },
     stopAutoRotate() { orbit.autoRotate = false; },
     dispose() { cancelAnimationFrame(raf); ro.disconnect(); orbit.dispose(); renderer.dispose(); cv.remove(); },
   };
@@ -748,6 +1205,8 @@ function centrioles(list, parent) {
 //  2. ambient occlusion at half size: how hidden each point is by its neighbours, read from the depth buffer;
 //  3. one full-screen shader: the occlusion smoothed with a depth-aware blur, dark outlines where depth jumps,
 //     and a haze that thickens with distance.
+// Where two levels meet, the first is finished into a picture of its own (`to`), and the second, as it is
+// finished, is blended over it (`under`, `mix`): two whole pictures, crossfaded.
 function makePost(renderer, o) {
   const depth = new THREE.DepthTexture(1, 1); depth.type = o.depthUint ? THREE.UnsignedIntType : THREE.FloatType;
   const rt = new THREE.WebGLRenderTarget(1, 1, { samples: o.samples, type: THREE.HalfFloatType, depthTexture: depth });
@@ -773,6 +1232,7 @@ function makePost(renderer, o) {
     uRes: { value: new THREE.Vector2(1, 1) }, uAORes: { value: new THREE.Vector2(1, 1) }, uKernel: { value: kernel },
     uRadius: { value: o.aoRadius }, uAO: { value: o.ao }, uFog: { value: o.fog },
     uFogColor: { value: new THREE.Color(o.fogColor) }, uEdge: { value: o.edge },
+    tUnder: { value: null }, uMix: { value: 1 },
   };
   // 4 x 4 tile of rotations: the noise is regular, so the blur below removes it completely
   const aoMat = new THREE.ShaderMaterial({
@@ -806,7 +1266,7 @@ function makePost(renderer, o) {
     uniforms: U, vertexShader: vert, depthTest: false, depthWrite: false,
     fragmentShader: `
       ${common}
-      uniform sampler2D tColor, tAO; uniform vec2 uAORes; uniform float uAO, uFog, uEdge; uniform vec3 uFogColor;
+      uniform sampler2D tColor, tAO, tUnder; uniform vec2 uAORes; uniform float uAO, uFog, uEdge, uMix; uniform vec3 uFogColor;
       void main() {
         float d0 = texture2D(tDepth, vUv).r;
         vec3 col = texture2D(tColor, vUv).rgb;
@@ -835,6 +1295,7 @@ function makePost(renderer, o) {
         } else {
           col = mix(col, uFogColor, clamp(uFog * 40.0, 0.0, 1.0));
         }
+        if (uMix < 1.0) col = mix(texture2D(tUnder, vUv).rgb, col, uMix);
         gl_FragColor = vec4(col, 1.0);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
@@ -843,20 +1304,34 @@ function makePost(renderer, o) {
   const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
   const qs = new THREE.Scene(); qs.add(quad);
   const qc = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+  let under = null;                    // made the first time two levels are blended
   return {
     rt, mat,
     setSize(w, h, dpr) {
       const W = Math.round(w * dpr), H = Math.round(h * dpr);
       rt.setSize(W, H); U.uRes.value.set(W, H);
+      if (under) under.setSize(W, H);
       const aw = Math.max(1, Math.round(W / 2)), ah = Math.max(1, Math.round(H / 2));
       aoRT.setSize(aw, ah); U.uAORes.value.set(aw, ah);
     },
+    fogColor(c) { U.uFogColor.value.copy(c); },
     set(p) { if (p.fog != null) U.uFog.value = p.fog; if (p.aoRadius != null) U.uRadius.value = p.aoRadius; if (p.ao != null) U.uAO.value = p.ao; if (p.edge != null) U.uEdge.value = p.edge; },
-    render(scene, camera) {
+    render(scene, camera, how = {}) {
       renderer.setRenderTarget(rt); renderer.render(scene, camera);
       U.uProj.value.copy(camera.projectionMatrix); U.uInvProj.value.copy(camera.projectionMatrixInverse);
       quad.material = aoMat; renderer.setRenderTarget(aoRT); renderer.render(qs, qc);
+      if (how.to) {
+        // finished into a picture of its own; drawn into a target, three.js leaves out the tone mapping, so the
+        // blend below happens before it, as for one picture
+        if (!under) { under = new THREE.WebGLRenderTarget(rt.width, rt.height, { type: THREE.HalfFloatType }); }
+        U.uMix.value = 1; U.tUnder.value = null;      // (never read the picture being drawn into)
+        quad.material = mat; renderer.setRenderTarget(under); renderer.render(qs, qc);
+        return;
+      }
+      U.tUnder.value = how.under && under ? under.texture : null;
+      U.uMix.value = how.under && under ? how.mix : 1;
       quad.material = mat; renderer.setRenderTarget(null); renderer.render(qs, qc);
+      U.uMix.value = 1; U.tUnder.value = null;
     },
   };
 }

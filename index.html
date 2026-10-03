@@ -17,7 +17,7 @@
 <link rel="stylesheet" media="print" onload="this.media='all'"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-<link rel="stylesheet" href="css/app.css?v=1791026551">
+<link rel="stylesheet" href="css/app.css?v=1791032263">
 </head>
 <body>
 <main class="zoom" id="zoom">
@@ -65,6 +65,46 @@
     </div>
   </section>
 
+  <!-- the real tissue beside the model: the slice outlined on the model's front face, seen through a light microscope -->
+  <figure class="micro" id="micro" hidden>
+    <div class="micro__img">
+      <img src="assets/tissue/endocervix-tissue.jpg" alt="A photograph through a light microscope of the lining of the cervix, stained pink and purple" width="1100" height="1692">
+      <b class="pin pin--left" style="left:81.8%;top:8.4%;--c:#d9b3cc"><i></i>Lining cells</b>
+      <b class="pin pin--left" style="left:69.1%;top:14.2%;--c:#5b4bb5"><i></i>Nucleus</b>
+      <b class="pin" style="left:45.5%;top:39.4%;--c:#ebb0c3"><i></i>Connective tissue</b>
+      <b class="pin pin--left" style="left:65.2%;top:51.7%;--c:#d9364c"><i></i>Capillary</b>
+      <b class="pin" style="left:50%;top:75.8%;--c:#6a3f9c"><i></i>Crypt, cut across</b>
+    </div>
+    <figcaption>The real tissue: a slice like the outlined face, through a light microscope. About 0.5&nbsp;mm across.</figcaption>
+  </figure>
+
+  <!-- closer, as the zoom goes into one lining cell: the same tissue at a higher magnification -->
+  <figure class="micro" id="micro2" hidden>
+    <div class="micro__img">
+      <img src="assets/tissue/endocervix-cells.jpg" alt="A closer photograph through a light microscope: tall lining cells side by side, each with its nucleus, and connective tissue beside them" width="375" height="789">
+      <b class="pin pin--left" style="left:76%;top:48.2%;--c:#d9b3cc"><i></i>One lining cell</b>
+      <b class="pin pin--left" style="left:60%;top:53.2%;--c:#5b4bb5"><i></i>Its nucleus</b>
+      <b class="pin" style="left:20%;top:41.8%;--c:#ebb0c3"><i></i>Connective tissue</b>
+      <b class="pin" style="left:10.7%;top:55.8%;--c:#d9364c"><i></i>Red blood cell</b>
+    </div>
+    <figcaption>Closer: one layer of tall cells, side by side, each with its nucleus. About 0.06&nbsp;mm across. The lit-up cell in the model is a cell like these.</figcaption>
+  </figure>
+
+  <!-- the real cell beside the organelles: one electron-microscope slice of this same cell, straight ahead -->
+  <figure class="micro micro--em" id="emfig" hidden>
+    <div class="micro__img">
+      <img src="assets/cell/em-slice.webp" alt="An electron micrograph: a slice through this HeLa cell, its nucleus above and the crowded cytoplasm below" width="751" height="400">
+      <img class="micro__over" src="assets/cell/em-outline.png" alt="" width="751" height="400">
+    </div>
+    <ul class="key">
+      <li style="--c:#5b4bb5">Nucleus</li><li style="--c:#2fa38c">Endoplasmic reticulum</li><li style="--c:#e8613a">Mitochondria</li>
+      <li style="--c:#e3a72f">Golgi apparatus</li><li style="--c:#d1497b">Lysosomes</li><li style="--c:#b898c8">Endosomes</li><li style="--c:#e2c6dd">Cell membrane</li>
+    </ul>
+    <figcaption>This cell under the electron microscope: one real slice, 12&nbsp;µm across, cut through the green frame in front of you. Each part the computer found is outlined in its colour in the 3D. The faint dark stripes are marks left by the microscope's beam.</figcaption>
+  </figure>
+
+  <div class="hovertip" id="hovertip" hidden><i></i><span></span></div>
+
   <!-- Eric Betzig: appears, and plays, when you reach the cell -->
   <figure class="film" id="film" hidden>
     <video id="filmVideo" playsinline preload="metadata" poster="assets/film/betzig-poster.jpg">
@@ -111,23 +151,25 @@
   <h3>Real</h3>
   <ul>
     <li><b>The body and her organs</b>: the Visible Human Female, a real woman's body that was cut into thin slices and photographed for a medical atlas (US National Library of Medicine). The organs were traced for the HuBMAP Human Reference Atlas.</li>
-    <li><b>The tissue</b>: two photographs of the lining of a cervix, taken through a light microscope.</li>
-    <li><b>The cell and its organelles</b>: measured by an electron microscope. The shape, size and place of the cell, its nucleus, mitochondria, endoplasmic reticulum, Golgi apparatus, lysosomes, endosomes and lipid droplets; the place of every ribosome, vesicle and pore in the nucleus; the path of every microtubule; where the two centrioles are and which way they point.</li>
+    <li><b>The tissue's photograph</b>: the lining of a cervix, through a light microscope.</li>
+    <li><b>The cell and its organelles</b>, and the slice of it shown beside the organelles: measured by an electron microscope. The shape, size and place of the cell, its nucleus, mitochondria, endoplasmic reticulum, Golgi apparatus, lysosomes, endosomes and lipid droplets; the place of every ribosome, vesicle and pore in the nucleus; the path of every microtubule; where the two centrioles are and which way they point.</li>
   </ul>
   <h3>Drawn from what is known</h3>
   <ul>
+    <li><b>The cut organ</b>: the outline of the cut is real (the Atlas's uterus and cervix); the layers inside the wall are drawn at the widths histology describes, in the colours of a stained slide.</li>
+    <li><b>The tissue is a model</b>, built to the sizes measured in its photograph: cells about 30&nbsp;µm tall and 7&nbsp;µm across, nuclei about 5 by 10&nbsp;µm near the base of each cell, a crypt, and connective tissue with capillaries. Where each cell and fibre sits is made up.</li>
     <li>The shape of a ribosome, a pore in the nucleus and a centriole: the microscope shows where each one is; the shape is drawn at its real size from other studies. A vesicle is a ball of the volume that was measured; a microtubule is a tube 25&nbsp;nm wide along the path that was measured.</li>
     <li><b>The molecules are a model.</b> Measured, and used: the shape and size of each kind of protein (Protein Data Bank), how many of each kind a HeLa cell holds (Mueller et al. 2020), about 3 million protein molecules in every cubic micrometre (Milo 2013), kinesin's 8&nbsp;nm steps. Made up: where each molecule sits, the kinesin's stalk, and the speed. Kinesin takes about 100 steps a second; here it takes one. At that speed the other molecules would be a blur, so here they move only when the vesicle reaches them.</li>
   </ul>
   <h3>Not the same person</h3>
-  <ul><li>The body, the tissue and the cell come from three different people. The cell is a HeLa cell grown in a laboratory, not a cell from this body.</li></ul>
+  <ul><li>The body, the tissue's photograph and the cell come from three different people. The cell is a HeLa cell grown in a laboratory (cells of this kind first came from the lining of a cervix), not a cell from this body.</li></ul>
   <h3>Not shown</h3>
   <ul>
     <li>Water and ions, and at the organelle level almost all the proteins: too small to see at that zoom, and far too many to draw.</li>
     <li>Movement inside the cell. It was frozen, so the cell is one moment. In a living cell all of it moves, all the time.</li>
   </ul>
   <h3>Chosen</h3>
-  <ul><li>The colours of the 3D parts: most of the parts of a cell are smaller than a wave of light, so they have no colour of their own. The haze shows how far away something is.</li></ul>
+  <ul><li>The colours of the 3D parts: most of the parts of a cell are smaller than a wave of light, so they have no colour of their own. One thing keeps one colour all the way down: the nucleus is violet in the tissue, the cell and the organelles. The haze shows how far away something is.</li></ul>
   <p class="fineprint">The computer that found each part of the cell makes some mistakes, so a few small pieces are missing or wrongly named.</p>
   <h3>Sources</h3>
   <p class="fineprint">
@@ -141,7 +183,7 @@
   <p class="fineprint">Something wrong, or a suggestion? Please contact me: <a href="mailto:dmompelriera@nlcsjeju.kr">dmompelriera@nlcsjeju.kr</a>. Checked against the Cambridge IGCSE Biology 0610 syllabus for 2026–2028.</p>
 </dialog>
 
-<script src="js/topics.js?v=1791026551"></script>
-<script type="module" src="js/intro.js?v=1791026551"></script>
+<script src="js/topics.js?v=1791032263"></script>
+<script type="module" src="js/intro.js?v=1791032263"></script>
 </body>
 </html>
