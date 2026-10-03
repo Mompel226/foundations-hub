@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS } from './cell3d.js?v=1791024853';
+import { mount, PARTS, LEVELS } from './cell3d.js?v=1791026551';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -316,7 +316,9 @@ async function start() {
     hideCard();
   });
   try {
-    cell = await mount(gl, { v: '1791024853', test: /[?&]test=1/.test(location.search) });
+    const Q = new URLSearchParams(location.search);
+    cell = await mount(gl, { v: '1791026551', test: Q.get('test') === '1',
+      samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u' });
   } catch (e) {
     console.error(e);
     $('#loading').hidden = true; $('#nogl').hidden = false;

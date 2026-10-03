@@ -96,7 +96,7 @@ export async function mount(el, opts = {}) {
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', preserveDrawingBuffer: !!opts.test });
   const coarse = matchMedia('(pointer: coarse)').matches;
-  const dpr = Math.min(window.devicePixelRatio || 1, coarse ? 1.5 : 2);
+  const dpr = Math.min(window.devicePixelRatio || 1, opts.dprCap || (coarse ? 1.5 : 2));
   renderer.setPixelRatio(dpr);
   renderer.setSize(W(), H());
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -113,7 +113,7 @@ export async function mount(el, opts = {}) {
   scene.add(camera);
   scene.add(new THREE.HemisphereLight(0xf2f4ff, 0x4a4038, 1.6));
   const head = new THREE.DirectionalLight(0xffffff, 1.4); head.position.set(0.3, 0.4, 1); camera.add(head);
-  const post = makePost(renderer, { ...LOOK.organism, fogColor: FOG });
+  const post = makePost(renderer, { ...LOOK.organism, fogColor: FOG, samples: opts.samples ?? 4, depthUint: !!opts.depthUint });
   post.setSize(W(), H(), dpr);
 
   const G = { body: new THREE.Group(), tissue: new THREE.Group(), cell: new THREE.Group(), inside: new THREE.Group(), mol: new THREE.Group() };
@@ -290,9 +290,16 @@ export async function mount(el, opts = {}) {
   function measureScale() {
     clearTimeout(scaleTimer);
     scaleTimer = setTimeout(() => {
-      ray.setFromCamera(new THREE.Vector2(0, 0), camera); ray.near = camera.near; ray.far = camera.far;
-      const h = ray.intersectObjects(pickables(), false).find(x => x.object.userData.part !== 'cell' && x.object.userData.part !== 'body');
-      const dist = h ? h.distance : (orbit.enabled ? camera.position.distanceTo(orbit.target) : level === 'inside' ? 1.0 : 0.08);
+      // the distance to what is in the middle of the view: from a ray where the scene is light, and where it is
+      // heavy (1.2 million triangles among the organelles, thousands of molecules) a fixed typical distance,
+      // because testing every triangle there stalled the page for a quarter of a second each time the view stopped
+      let dist = null;
+      if (level !== 'inside' && level !== 'molecules') {
+        ray.setFromCamera(new THREE.Vector2(0, 0), camera); ray.near = camera.near; ray.far = camera.far;
+        const h = ray.intersectObjects(pickables(), false).find(x => x.object.userData.part !== 'cell' && x.object.userData.part !== 'body');
+        if (h) dist = h.distance;
+      }
+      if (dist == null) dist = orbit.enabled ? camera.position.distanceTo(orbit.target) : level === 'inside' ? 0.8 : 0.17;
       const pxPerUnit = H() / (2 * dist * Math.tan(camera.fov * Math.PI / 360));
       const pxPerUm = pxPerUnit / UNIT_UM[level];
       const want = W() * 0.16 / pxPerUm;
@@ -415,16 +422,20 @@ export async function mount(el, opts = {}) {
   }
 
   // ---------- render loop: runs only while something changes ----------
-  let raf = 0, awake = 0, lastT = 0;
-  function wake() { awake = 3; if (!raf) raf = requestAnimationFrame(frame); }
+  // One frame is booked at a time. Anything that asks for a frame while one is being drawn (the orbit
+  // controls report every turn they make, from inside the frame) only keeps the loop awake: booking a
+  // second frame there doubled the work at every frame until the page froze.
+  let raf = 0, awake = 0, lastT = 0, inFrame = false;
+  function wake() { awake = 3; if (!raf && !inFrame) raf = requestAnimationFrame(frame); }
   function frame(now) {
-    raf = 0;
+    raf = 0; inFrame = true;
     const dt = lastT ? Math.min(0.05, (now - lastT) / 1000) : 0.016; lastT = now;
     if (flight) stepFlight(dt);
     if (orbit.enabled) orbit.update();
     if (level === 'inside' && groups.ribo) { groups.ribo.update(camera.position); groups.vesicle.update(camera.position); }
     if (molApi && level === 'molecules') { molApi.tick(dt); molApi.update(); }
     post.render(scene, camera);
+    inFrame = false;
     const busy = flight || (orbit.enabled && orbit.autoRotate) || (molApi && level === 'molecules' && molApi.animating());
     if (!busy && --awake <= 0) { lastT = 0; measureScale(); return; }
     raf = requestAnimationFrame(frame);
@@ -738,8 +749,8 @@ function centrioles(list, parent) {
 //  3. one full-screen shader: the occlusion smoothed with a depth-aware blur, dark outlines where depth jumps,
 //     and a haze that thickens with distance.
 function makePost(renderer, o) {
-  const depth = new THREE.DepthTexture(1, 1); depth.type = THREE.FloatType;
-  const rt = new THREE.WebGLRenderTarget(1, 1, { samples: 4, type: THREE.HalfFloatType, depthTexture: depth });
+  const depth = new THREE.DepthTexture(1, 1); depth.type = o.depthUint ? THREE.UnsignedIntType : THREE.FloatType;
+  const rt = new THREE.WebGLRenderTarget(1, 1, { samples: o.samples, type: THREE.HalfFloatType, depthTexture: depth });
   const aoRT = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, magFilter: THREE.LinearFilter, minFilter: THREE.LinearFilter });
   const K = 20, kernel = [];
   let seed = 3; const r = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
