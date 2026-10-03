@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791042281';
+import { build as buildTissue } from './tissue3d.js?v=1791042681';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -98,7 +98,7 @@ const LOOK = {
   system:    { fog: 0.0,   aoRadius: 0.006, ao: 0.8, edge: 0.8 },
   organ:     { fog: 0.0,   aoRadius: 0.002, ao: 0.8, edge: 0.9 },
   tissue:    { fog: 0.0,   aoRadius: 5,     ao: 0.8, edge: 0.7 },
-  cell:      { fog: 0.010, aoRadius: 0.9,   ao: 0.9, edge: 0.7 },
+  cell:      { fog: 0.010, aoRadius: 0.9,   ao: 0.9, edge: 0.3 },     // (light outlines: thin shapes drew dashes)
   inside:    { fog: 0.24,  aoRadius: 0.06,  ao: 1.0, edge: 1.0 },
   molecules: { fog: 2.2,   aoRadius: 0.005, ao: 1.0, edge: 0.6 },
 };
@@ -342,7 +342,14 @@ export async function mount(el, opts = {}) {
     // the slice the photograph beside it shows is outlined on the block's cut face (tissue3d's frame)
     slideLine = { material: tissue.frameMat };
     // the one lining cell the zoom goes into has a group of its own: it lifts out of the tissue and spreads flat
-    G.single.add(tissue.single); tissue.single.visible = true;
+    G.single.add(tissue.single, tissue.singleNuc); tissue.single.visible = true;
+    {   // the dish the lifted cell settles on: the same glass, in the same place, as under the HeLa cell
+      const b0 = tissue.target.base;
+      dishMat = new THREE.MeshLambertMaterial({ color: 0x9fb4c6, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide });
+      const dish = new THREE.Mesh(new THREE.PlaneGeometry(37, 52), dishMat);
+      dish.rotation.x = -Math.PI / 2; dish.position.set(b0[0], b0[1] + LIFT - 0.02, b0[2]); dish.userData.part = 'glass';
+      G.single.add(dish);
+    }
     const b = tissue.target.base;
     anchors.push({ group: 'single', frame: 'tissue', p: [b[0], b[1] + 20, b[2]], r: 12, text: 'One lining cell', part: 'tcell', z: [3.12, 3.4], free: true, dyn: 'single' });
     anchors.push({ group: 'single', frame: 'tissue', p: [b[0], b[1] + 20, b[2]], r: 12, text: 'Grown in a dish, a cell like this spreads flat', part: 'tcell', z: [3.42, 3.66], free: true, dyn: 'single' });
@@ -354,15 +361,28 @@ export async function mount(el, opts = {}) {
     res();
   }, 60));
   // the lining cell at a point of its lift (0 in the tissue, 1 out of it) and its spreading (0 tall, 1 flat), as a
-  // dish makes it: about 45 µm across and 6 µm high, like the HeLa cell that takes its place
+  // dish makes it: flat, on the HeLa cell's own footprint (its block is 49 µm by 33 µm, turned a quarter turn here:
+  // 33 µm along x, 49 µm along z; the column is 6.75 µm by 7.8 µm) and 6 µm high, so the real cell takes its place
+  // without a jump. Its nucleus grows from the column's (5 by 10 µm, near its base) to the HeLa nucleus's.
+  const SPREAD = new THREE.Vector3(33.4 / 6.75, 6 / 30, 49 / 7.8);
+  const HELA_NUC = { at: [-2.5, 3.1, 0.4], r: [6.85, 2.4, 10.7] };   // from the cell's base middle, tissue axes
   const singleMatrix = (lift, flat) => {
     const t = tissue.target, m = new THREE.Matrix4(), pos = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
     t.pose.decompose(pos, q, s);
     pos.y += LIFT * lift;
     q.slerp(new THREE.Quaternion(), lift);                              // it stands upright as it rises
-    const wide = THREE.MathUtils.lerp(1, 6.2, flat), high = THREE.MathUtils.lerp(s.y, 6 / 30, flat);
-    return m.compose(pos, q, new THREE.Vector3(wide, high, wide * 0.8));
+    return m.compose(pos, q, new THREE.Vector3(THREE.MathUtils.lerp(1, SPREAD.x, flat), THREE.MathUtils.lerp(s.y, SPREAD.y, flat), THREE.MathUtils.lerp(1, SPREAD.z, flat)));
   };
+  const singleNucMatrix = (lift, flat) => {
+    const t = tissue.target, pos = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3();
+    t.pose.decompose(pos, q, s);
+    pos.y += LIFT * lift; q.slerp(new THREE.Quaternion(), lift);
+    const p0 = new THREE.Vector3(0, tissue.nucUp, 0).applyQuaternion(q).add(pos);
+    const p1 = new THREE.Vector3(...HELA_NUC.at).add(new THREE.Vector3(t.base[0], t.base[1] + LIFT, t.base[2]));
+    const r0 = new THREE.Vector3(2.5, 5.2, 2.5), r1 = new THREE.Vector3(...HELA_NUC.r);
+    return new THREE.Matrix4().compose(p0.lerp(p1, flat), q, r0.lerp(r1, flat));
+  };
+  let dishMat = null;
   let singleAt = [0, 0, 0];
   // As soon as a level's files are here, its shaders are made in the background and its shapes are sent to the
   // graphics card (drawn once, every part, into one hidden pixel), so that scrolling into it never stalls: the
@@ -552,6 +572,7 @@ export async function mount(el, opts = {}) {
     body:   { body: 1 },
     tissue: { tissue: 1, single: 1 },
     lift:   { tissue: 1, single: 1 },          // (the lining cell rises out of the tissue, which stays below it)
+    dish:   { tissue: 1, cell: 1, twins: 1 },  // the HeLa cell where the lining cell spread, the tissue still below
     cell:   { cell: 1, twins: 1 },             // the whole cell, its organelles all coarse
     inside: { cell: 1, inside: 1 },            // the whole cell round the box, the detail in the box
     deep:   { inside: 1 },                     // through the membrane: the whole cell beyond the box is 2.5 µm and more
@@ -573,9 +594,10 @@ export async function mount(el, opts = {}) {
     setKnife(Z < 1.4 ? 1 : 0.06 * (1 - sm(Z, 1.4, 1.92)));
     cap.visible = Z > 1.84;
     // which levels are drawn, and how much of each: [layer, weight]
-    const mixes = [[2.78, 2.92, LAYER.body, LAYER.tissue], [3.6, 3.74, LAYER.tissue, LAYER.cell],
+    // tissue to cell: first the spread lining cell becomes the HeLa cell (the tissue stays), then the tissue goes
+    const mixes = [[2.78, 2.92, LAYER.body, LAYER.tissue], [3.62, 3.74, LAYER.tissue, LAYER.dish], [3.8, 3.92, LAYER.dish, LAYER.cell],
       [4.45, 4.75, LAYER.cell, LAYER.inside], [5.35, 5.6, LAYER.deep, LAYER.mol]];
-    const order = [[2.78, LAYER.body], [3.6, LAYER.tissue], [4.45, LAYER.cell], [4.985, LAYER.inside], [5.35, LAYER.deep], [9, LAYER.mol]];
+    const order = [[2.78, LAYER.body], [3.62, LAYER.tissue], [3.8, LAYER.dish], [4.45, LAYER.cell], [4.985, LAYER.inside], [5.35, LAYER.deep], [9, LAYER.mol]];
     layers = null;
     for (const [a, b, A, B] of mixes) if (Z > a && Z < b) { const k = sm(Z, a, b); layers = [[A, 1 - k], [B, k]]; }
     if (!layers) layers = [[order.find(([z]) => Z <= z)[1], 1]];
@@ -584,9 +606,19 @@ export async function mount(el, opts = {}) {
     // the one lining cell the zoom goes into lights up; the slice the photograph shows is outlined
     // then it rises out of the tissue (3.32-3.5) and spreads flat (3.46-3.66), and the HeLa cell takes its place
     if (tissue) {
-      tissue.single.material.emissive.setHex(0x8a3c9a).multiplyScalar(sm(Z, 3.05, 3.25) * (1 - 0.6 * sm(Z, 3.5, 3.66)));
-      const lift = sm(Z, 3.32, 3.5), flat = sm(Z, 3.46, 3.66);
-      tissue.single.matrix.copy(singleMatrix(lift, flat)); tissue.single.matrixWorldNeedsUpdate = true;
+      // the front-row cell: shown whole from 3.0 (its cut twin hidden), lit up, then it rises, its membrane clearing
+      // so its nucleus shows; a dish appears under it; it spreads to the HeLa cell's footprint, its nucleus to the
+      // HeLa nucleus (size and place), and the real cell fades in on the same spot (LAYER.dish)
+      const show = Z > 3.0, sg = tissue.single, sm1 = sg.material;
+      sg.visible = show; tissue.singleNuc.visible = show; tissue.hideFront(show);
+      // (it stays lit, and drawn with depth so it keeps its outline, until it has spread: among the other cells a
+      // faint see-through cell could not be told from them)
+      sm1.emissive.setHex(0x8a3c9a).multiplyScalar(sm(Z, 3.05, 3.25) * (1 - 0.7 * sm(Z, 3.52, 3.64)));
+      const lift = sm(Z, 3.30, 3.48), flat = sm(Z, 3.46, 3.64);
+      sm1.opacity = 1 - 0.38 * sm(Z, 3.28, 3.4) - 0.17 * flat; sm1.depthWrite = true;
+      sg.matrix.copy(singleMatrix(lift, flat)); sg.matrixWorldNeedsUpdate = true;
+      tissue.singleNuc.matrix.copy(singleNucMatrix(lift, flat)); tissue.singleNuc.matrixWorldNeedsUpdate = true;
+      if (dishMat) dishMat.opacity = 0.18 * sm(Z, 3.40, 3.52);
       const b = tissue.target.base; singleAt = [b[0], b[1] + LIFT * lift + 20 * (1 - flat) + 7 * flat, b[2]];
       slideLine.material.opacity = 0.9 * sm(Z, 2.9, 2.98) * (1 - sm(Z, 3.08, 3.2));
     }
