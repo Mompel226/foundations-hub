@@ -1,7 +1,7 @@
-# Cells Lab: the zoom's sources, licences and changes
+# Foundations: the zoom's sources, licences and changes
 
-Every picture in the opening zoom is made from real data. The scripts that made the files are in
-`labs/cells-lab-source/tools/` (never published); the downloaded data are kept outside the estate, in
+Every picture in the zoom is made from real data. The scripts that made the files are in
+`tools/model-build/`; the downloaded data are kept outside the estate, in
 `~/Library/Caches/biology-hub/`, and can be fetched again by the same scripts.
 
 ## 1–3. The body, the reproductive system, the uterus (`body/anatomy.glb`)

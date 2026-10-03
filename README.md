@@ -1,14 +1,14 @@
 <div align="center">
 
-<h1>🔬 &nbsp;Cells Lab</h1>
+<h1>🔬 &nbsp;Foundations</h1>
 
-**Cambridge IGCSE Biology 0610 · Topic 2, Organisation of the organism**
+**The science everything leans on · Cambridge IGCSE Biology 0610, topics 2–5**
 
-[![Open the lab](https://img.shields.io/badge/▶_Open_the_lab-0969DA?style=for-the-badge&logoColor=white)](https://nlcsbiology.com/cells-lab/)
+[![Open Foundations](https://img.shields.io/badge/▶_Open_Foundations-0969DA?style=for-the-badge&logoColor=white)](https://nlcsbiology.com/foundations-hub/)
 
+![4 topics](https://img.shields.io/badge/topics-2_·_3_·_4_·_5-C026D3)
 ![7 levels](https://img.shields.io/badge/7-levels-0E2A22)
 ![Real data](https://img.shields.io/badge/every_level-real_data-1E7A3E)
-![3D](https://img.shields.io/badge/3D-in_the_browser-0B6A8C)
 
 by **Dr Daniel Mompel Riera** · NLCS Jeju
 
@@ -18,33 +18,34 @@ by **Dr Daniel Mompel Riera** · NLCS Jeju
 
 ---
 
-## What a student does
+## What this is
 
-Zoom from a whole human body down to the molecules of one of her cells, one level at a time, and read
-what each level is in the words the exam uses:
+One shelf of the [Biology Hub](https://nlcsbiology.com/biology-hub/), for the four topics every other topic
+leans on. The other shelves move *across* something (a body, a plant, a tree of life); this one moves
+*down* into one: a zoom ladder from a whole human to the molecules of one of her cells. The map teaches
+Topic 2 by being it, and each topic sits at the level it is about:
 
-| | |
-|---|---|
-| **Organism** | a real woman's body, from a medical atlas |
-| **Organ system** | her reproductive system |
-| **Organ** | the uterus and its cervix |
-| **Tissue** | two real photographs of the lining of the cervix |
-| **Cell** | one real HeLa cell, imaged in 3D by an electron microscope; Eric Betzig (Nobel Prize in Chemistry 2014) says why the pictures in biology books are wrong |
-| **Organelles** | inside that cell, every part at its measured size and in its measured place: 257,653 ribosomes in one small box |
-| **Molecules** | a model, labelled as one: real protein shapes in the numbers a HeLa cell holds, and a kinesin walking a microtubule through the crowd |
+| Level | What you see | Topics here |
+|---|---|---|
+| **Organism** | a real woman's body, from a medical atlas | 2 |
+| **Organ system** | her reproductive system | 2 |
+| **Organ** | the uterus and its cervix | 2 |
+| **Tissue** | two real photographs of the lining of the cervix | 2 |
+| **Cell** | one real HeLa cell, imaged in 3D by an electron microscope; Eric Betzig (Nobel Prize in Chemistry 2014) says why the pictures in biology books are wrong | 2 · 3 |
+| **Organelles** | inside that cell, every part at its measured size and place: 257,653 ribosomes in one small box | 2 · 3 |
+| **Molecules** | a model, labelled as one: real protein shapes in the numbers a HeLa cell holds, and a kinesin walking a microtubule through the crowd | 4 · 5, the Protein & Enzyme Sim |
 
-A size ruler down the side runs from 1 m to 10 nm, so each step shows how much bigger things get.
+A size ruler runs from 1 m to 10 nm, with each topic bracketed beside its levels; the caption gives each
+level's definition in the words the exam uses, and how many times bigger the next step makes things.
 Tap any part to see its name, what it does, and whether the syllabus names it.
 
 ![The seven levels](docs/img/seven-levels.jpg)
 
-> [!NOTE]
-> This is the lab's opening. Its stations, with questions that mark themselves, come next.
+## Adding a lab
 
-## Where it sits
-
-On the [Biology Hub](https://nlcsbiology.com/biology-hub/), behind the Foundations door (topics 2–5).
-**← Biology Hub** at the top goes back.
+Edit **`js/topics.js`**: give the topic its `url` and set `status: 'live'`. Then, outside this repository:
+its row in `labs-shared/labs.json`, the front door's `js/shelves.js` open list, the labs script's `LABS`,
+and the sitemap. Run `node tools/stamp.mjs` here before pushing, so browsers fetch the new files.
 
 <details>
 <summary><b>Behind the scenes</b> — where every level comes from</summary>
@@ -66,8 +67,8 @@ On the [Biology Hub](https://nlcsbiology.com/biology-hub/), behind the Foundatio
 - The picture is drawn with three.js (vendored, no CDN), with ambient occlusion, outlines and haze added
   in one pass, the style of crowded-cell paintings.
 
-`assets/CREDITS.md` lists every source and every change; the scripts that made the files are kept
-outside this repository.
+`assets/CREDITS.md` lists every source and every change; `tools/model-build/` holds the scripts that made
+the files (their downloaded data are not kept here).
 
 </details>
 

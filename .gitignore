@@ -1,7 +1,7 @@
 .DS_Store
 Thumbs.db
 
-# The build scripts and data live in ../cells-lab-source/ and must never be published.
+# The build scripts are in tools/model-build/; their downloaded data stay in ~/Library/Caches/biology-hub/.
 stations.master.js
 *.master.js
 js/data/keys.enc.js
@@ -13,3 +13,7 @@ _*.html
 _*.js
 _*.svg
 _*.json
+
+# the build tool's npm packages (installed outside OneDrive, linked) and Python caches
+tools/model-build/gltf/node_modules
+__pycache__/

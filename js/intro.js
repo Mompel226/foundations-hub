@@ -1,8 +1,8 @@
-/* The Cells Lab's opening: the zoom. The 3D picture (js/cell3d.js) fills the screen; the size ruler on the
+/* Foundations, the shelf for topics 2–5: the zoom. The 3D picture (js/cell3d.js) fills the screen; the size ruler on the
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS } from './cell3d.js?v=1791022401';
+import { mount, PARTS, LEVELS } from './cell3d.js?v=1791024853';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -112,6 +112,52 @@ function drawRuler() {
   sc.innerHTML = ticks.map(([m, l]) => `<div class="tick" style="top:${yOf(m)}%"><span>${l}</span></div>`).join('');
   $$('.stop').forEach(b => { b.style.top = yOf(Number(b.dataset.m)) + '%'; });
   spreadLabels();
+  drawTopicBrackets();
+}
+
+// ---------- the topics: each sits at the levels of the zoom it is about ----------
+const TOPICS = window.TOPICS || [], EXTRAS = window.EXTRAS || [];
+const levelM = l => Number($('.stop[data-level="' + l + '"]').dataset.m);
+const LEVEL_NAME = { organism: 'Organism', system: 'Organ system', organ: 'Organ', tissue: 'Tissue', cell: 'Cell', inside: 'Organelles', molecules: 'Molecules' };
+function drawTopicBrackets() {
+  const host = $('#rulerTopics'); if (!host) return;
+  const groups = [];                       // topics with the same levels share one bracket (4 and 5)
+  for (const t of TOPICS) {
+    const key = t.levels.join(',');
+    const g = groups.find(x => x.key === key);
+    if (g) g.topics.push(t); else groups.push({ key, levels: t.levels, topics: [t] });
+  }
+  host.innerHTML = groups.map((g, i) => {
+    const a = yOf(levelM(g.levels[0])), b = yOf(levelM(g.levels[g.levels.length - 1]));
+    const top = Math.min(a, b) - (a === b ? 2.2 : 0.8), h = Math.abs(b - a) + (a === b ? 4.4 : 1.6);
+    const nos = g.topics.map(t => t.no).join(' · ');
+    const names = g.topics.map(t => 'Topic ' + t.no + ', ' + t.title).join('; ');
+    return `<button class="bracket" type="button" data-no="${g.topics[0].no}" style="top:${top}%;height:${h}%;--x:${i === 1 ? 12 : 0}px" aria-label="${names}"><span>${nos}</span></button>`;
+  }).join('');
+  $$('.bracket', host).forEach(b => b.addEventListener('click', () => openTopics(Number(b.dataset.no))));
+}
+function topicPills(level) {
+  const here = TOPICS.filter(t => t.levels.includes(level)), extras = EXTRAS.filter(x => x.levels.includes(level));
+  const pill = t => t.status === 'live' && t.url
+    ? `<a class="tpill tpill--live" href="${t.url}"><b>Topic ${t.no}</b> ${t.title} <i>Open →</i></a>`
+    : `<button class="tpill" type="button" data-no="${t.no}"><b>Topic ${t.no}</b> ${t.title} <i>being built</i></button>`;
+  const xpill = x => `<a class="tpill tpill--live tpill--x" href="${x.url}"><b>${x.kind === 'sim' ? 'Sim' : 'Practical'}</b> ${x.title}${x.ibOnly ? ' (IB)' : ''} <i>Open →</i></a>`;
+  $('#capTopics').innerHTML = here.length || extras.length ? '<span class="cap__topicslbl">Here:</span>' + here.map(pill).join('') + extras.map(xpill).join('') : '';
+  $$('#capTopics button.tpill').forEach(b => b.addEventListener('click', () => openTopics(Number(b.dataset.no))));
+}
+function openTopics(no) {
+  const list = $('#topicList');
+  list.innerHTML = TOPICS.map(t => `<section class="topic" id="topic-${t.no}">
+      <h3><span class="topic__no">${t.no}</span>${t.title}</h3>
+      <p>${t.blurb}</p>
+      <p class="topic__where">In the zoom: ${t.levels.map(l => LEVEL_NAME[l]).join(' → ')}</p>
+      <p class="topic__go">${t.status === 'live' && t.url ? `<a class="btn btn--go" href="${t.url}">Open the ${t.lab}</a>` : `<span class="topic__build">Its lab is being built.</span>`}
+        <button class="btn" type="button" data-level="${t.levels[0]}">Show me where</button></p>
+    </section>`).join('') +
+    `<h3 class="topic__also">Also on this shelf</h3>` + EXTRAS.map(x => `<p class="topic__x"><a href="${x.url}"><b>${x.title}</b></a>${x.ibOnly ? ' (IB)' : ''}: ${x.sub}</p>`).join('');
+  $$('#topicList button[data-level]').forEach(b => b.addEventListener('click', () => { $('#topics').close(); go(b.dataset.level); }));
+  $('#topics').showModal();
+  if (no) { const el = $('#topic-' + no); if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('is-picked'); setTimeout(() => el.classList.remove('is-picked'), 1600); } }
 }
 // two levels close in size (an organ system and an organ) keep their dots at their true sizes, but their
 // names are moved apart so that they never sit on top of each other
@@ -146,6 +192,8 @@ function setLevelUI(level) {
   $('#capDef').innerHTML = t.def;
   $('#capHere').textContent = t.here;
   $('#capMore').innerHTML = t.more;
+  topicPills(level);
+  $$('.bracket').forEach(b => { const tp = TOPICS.find(x => x.no === Number(b.dataset.no)); b.classList.toggle('is-here', !!tp && tp.levels.includes(level)); });
   fillCounts();
   setMore(false);
   const go = $('#btnGo');
@@ -258,6 +306,8 @@ async function start() {
   $$('.stop').forEach(b => b.addEventListener('click', () => go(b.dataset.level)));
   $('.tapcard__x').addEventListener('click', hideCard);
   $('#aboutBtn').addEventListener('click', () => $('#about').showModal());
+  $('#topicsBtn').addEventListener('click', () => openTopics());
+  $('#topicsClose').addEventListener('click', () => $('#topics').close());
   $('#aboutClose').addEventListener('click', () => $('#about').close());
   $('#sylSwitch').addEventListener('click', e => {
     const on = e.currentTarget.getAttribute('aria-pressed') !== 'true';
@@ -266,7 +316,7 @@ async function start() {
     hideCard();
   });
   try {
-    cell = await mount(gl, { v: '1791022401', test: /[?&]test=1/.test(location.search) });
+    cell = await mount(gl, { v: '1791024853', test: /[?&]test=1/.test(location.search) });
   } catch (e) {
     console.error(e);
     $('#loading').hidden = true; $('#nogl').hidden = false;

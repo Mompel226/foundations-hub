@@ -1,6 +1,6 @@
 /* ============================================================
-   Cells Lab — IGCSE 0610 Topic 2: the zoom
-   This lab's own look: the picture is the page. A dark field edge to edge, a size ruler down the left
+   Foundations — the Biology Hub's shelf for IGCSE 0610 topics 2–5: the zoom
+   This shelf's own look: the picture is the page. A dark field edge to edge, a size ruler down the left
    (1 m to 10 nm, the seven levels at their real sizes), and one caption card that says what the level is,
    in the words the exam uses. Everything else opens when asked for.
    ============================================================ */
@@ -9,6 +9,7 @@
   --line:rgba(255,255,255,.12); --line-2:rgba(255,255,255,.22);
   --text:#E9EEF3; --muted:#9FB0C0; --dim:#6D7E8E;
   --accent:#8FE3C8; --accent-ink:#0E2A22;
+  --topic:#E879F9;   /* the Foundations door's own colour on the front door */
   --syl:#1E7A3E; --beyond:#7A6B52; --ink:#1A1A1A; --grey:#6B6B6B;
   --sans:Inter,"Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
@@ -57,6 +58,14 @@ a{color:inherit}
 .stop.is-done::before{border-color:var(--accent)}
 .stop:disabled{cursor:default}
 
+/* the topics, as brackets beside the levels they are about */
+.ruler__topics{position:absolute;left:168px;top:0;bottom:0;width:30px}
+.bracket{position:absolute;left:var(--x,0);width:9px;padding:0;cursor:pointer;background:none;border:2px solid var(--topic);
+         border-left:none;border-radius:0 6px 6px 0;opacity:.55}
+.bracket span{position:absolute;left:12px;top:50%;transform:translateY(-50%);white-space:nowrap;font-family:var(--mono);font-size:11px;
+              font-weight:600;color:var(--deep);background:var(--topic);border-radius:var(--r-pill);padding:1px 6px}
+.bracket:hover,.bracket:focus-visible,.bracket.is-here{opacity:1}
+
 /* ---------- the caption ---------- */
 .cap{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:6;width:min(720px,calc(100% - 36px));
      background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);
@@ -66,6 +75,17 @@ a{color:inherit}
 #capView{text-transform:none;letter-spacing:.04em}   /* capital µ would read as M */
 .cap__def{margin:0;font-size:21px;line-height:1.32;font-weight:600;color:#fff}
 .cap__here{margin:6px 0 0;font-size:15px;color:#C7D2DC}
+.cap__topics{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
+.cap__topics:empty{display:none}
+.cap__topicslbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:2px}
+.tpill{display:inline-flex;align-items:baseline;gap:6px;font-size:13px;line-height:1.3;color:var(--text);text-decoration:none;cursor:pointer;
+       background:rgba(232,121,249,.10);border:1px solid rgba(232,121,249,.45);border-radius:var(--r-pill);padding:4px 11px}
+.tpill b{color:var(--topic);font-weight:700}
+.tpill i{font-style:normal;font-size:11.5px;color:var(--muted)}
+.tpill--live{background:rgba(232,121,249,.2);border-color:var(--topic)}
+.tpill--live i{color:#fff}
+.tpill--x{background:rgba(143,227,200,.1);border-color:rgba(143,227,200,.5)} .tpill--x b{color:var(--accent)}
+.tpill:hover{background:rgba(232,121,249,.28)}
 .cap__more{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);max-height:34vh;overflow:auto;font-size:14.5px;color:#C7D2DC}
 .cap__more p{margin:0 0 8px}
 .cap__more b{color:#fff}
@@ -90,10 +110,11 @@ a{color:inherit}
 .scalebar{position:absolute;right:18px;bottom:22px;z-index:4;display:flex;flex-direction:column;align-items:flex-end;gap:4px;
           font-family:var(--mono);font-size:11.5px;font-weight:500;color:var(--text);text-shadow:0 1px 2px rgba(0,0,0,.7);pointer-events:none}
 .scalebar i{display:block;height:3px;width:80px;background:var(--text);border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,.6);transition:width .25s}
-.aboutbtn{position:absolute;right:18px;top:16px;z-index:6;cursor:pointer;font-size:12.5px;color:var(--muted);
+.topbtns{position:absolute;right:18px;top:16px;z-index:6;display:flex;gap:6px}
+.aboutbtn{cursor:pointer;font-size:12.5px;color:var(--muted);
           background:var(--glass-2);border:1px solid var(--line);border-radius:var(--r-pill);padding:6px 13px}
 .aboutbtn:hover{color:var(--text)}
-.sylswitch{position:absolute;right:18px;top:56px;z-index:6;cursor:pointer;font-size:13px;font-weight:600;
+.sylswitch{position:absolute;right:18px;top:58px;z-index:6;cursor:pointer;font-size:13px;font-weight:600;
            background:var(--glass);backdrop-filter:blur(6px);color:var(--text);border:1px solid var(--line-2);
            border-radius:var(--r-pill);padding:8px 14px 8px 34px;
            background-image:radial-gradient(circle at 17px 50%,transparent 6px,rgba(255,255,255,.55) 6.5px,transparent 7.5px)}
@@ -143,6 +164,17 @@ a{color:inherit}
 .about ul{margin:0;padding-left:20px}
 .about li,.about p{font-size:14.5px;line-height:1.5;margin:0 0 6px}
 .about .fineprint{font-size:12.5px;color:var(--grey)}
+.about--topics .topic{border-top:1px solid #E7DFD1;padding:10px 0 4px;transition:background .6s}
+.about--topics .topic.is-picked{background:#FBEFFD}
+.about--topics .topic h3{font-size:17px;letter-spacing:0;text-transform:none;color:#1A1A1A;margin:0 0 4px;display:flex;align-items:center;gap:9px}
+.topic__no{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#C026D3;color:#fff;font-size:13px}
+.topic__where{font-size:13px!important;color:var(--grey)}
+.topic__go{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.topic__go .btn{background:#F3EEE4;color:#1A1A1A;border-color:#E2D8C6;font-size:13.5px;padding:7px 14px}
+.topic__go .btn--go{background:#14572B;border-color:#14572B;color:#fff;text-decoration:none}
+.topic__build{font-size:13.5px;color:#7A4B12}
+.about--topics .topic__also{margin-top:16px}
+.topic__x a{color:#14572B}
 .about__x{float:right;width:32px;height:32px;border-radius:50%;border:1px solid #E7DFD1;background:#FDFBF6;font-size:17px;cursor:pointer;color:var(--grey)}
 
 /* ---------- phones and narrow windows ---------- */
@@ -162,7 +194,10 @@ a{color:inherit}
   .film{top:112px;right:8px;height:min(30vh,230px)}
   .filmpill{top:112px;right:8px}
   .scalebar{right:10px;bottom:auto;top:calc(112px + min(30vh,230px) + 10px)}
-  .aboutbtn{right:8px;top:10px;font-size:11.5px;padding:5px 10px}
+  .topbtns{right:8px;top:10px;flex-direction:column;align-items:flex-end;gap:4px}
+  .aboutbtn{font-size:11.5px;padding:5px 10px}
+  .ruler__topics{display:none}
+  .tpill{font-size:12px;padding:3px 9px}
   .sylswitch{right:8px;top:auto;bottom:calc(var(--caph,190px) + 16px);font-size:12px;padding:6px 11px 6px 30px}
 }
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}

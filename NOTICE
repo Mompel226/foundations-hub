@@ -9,13 +9,13 @@ This repository holds two different kinds of work, under two licences.
   stored (including inside .js files).
       CC BY-NC-SA 4.0 — see LICENSE-CONTENT
 
-NOT COVERED BY EITHER: third-party data, images and media keep their own terms. In this lab:
+NOT COVERED BY EITHER: third-party data, images and media keep their own terms. In this hub:
 
   assets/body/      HuBMAP Human Reference Atlas, United Female v1.10 (Visible Human Female, US National
                     Library of Medicine), CC BY 4.0. Parts chosen, simplified and coloured.
   assets/tissue/    photographs by Mikael Häggström, M.D., Wikimedia Commons, CC0.
   assets/cell/      Janelia Research Campus, OpenOrganelle jrc_hela-2 (Xu et al. 2021; Heinrich et al.
-                    2021, Nature 599), CC BY 4.0. Meshes made from the data for this lab.
+                    2021, Nature 599), CC BY 4.0. Meshes made from the data for this hub.
   assets/mol/       shapes from Protein Data Bank structures (CC0); protein numbers from Mueller et al.
                     2020 (Nature 583) through PaxDb.
   assets/film/      a short clip of Eric Betzig from the 632nm podcast (episode 61), as the podcast posted

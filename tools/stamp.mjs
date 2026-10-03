@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const v = String(Math.floor(Date.now() / 1000));
 const edits = {
-  'index.html': s => s.replace(/(css\/app\.css|js\/intro\.js)\?v=[\w.]+/g, `$1?v=${v}`),
+  'index.html': s => s.replace(/(css\/app\.css|js\/intro\.js|js\/topics\.js)\?v=[\w.]+/g, `$1?v=${v}`),
   'js/intro.js': s => s.replace(/(\.\/cell3d\.js)\?v=[\w.]+/g, `$1?v=${v}`).replace(/mount\(gl, \{ v: '[\w.]+'/, `mount(gl, { v: '${v}'`),
 };
 for (const [f, fn] of Object.entries(edits)) {
