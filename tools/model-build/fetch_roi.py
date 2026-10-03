@@ -3,14 +3,17 @@
     python3 fetch_roi.py            # every class below
     python3 fetch_roi.py er_seg     # one class
 
-The region (ROI) is the cytoplasm under the nucleus around the Golgi and the centrosome (the cell's centre).
+The region (ROI) is the cytoplasm beside the nucleus, on its left (dataset x 7-15 µm): the thickest cytoplasm in the
+cell with no nucleus over it (2.9 µm on average), rich in mitochondria and ER, so the zoom can dive straight down into
+it through the cell membrane. (Until 3 Oct the region was under the nucleus, round the centrosome, where the
+cytoplasm is 1.6 µm thick and the way in had to pass under the nucleus.)
 Units: micrometres in the dataset's own frame (x, y, z; y = 0 is the coverslip side).
 """
 import os, sys, time
 import numpy as np
 import n5fetch as N
 
-ROI_UM = dict(x=(19.0, 31.0), y=(0.0, 4.2), z=(10.0, 21.5))
+ROI_UM = dict(x=(5.0, 17.0), y=(0.0, 4.6), z=(10.0, 21.5))
 OUT = os.path.expanduser("~/Library/Caches/biology-hub/openorganelle/roi/")
 # class -> scale fetched for the ROI
 CLASSES = {

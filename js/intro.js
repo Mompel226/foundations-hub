@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS } from './cell3d.js?v=1791035616';
+import { mount, PARTS, LEVELS } from './cell3d.js?v=1791041183';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -58,6 +58,7 @@ const INFO = {
   sacs:      { syl: false, does: 'Lysosomes break down worn-out parts of the cell; endosomes sort what the cell takes in.', size: '' },
   ld:        { syl: false, does: 'A store of fat (lipid).', size: '' },
   mt:        { syl: false, does: 'A hollow tube of protein. Motor proteins carry vesicles along it.', size: '25 nm wide.' },
+  cut:       { syl: false, name: 'the edge of the imaged block', does: 'The microscope imaged only a block of the cell, 48 µm by 33 µm. Here the block ends; the cell goes on beyond it.', size: '' },
   centriole: { syl: false, does: 'A short cylinder made of nine groups of three microtubules. Many microtubules start from the pair at the centre of the cell.',
                size: 'About 250 nm wide and 500 nm long.' },
   molecule:  { syl: false, name: 'a molecule', does: '', size: '' },
@@ -90,8 +91,11 @@ const TEXT = {
     go: 'one cell', mag: '× 10' },
   cell: {
     def: '<b>Cell</b>: the basic unit of every living organism.',
-    here: 'One real HeLa cell: a cell like the ones lining the cervix, grown in a laboratory, where it spreads flat. An electron microscope photographed it in 3D.',
+    here: 'The middle of one real HeLa cell, a cell like the ones lining the cervix, grown flat in a laboratory. An electron microscope photographed this block of it in 3D: the cell goes on beyond the straight edges.',
     more: '<p>In 1951, cells like those in the lining of the cervix were taken from a cancer of a woman called <b>Henrietta Lacks</b>, without asking her. They still divide in laboratories today, and are called <b>HeLa cells</b>.</p>' +
+      '<p>The microscope imaged a block 48 µm by 33 µm. This cell is bigger: where the block cuts it (the striped faces), it goes on. So you see the middle of the cell, round its nucleus, and the nucleus looks larger than it is: in the block it takes up about a quarter of the cell. It is also large because HeLa cells are cancer cells, whose nuclei are bigger than healthy ones.</p>' +
+      '<figure class="cap__fig"><div class="cap__figimg"><img src="assets/cell/em-section.webp?v=4" alt="An electron micrograph: one slice through this cell, from the glass up. The cell membrane is at the top, the nucleus on the right, the cytoplasm in between; on the left the cell gets thinner and goes on" width="750" height="400" loading="lazy"><img src="assets/cell/em-section-outline.png?v=4" alt="" width="750" height="400" loading="lazy"></div>' +
+      '<figcaption>One real slice through the block, 12 µm across: the glass at the bottom, the membrane at the top, the nucleus on the right. On the left the cell gets thinner and goes on past the block. The green box is the part shown at the next step, the organelles.</figcaption></figure>' +
       '<p>This one grew flat on a sapphire disc. Scientists froze it very fast, then set it in hard resin. A beam of ions removed a layer about 5 nanometres thick, and an electron microscope photographed the new surface. This was repeated more than 6,000 times, and a computer found every part of the cell.</p>' +
       '<ul class="chips"><li><b>48 µm</b><span>width of the block imaged</span></li><li><b>6 µm</b><span>height of the cell</span></li><li><b>21 µm</b><span>length of its nucleus</span></li></ul>' +
       '<p><b>On the picture: Eric Betzig</b>, Nobel Prize in Chemistry 2014, for microscopes that see single molecules in living cells. Listen to what he says about the pictures of cells in biology books.</p>' +
@@ -100,8 +104,9 @@ const TEXT = {
     go: 'the organelles', mag: '× 7' },
   inside: {
     def: '<b>Organelles</b>: the parts inside a cell. Each one here is at its real size and in its real place.',
-    here: 'You are in the cytoplasm, under the nucleus, by the two centrioles. It is crowded.',
-    more: '<p>In this box, 7.5 µm across, the microscope found:</p><ul class="chips"><li><b data-count="ribosomes">257,653</b><span>ribosomes</span></li><li><b data-count="vesicles">12,853</b><span>vesicles</span></li><li><b data-count="pores">791</b><span>pores in the nucleus</span></li><li><b data-count="microtubuleUm">485 µm</b><span>of microtubules</span></li></ul>' +
+    here: 'You are in the cytoplasm beside the nucleus, just under the cell membrane. It is crowded: mitochondria, endoplasmic reticulum, ribosomes, vesicles.',
+    more: '<p>In this box, 7.5 µm across, the microscope found:</p><ul class="chips"><li><b data-count="ribosomes">553,130</b><span>ribosomes</span></li><li><b data-count="vesicles">2,361</b><span>vesicles</span></li><li><b data-count="pores">144</b><span>pores in the nucleus</span></li><li><b data-count="microtubuleUm">225 µm</b><span>of microtubules</span></li></ul>' +
+      '<p>Only the ribosomes near you are drawn. There are about 2,000 in every cubic micrometre of cytoplasm: if all of them were drawn, at their real size, you could not see anything else.</p>' +
       '<p>The dark space between them is <b>not empty</b>. It is cytoplasm, full of molecules too small to show here: about 140 million protein molecules, and about a million million water molecules, in this box alone.</p>' +
       '<p class="hint">Drag to look around. Point at any part to see its name. Your syllabus names only some of these parts: press “Only the syllabus parts” to see the difference.</p>',
     go: 'the molecules', mag: '× 50' },
@@ -231,16 +236,20 @@ function inset() {
   const narrow = zoom.clientWidth < 760;
   const capBox = $('#cap').getBoundingClientRect();
   // a photograph or the film at the top right takes room too: the picture (and its names) keep clear of it
-  const side = [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
+  const side = zoom.classList.contains('more-open') ? null : [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
   const left = Math.min(capBox.left, side ? side.getBoundingClientRect().left : Infinity);
   cell.setInset(narrow ? { left: 30, right: 0, top: 60, bottom: zoom.clientHeight - capBox.top + 8 }
     : { left: 230, right: zoom.clientWidth - left + 6, top: 60, bottom: 0 });
 }
 window.addEventListener('resize', () => inset());
+// On a laptop, "More" lets the caption take the whole right-hand column: the film or the photograph steps aside
+// while it is open (the film plays on), else the caption has a strip a few lines high to show it in.
 function setMore(open) {
   $('#capMore').hidden = !open;
   $('#btnMore').setAttribute('aria-expanded', String(open));
   $('#btnMore').textContent = open ? 'Less' : 'More';
+  zoom.classList.toggle('more-open', open && zoom.clientWidth >= 760);
+  fitCap();
   zoom.style.setProperty('--caph', $('#cap').offsetHeight + 'px');
 }
 $('#btnMore').addEventListener('click', () => setMore($('#capMore').hidden));
@@ -318,7 +327,7 @@ function fitPins(fig) {
 
 // The caption keeps clear of whatever stands at the top right: the film, or the photograph.
 function fitCap() {
-  const side = [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
+  const side = zoom.classList.contains('more-open') ? null : [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
   const top = side ? side.getBoundingClientRect().bottom - zoom.getBoundingClientRect().top + 12 : 96;
   zoom.style.setProperty('--captop', Math.round(top) + 'px');
   inset();
@@ -388,7 +397,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791035616', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791041183', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);

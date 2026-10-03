@@ -1,5 +1,5 @@
 // Simplify one organelle mesh by distance from the reader's starting place: full detail near, coarse far.
-//   node zones.mjs <cacheDir> <name> <budget>
+//   node zones.mjs <cacheDir> <name> <budget> [tiles, default 3]
 // Reads <name>.pos.f32 / .nrm.f32 / .idx.u32 / .ao.u8 (from build_meshes.py), writes <name>.glb.
 // Three passes (far, middle, near), each simplifying only its own zone while every other vertex is locked,
 // so the zones stay joined with no cracks. Normals from the full-detail surface ride along as attributes,
@@ -9,9 +9,10 @@ import { Document, NodeIO } from '@gltf-transform/core';
 import { MeshoptSimplifier } from 'meshoptimizer';
 
 const [,, dir, name, budgetArg] = process.argv;
-const FOCUS = [-0.05, 1.35, -0.9];                 // the centrosome, scene µm
+const FOCUS = [-13.9, 3.2, -1.8];                  // what the reader looks at among the organelles (1.5 µm on from
+                                                    // the end of the way in, cell3d.js DIVE_END), scene µm
 const ZONES = [                                     // [max distance µm, share of the budget]
-  [1.6, 0.42], [3.0, 0.36], [99, 0.22],
+  [1.6, 0.55], [3.0, 0.30], [99, 0.15],             // (the far zones are in the haze; triangles there cost frames)
 ];
 await MeshoptSimplifier.ready;
 const rd = (ext, T) => { const b = readFileSync(`${dir}/${name}.${ext}`); return new T(b.buffer, b.byteOffset, b.byteLength / T.BYTES_PER_ELEMENT); };
@@ -60,13 +61,35 @@ for (let v = 0; v < nv; v++) {
 }
 const idx = new Uint32Array(I.length); for (let i = 0; i < I.length; i++) idx[i] = used[I[i]];
 
-const doc = new Document(); const buf = doc.createBuffer();
-const prim = doc.createPrimitive()
-  .setAttribute('POSITION', doc.createAccessor().setType('VEC3').setArray(pos).setBuffer(buf))
-  .setAttribute('NORMAL', doc.createAccessor().setType('VEC3').setArray(nrm).setBuffer(buf))
-  .setAttribute('COLOR_0', doc.createAccessor().setType('VEC4').setArray(col).setNormalized(true).setBuffer(buf))
-  .setIndices(doc.createAccessor().setType('SCALAR').setArray(idx).setBuffer(buf));
-const mesh = doc.createMesh(name).addPrimitive(prim);
-doc.createScene().addChild(doc.createNode(name).setMesh(mesh));
+// Cut into TILES x TILES columns across the box (by each triangle's middle), one mesh each: the page then draws only
+// the columns in front of the reader. One mesh for the whole box made the graphics card handle every triangle
+// behind the reader too, and the dive among the organelles ran at 30 frames a second (perf.mjs, 4 Oct).
+const TILES = Number(process.argv[5] || 3);
+let lo = [Infinity, Infinity], hi = [-Infinity, -Infinity];
+for (let j = 0; j < k; j++) { lo = [Math.min(lo[0], pos[3 * j]), Math.min(lo[1], pos[3 * j + 2])]; hi = [Math.max(hi[0], pos[3 * j]), Math.max(hi[1], pos[3 * j + 2])]; }
+const tileOf = t => {
+  let x = 0, z = 0; for (let m = 0; m < 3; m++) { x += pos[3 * idx[3 * t + m]]; z += pos[3 * idx[3 * t + m] + 2]; }
+  const fx = Math.min(TILES - 1, Math.floor((x / 3 - lo[0]) / (hi[0] - lo[0] + 1e-9) * TILES)), fz = Math.min(TILES - 1, Math.floor((z / 3 - lo[1]) / (hi[1] - lo[1] + 1e-9) * TILES));
+  return fx * TILES + fz;
+};
+const tris = Array.from({ length: TILES * TILES }, () => []);
+for (let t = 0; t < idx.length / 3; t++) tris[tileOf(t)].push(t);
+const doc = new Document(); const buf = doc.createBuffer(); const scene = doc.createScene();
+const sizes = [];
+tris.forEach((list, ti) => {
+  if (!list.length) return;
+  const map = new Int32Array(k).fill(-1); let nv = 0;
+  for (const t of list) for (let m = 0; m < 3; m++) { const v = idx[3 * t + m]; if (map[v] < 0) map[v] = nv++; }
+  const p = new Float32Array(nv * 3), nn = new Float32Array(nv * 3), cc = new Uint8Array(nv * 4), ii = new Uint32Array(list.length * 3);
+  for (let v = 0; v < k; v++) { const j = map[v]; if (j < 0) continue; p.set(pos.subarray(3 * v, 3 * v + 3), 3 * j); nn.set(nrm.subarray(3 * v, 3 * v + 3), 3 * j); cc.set(col.subarray(4 * v, 4 * v + 4), 4 * j); }
+  list.forEach((t, q) => { for (let m = 0; m < 3; m++) ii[3 * q + m] = map[idx[3 * t + m]]; });
+  const prim = doc.createPrimitive()
+    .setAttribute('POSITION', doc.createAccessor().setType('VEC3').setArray(p).setBuffer(buf))
+    .setAttribute('NORMAL', doc.createAccessor().setType('VEC3').setArray(nn).setBuffer(buf))
+    .setAttribute('COLOR_0', doc.createAccessor().setType('VEC4').setArray(cc).setNormalized(true).setBuffer(buf))
+    .setIndices(doc.createAccessor().setType('SCALAR').setArray(ii).setBuffer(buf));
+  scene.addChild(doc.createNode(`${name}_${ti}`).setMesh(doc.createMesh(`${name}_${ti}`).addPrimitive(prim)));
+  sizes.push(list.length);
+});
 await new NodeIO().write(`${dir}/${name}.glb`, doc);
-console.log(`${name}: ${n0} -> ${idx.length / 3} triangles (${report.join('; ')}); start zones ${counts0.join('/')}`);
+console.log(`${name}: ${n0} -> ${idx.length / 3} triangles in ${sizes.length} tiles (${report.join('; ')}); start zones ${counts0.join('/')}`);

@@ -24,8 +24,8 @@ from fetch_roi import OUT as ROI
 HERE = os.path.dirname(os.path.abspath(__file__))
 WORK = os.path.expanduser("~/Library/Caches/biology-hub/openorganelle/cell3d/")  # uncompressed glb + meshes.json (not kept in OneDrive)
 ORIGIN_UM = np.array([25.0, 0.0, 15.75])           # x, y, z in the dataset frame: under the nucleus, by the Golgi
-# The part of the ROI that is meshed in detail: 7.5 x 4.2 x 7.5 µm centred on the centrosome (dataset 25.0, -, 14.85).
-SCENE_UM = dict(x=(21.25, 28.75), y=(0.0, 4.2), z=(11.10, 18.60))
+# The part of the ROI that is meshed in detail: 7.5 x 4.6 x 7.5 µm beside the nucleus (dataset 10.9, -, 15.7).
+SCENE_UM = dict(x=(7.15, 14.65), y=(0.0, 4.6), z=(11.95, 19.45))
 
 # name -> (n5 class, how to make the mask, Gaussian sigma in voxels, iso level, triangle budget)
 CLASSES = {

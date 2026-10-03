@@ -17,7 +17,7 @@
 <link rel="stylesheet" media="print" onload="this.media='all'"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-<link rel="stylesheet" href="css/app.css?v=1791035616">
+<link rel="stylesheet" href="css/app.css?v=1791041183">
 </head>
 <body>
 <main class="zoom" id="zoom">
@@ -90,17 +90,17 @@
     <figcaption>Closer: one layer of tall cells, side by side, each with its nucleus. About 0.06&nbsp;mm across. The lit-up cell in the model is a cell like these.</figcaption>
   </figure>
 
-  <!-- the real cell beside the organelles: one electron-microscope slice of this same cell, straight ahead -->
+  <!-- the real cell beside the organelles: the cut through the green frame in front of the reader -->
   <figure class="micro micro--em" id="emfig" hidden>
     <div class="micro__img">
-      <img src="assets/cell/em-slice.webp" alt="An electron micrograph: a slice through this HeLa cell, its nucleus above and the crowded cytoplasm below" width="751" height="400">
-      <img class="micro__over" src="assets/cell/em-outline.png" alt="" width="751" height="400">
+      <img src="assets/cell/em-slice.webp?v=4" alt="An electron micrograph of the cytoplasm of this cell: a mitochondrion with its folded inner membrane, a lysosome, endoplasmic reticulum with ribosomes in rows along it, and many free ribosomes" width="350" height="325">
+      <img class="micro__over" src="assets/cell/em-outline.png?v=4" alt="" width="350" height="325">
     </div>
     <ul class="key">
-      <li style="--c:#5b4bb5">Nucleus</li><li style="--c:#2fa38c">Endoplasmic reticulum</li><li style="--c:#e8613a">Mitochondria</li>
-      <li style="--c:#e3a72f">Golgi apparatus</li><li style="--c:#d1497b">Lysosomes</li><li style="--c:#b898c8">Endosomes</li><li style="--c:#e2c6dd">Cell membrane</li>
+      <li style="--c:#e8613a">Mitochondrion</li><li style="--c:#2fa38c">Endoplasmic reticulum</li><li style="--c:#6a46a8">Ribosomes (rings)</li>
+      <li style="--c:#d1497b">Lysosome</li><li style="--c:#b898c8">Endosomes</li>
     </ul>
-    <figcaption>This cell under the electron microscope: one real slice, 12&nbsp;µm across, cut through the green frame in front of you. Each part the computer found is outlined in its colour in the 3D. The faint dark stripes are marks left by the microscope's beam.</figcaption>
+    <figcaption>The cut through the green frame in front of you, under the electron microscope: 1.4&nbsp;µm across. Each part the computer found is outlined in its colour in the 3D. Ribosomes in rows along the ER make it rough ER. (The microscope photographed thin layers of the cell, one after another; a computer made this slice, which faces you, from them.)</figcaption>
   </figure>
 
   <div class="hovertip" id="hovertip" hidden><i></i><span></span></div>
@@ -152,14 +152,14 @@
   <ul>
     <li><b>The body and her organs</b>: the Visible Human Female, a real woman's body that was cut into thin slices and photographed for a medical atlas (US National Library of Medicine). The organs were traced for the HuBMAP Human Reference Atlas.</li>
     <li><b>The tissue's photograph</b>: the lining of a cervix, through a light microscope.</li>
-    <li><b>The cell and its organelles</b>, and the slice of it shown beside the organelles: measured by an electron microscope. The shape, size and place of the cell, its nucleus, mitochondria, endoplasmic reticulum, Golgi apparatus, lysosomes, endosomes and lipid droplets; the place of every ribosome, vesicle and pore in the nucleus; the path of every microtubule; where the two centrioles are and which way they point.</li>
+    <li><b>The cell and its organelles</b>, and the slice of it shown beside the organelles: measured by an electron microscope. The shape, size and place of the cell, its nucleus, mitochondria, endoplasmic reticulum, Golgi apparatus, lysosomes, endosomes and lipid droplets; the place of every ribosome, vesicle and pore in the nucleus; the path of every microtubule.</li>
   </ul>
   <h3>Drawn from what is known</h3>
   <ul>
     <li><b>The cut organ</b>: the outline of the cut is real (the Atlas's uterus and cervix); the layers inside the wall are drawn at the widths histology describes, in the colours of a stained slide.</li>
     <li><b>The tissue is a model</b>, traced from the photograph beside it: inside the green frame, its cut face has the photograph's surface, gland and blood vessels in the same places, at the same scale. Where each cell and fibre sits is made up.</li>
     <li><b>From the tissue to the cell</b>, one lining cell rises out of the tissue and spreads flat, as a cell of this kind does when it is grown in a dish. That is a picture of what happens, not a measurement.</li>
-    <li>The shape of a ribosome, a pore in the nucleus and a centriole: the microscope shows where each one is; the shape is drawn at its real size from other studies. A vesicle is a ball of the volume that was measured; a microtubule is a tube 25&nbsp;nm wide along the path that was measured.</li>
+    <li>The shape of a ribosome and of a pore in the nucleus: the microscope shows where each one is; the shape is drawn at its real size from other studies. A vesicle is a ball of the volume that was measured; a microtubule is a tube 25&nbsp;nm wide along the path that was measured.</li>
     <li><b>The molecules are a model.</b> Measured, and used: the shape and size of each kind of protein (Protein Data Bank), how many of each kind a HeLa cell holds (Mueller et al. 2020), about 3 million protein molecules in every cubic micrometre (Milo 2013), kinesin's 8&nbsp;nm steps. Made up: where each molecule sits, the kinesin's stalk, and the speed. Kinesin takes about 100 steps a second; here it takes one. At that speed the other molecules would be a blur, so here they move only when the vesicle reaches them.</li>
   </ul>
   <h3>Not the same person</h3>
@@ -167,6 +167,8 @@
   <h3>Not shown</h3>
   <ul>
     <li>Water and ions, and at the organelle level almost all the proteins: too small to see at that zoom, and far too many to draw.</li>
+    <li>The rest of the cell. The microscope imaged a block of it, 48&nbsp;µm by 33&nbsp;µm: the cell goes on beyond the striped faces where the block ends.</li>
+    <li>Most of the ribosomes. Only the ones near you are drawn: there are about 2,000 in every cubic micrometre, and all of them together would hide everything else.</li>
     <li>Movement inside the cell. It was frozen, so the cell is one moment. In a living cell all of it moves, all the time.</li>
   </ul>
   <h3>Chosen</h3>
@@ -184,7 +186,7 @@
   <p class="fineprint">Something wrong, or a suggestion? Please contact me: <a href="mailto:dmompelriera@nlcsjeju.kr">dmompelriera@nlcsjeju.kr</a>. Checked against the Cambridge IGCSE Biology 0610 syllabus for 2026–2028.</p>
 </dialog>
 
-<script src="js/topics.js?v=1791035616"></script>
-<script type="module" src="js/intro.js?v=1791035616"></script>
+<script src="js/topics.js?v=1791041183"></script>
+<script type="module" src="js/intro.js?v=1791041183"></script>
 </body>
 </html>

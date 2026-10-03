@@ -31,13 +31,13 @@ Topic 2 by being it, and each topic sits at the level it is about:
 | **Organ system** | her reproductive system | 2 |
 | **Organ** | the uterus and its cervix, cut open: muscle tissue, connective tissue and a lining | 2 |
 | **Tissue** | a model of the lining of the cervix, cut like a slide and traced from the real micrograph beside it | 2 |
-| **Cell** | one real HeLa cell, imaged in 3D by an electron microscope; Eric Betzig (Nobel Prize in Chemistry 2014) says why the pictures in biology books are wrong | 2 · 3 |
-| **Organelles** | inside that cell, every part at its measured size and place: 257,653 ribosomes in one small box, and a real electron micrograph of the same cell beside it | 2 · 3 |
+| **Cell** | the middle of one real HeLa cell, imaged in 3D by an electron microscope (the block's cut edges are marked); Eric Betzig (Nobel Prize in Chemistry 2014) says why the pictures in biology books are wrong | 2 · 3 |
+| **Organelles** | inside that cell, beside the nucleus, every part at its measured size and place: 553,130 ribosomes in one small box, and a real electron micrograph of the same cell beside it | 2 · 3 |
 | **Molecules** | a model, labelled as one: real protein shapes in the numbers a HeLa cell holds, and a kinesin walking a microtubule through the crowd | 4 · 5, the Protein & Enzyme Sim |
 
 **One zoom, no jumps.** Scroll (or pinch) to move in and out through all seven levels: the camera flies on, the
 organ is cut open, the tissue grows out of the cut face, one lining cell becomes the HeLa cell, and the way into
-the organelles passes through the cell membrane and under the nucleus. Where two levels meet, each is drawn
+the organelles is one straight line from the cell's view, through the cell membrane into the cytoplasm. Where two levels meet, each is drawn
 whole and the two pictures are blended, so the screen never goes dark. Names appear on the parts as they come
 into reach, and on whatever the pointer is on; a colour means the same thing at every level.
 
