@@ -41,7 +41,11 @@ a{color:inherit}
 .top__by:hover,.top__by:focus-visible{color:var(--text)}
 
 /* ---------- the size ruler ---------- */
-.ruler{position:absolute;left:18px;top:96px;bottom:220px;width:190px;z-index:4}
+.ruler{position:absolute;left:18px;top:96px;bottom:64px;width:190px;z-index:4}
+/* the ruler stays readable over a bright picture (the tissue, the cut organ) */
+.zoom::before{content:"";position:absolute;left:0;top:0;bottom:0;width:260px;z-index:3;pointer-events:none;
+              background:linear-gradient(90deg,rgba(14,20,27,.62),rgba(14,20,27,.38) 70%,rgba(14,20,27,0))}
+.stop b,.tick span{text-shadow:0 1px 3px rgba(0,0,0,.85)}
 .ruler__scale{position:absolute;left:0;top:0;bottom:0;width:60px}
 .ruler__scale::before{content:"";position:absolute;left:44px;top:0;bottom:0;width:1px;background:var(--line-2)}
 .tick{position:absolute;left:0;width:60px;height:0;font-family:var(--mono);font-size:10px;color:var(--dim);text-align:right}
@@ -59,26 +63,28 @@ a{color:inherit}
 .stop:disabled{cursor:default}
 
 /* the topics, as brackets beside the levels they are about */
-.ruler__topics{position:absolute;left:168px;top:0;bottom:0;width:30px}
+.ruler__topics{position:absolute;left:150px;top:0;bottom:0;width:30px}
 .bracket{position:absolute;left:var(--x,0);width:9px;padding:0;cursor:pointer;background:none;border:2px solid var(--topic);
          border-left:none;border-radius:0 6px 6px 0;opacity:.55}
-.bracket span{position:absolute;left:12px;top:50%;transform:translateY(-50%);white-space:nowrap;font-family:var(--mono);font-size:11px;
-              font-weight:600;color:var(--deep);background:var(--topic);border-radius:var(--r-pill);padding:1px 6px}
+.bracket span{position:absolute;left:12px;top:50%;transform:translateY(-50%);white-space:nowrap;font-size:11.5px;line-height:1.25;
+              font-weight:700;color:var(--deep);background:var(--topic);border-radius:var(--r-pill);padding:2px 8px}
 .bracket:hover,.bracket:focus-visible,.bracket.is-here{opacity:1}
 
 /* ---------- the caption ---------- */
-.cap{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);z-index:6;width:min(720px,calc(100% - 36px));
+.cap{position:absolute;right:18px;bottom:18px;z-index:6;width:var(--capw,380px);max-height:calc(100% - var(--captop,96px) - 18px);
+     display:flex;flex-direction:column;
      background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);
-     border-radius:var(--r-lg);padding:15px 20px 14px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
-.cap__eyebrow{margin:0 0 4px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+     border-radius:var(--r-lg);padding:13px 16px 12px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+@media (max-width:1100px){.zoom{--capw:330px}}
+.cap__eyebrow{margin:0 0 4px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .cap__eyebrow b{color:var(--accent);font-weight:500}
 #capView{text-transform:none;letter-spacing:.04em}   /* capital µ would read as M */
-.cap__def{margin:0;font-size:21px;line-height:1.32;font-weight:600;color:#fff}
-.cap__here{margin:6px 0 0;font-size:15px;color:#C7D2DC}
+.cap__def{margin:0;font-size:17px;line-height:1.32;font-weight:600;color:#fff}
+.cap__here{margin:6px 0 0;font-size:14px;line-height:1.45;color:#C7D2DC}
 .cap__topics{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:10px}
 .cap__topics:empty{display:none}
 .cap__topicslbl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-right:2px}
-.tpill{display:inline-flex;align-items:baseline;gap:6px;font-size:13px;line-height:1.3;color:var(--text);text-decoration:none;cursor:pointer;
+.tpill{display:inline-flex;align-items:baseline;flex-wrap:wrap;gap:0 6px;font-size:12.5px;line-height:1.3;text-align:left;color:var(--text);text-decoration:none;cursor:pointer;
        background:rgba(232,121,249,.10);border:1px solid rgba(232,121,249,.45);border-radius:var(--r-pill);padding:4px 11px}
 .tpill b{color:var(--topic);font-weight:700}
 .tpill i{font-style:normal;font-size:11.5px;color:var(--muted)}
@@ -86,18 +92,20 @@ a{color:inherit}
 .tpill--live i{color:#fff}
 .tpill--x{background:rgba(143,227,200,.1);border-color:rgba(143,227,200,.5)} .tpill--x b{color:var(--accent)}
 .tpill:hover{background:rgba(232,121,249,.28)}
-.cap__more{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);max-height:34vh;overflow:auto;font-size:14.5px;color:#C7D2DC}
+.cap__more{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);min-height:0;flex:1 1 auto;overflow:auto;font-size:14px;color:#C7D2DC}
 .cap__more p{margin:0 0 8px}
 .cap__more b{color:#fff}
 .cap__more a{color:#BFE9DA}
-.cap__go{display:flex;align-items:center;gap:8px;margin-top:12px}
+.cap{overflow-y:auto;overscroll-behavior:contain}
+.cap__go{display:flex;align-items:center;gap:8px;margin-top:12px;position:sticky;bottom:-12px;padding:6px 0 12px;margin-bottom:-12px;
+         background:linear-gradient(180deg,rgba(14,20,27,0),rgba(14,20,27,.92) 30%)}
 .cap__spacer{flex:1}
 .chips{list-style:none;margin:6px 0 10px;padding:0;display:flex;flex-wrap:wrap;gap:8px}
 .chips li{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:var(--r);padding:6px 10px;line-height:1.25}
 .chips b{display:block;font-size:17px;font-variant-numeric:tabular-nums}
 .chips span{font-size:12px;color:var(--muted)}
 .hint{font-size:13.5px;color:var(--muted)}
-.btn{border:1px solid var(--line-2);border-radius:var(--r-pill);padding:9px 18px;font-size:14.5px;font-weight:600;cursor:pointer;
+.btn{border:1px solid var(--line-2);border-radius:var(--r-pill);padding:8px 15px;font-size:14px;font-weight:600;cursor:pointer;
      background:rgba(255,255,255,.06);color:var(--text);white-space:nowrap}
 .btn:hover{background:rgba(255,255,255,.12)}
 .btn--go{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
@@ -107,7 +115,7 @@ a{color:inherit}
 .btn:disabled{opacity:.55;cursor:default}
 
 /* ---------- things on the picture ---------- */
-.scalebar{position:absolute;right:18px;bottom:22px;z-index:4;display:flex;flex-direction:column;align-items:flex-end;gap:4px;
+.scalebar{position:absolute;left:230px;bottom:22px;z-index:4;display:flex;flex-direction:column;align-items:flex-start;gap:4px;
           font-family:var(--mono);font-size:11.5px;font-weight:500;color:var(--text);text-shadow:0 1px 2px rgba(0,0,0,.7);pointer-events:none}
 .scalebar i{display:block;height:3px;width:80px;background:var(--text);border-radius:2px;box-shadow:0 1px 2px rgba(0,0,0,.6);transition:width .25s}
 .topbtns{position:absolute;right:18px;top:16px;z-index:6;display:flex;gap:6px}
@@ -130,6 +138,39 @@ a{color:inherit}
 .tapcard__badge.is-syl{color:var(--syl)} .tapcard__badge.is-beyond{color:var(--beyond)}
 .tapcard__does{margin:0;font-size:14.5px;line-height:1.45}
 .tapcard__size{margin:6px 0 0;font-size:13px;color:#4A4A4A}
+
+/* names on the picture: a dot on the part, in the part's own colour, and its name */
+.tags{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}
+.tag{position:absolute;left:0;top:0;display:flex;align-items:center;gap:6px;white-space:nowrap;will-change:transform}
+.tag i{width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:var(--c,#fff);box-shadow:0 0 0 2px rgba(14,20,27,.85);flex:none;align-self:flex-start;margin-top:-4.5px}
+.tag span{font-size:12.5px;font-weight:600;color:#fff;background:rgba(14,20,27,.72);border:1px solid rgba(255,255,255,.14);
+          border-left:3px solid var(--c,#fff);border-radius:6px;padding:2px 7px;transform:translateY(-50%)}
+.hovertip{position:absolute;left:0;top:0;z-index:7;pointer-events:none;display:flex;align-items:center;gap:6px;
+          background:rgba(250,248,242,.96);color:#1A1A1A;border-radius:8px;padding:4px 10px 4px 8px;font-size:13px;font-weight:600;
+          box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.hovertip i{width:10px;height:10px;border-radius:50%;background:var(--c,#888)}
+
+/* the real tissue, beside the model */
+.micro{position:absolute;right:18px;top:96px;z-index:5;margin:0;width:min-content;background:var(--glass);
+       backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line-2);border-radius:14px;
+       overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,.45)}
+.micro__img{position:relative;line-height:0}
+.micro__img img{height:min(36vh,400px);width:auto;display:block}
+.pin{position:absolute;transform:translate(-5px,-5px);display:flex;align-items:center;gap:4px;font-size:11px;line-height:1.2;font-weight:700;
+     color:#fff;white-space:nowrap;pointer-events:none}
+.pin i{width:10px;height:10px;border-radius:50%;background:var(--c);box-shadow:0 0 0 2px #fff;flex:none}
+.pin{text-shadow:0 1px 2px rgba(0,0,0,.9),0 0 6px rgba(0,0,0,.7)}
+.pin--left{flex-direction:row-reverse;transform:translate(calc(-100% + 5px),-5px)}
+.micro figcaption{padding:8px 11px 9px;font-size:12px;line-height:1.4;color:#C7D2DC}
+
+/* the electron micrograph: wide, with its colour key */
+.micro--em{width:clamp(240px,calc((100vh - 400px) * 1.5),420px)}
+@media (max-height:780px){.micro figcaption{display:none}}
+.micro--em .micro__img img{width:100%;height:auto}
+.micro__over{position:absolute;inset:0}
+.key{list-style:none;margin:0;padding:7px 10px 0;display:flex;flex-wrap:wrap;gap:3px 10px}
+.key li{font-size:11.5px;color:#DCE3EA;display:flex;align-items:center;gap:5px}
+.key li::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--c)}
 
 /* Eric Betzig, from the cell down */
 .film{position:absolute;right:18px;top:96px;z-index:5;margin:0;height:min(46vh,430px);aspect-ratio:9/16;
@@ -187,16 +228,24 @@ a{color:inherit}
   .ruler__scale::before{left:32px}
   .tick{width:44px} .tick span{right:16px;font-size:9px} .tick::after{right:6px;width:7px}
   .stop{left:26px} .stop:not([aria-current="true"]) b{display:none} .stop::before{width:11px;height:11px}
-  .cap{left:8px;right:8px;bottom:8px;width:auto;transform:none;padding:12px 14px 11px;border-radius:14px}
+  .cap{left:8px;right:8px;bottom:8px;width:auto;max-height:62vh;padding:12px 14px 11px;border-radius:14px}
+  .scalebar{left:auto}
   .cap__def{font-size:16.5px}
   .cap__here{font-size:13.5px}
   .btn{padding:8px 13px;font-size:13.5px}
   .film{top:112px;right:8px;height:min(30vh,230px)}
+  .micro{top:112px;right:8px}
+  .micro__img img{height:min(30vh,230px)}
+  .pin{font-size:0;gap:0}
+  .top__mark{padding-right:128px}
+  .micro figcaption{display:none}
+  .micro--em{width:calc(100% - 16px)} .key{display:none}
   .filmpill{top:112px;right:8px}
   .scalebar{right:10px;bottom:auto;top:calc(112px + min(30vh,230px) + 10px)}
   .topbtns{right:8px;top:10px;flex-direction:column;align-items:flex-end;gap:4px}
   .aboutbtn{font-size:11.5px;padding:5px 10px}
   .ruler__topics{display:none}
+  .zoom::before{width:120px}
   .tpill{font-size:12px;padding:3px 9px}
   .sylswitch{right:8px;top:auto;bottom:calc(var(--caph,190px) + 16px);font-size:12px;padding:6px 11px 6px 30px}
 }

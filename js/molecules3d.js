@@ -202,6 +202,8 @@ export async function build(THREE, group, opts = {}) {
     play(on) { state.playing = on; },
     get playing() { return state.playing; },
     seek(t) { state.t = t; pose(t); },
+    // where the moving things are now, for their names (model frame, µm)
+    where() { return { vesicle: ves.position.toArray(), kinesin: headA.position.clone().lerp(headB.position, 0.5).toArray() }; },
     recut,
     enterControls(camera, canvas, wake) {
       recut(camera);
