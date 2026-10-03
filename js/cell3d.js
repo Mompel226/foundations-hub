@@ -1,4 +1,4 @@
-/* The Cells Lab's opening: a zoom from a whole human down to the molecules of one real cell.
+/* Foundations, the shelf for topics 2–5: a zoom from a whole human down to the molecules of one real cell.
 
    The seven rungs of Topic 2's ladder, one scene, each rung in its own units:
      organism   a real woman's body                    metres   assets/body/anatomy.glb
@@ -9,7 +9,7 @@
      inside     the organelles round its centrosome    µm       assets/cell/organelles.glb + small.bin
      molecules  a model of 0.15 µm of cytoplasm        µm       js/molecules3d.js, loaded only when asked for
    The cell: Janelia Research Campus, FIB-SEM (Xu et al. 2021, Nature 599:147), organelles found by Heinrich
-   et al. 2021 (Nature 599:141); OpenOrganelle jrc_hela-2, CC BY 4.0. Meshes made by labs/cells-lab-source/tools/
+   et al. 2021 (Nature 599:141); OpenOrganelle jrc_hela-2, CC BY 4.0. Meshes made by tools/model-build/
    (never published). Sizes and places are the measured ones; the colours are chosen.
 
    mount(el, opts) -> controller (see the return at the end).

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Cells Lab — IGCSE Biology 0610 Topic 2, Organisation of the organism</title>
-<meta name="description" content="Zoom from a real woman's body to one of her organ systems, an organ, a tissue, one real cell, its organelles and its molecules: every step real, from a medical atlas and a 3D electron microscope. Cambridge IGCSE Biology 0610 Topic 2, Organisation of the organism.">
+<title>Foundations — the science everything leans on · IGCSE Biology 0610 topics 2–5</title>
+<meta name="description" content="Foundations, the Biology Hub's shelf for Cambridge IGCSE Biology 0610 topics 2 to 5: zoom from a real woman's body to one of her organ systems, an organ, a tissue, one real cell, its organelles and its molecules, every step real, and find the topic that sits at each level.">
 <meta name="author" content="Dr Daniel Mompel Riera">
 <meta name="copyright" content="Dr Daniel Mompel Riera, NLCS Jeju">
 <meta name="theme-color" content="#0E141B">
@@ -17,7 +17,7 @@
 <link rel="stylesheet" media="print" onload="this.media='all'"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-<link rel="stylesheet" href="css/app.css?v=1791022401">
+<link rel="stylesheet" href="css/app.css?v=1791024853">
 </head>
 <body>
 <main class="zoom" id="zoom">
@@ -26,8 +26,8 @@
   <header class="top">
     <a class="up" href="https://nlcsbiology.com/biology-hub/" title="Every door: revision, the labs, and what NLCS Biology offers beyond the course">← Biology Hub</a>
     <div class="top__mark">
-      <h1 class="top__title">Cells Lab</h1>
-      <span class="top__sub">IGCSE 0610 · Topic 2 · Organisation of the organism</span>
+      <h1 class="top__title">Foundations</h1>
+      <span class="top__sub">IGCSE 0610 · Topics 2–5 · the science everything leans on</span>
       <a class="top__by" href="https://github.com/Mompel226" target="_blank" rel="noopener" title="Who made this — Biology, NLCS Jeju. Opens my GitHub">by Dr Daniel Mompel Riera</a>
     </div>
   </header>
@@ -35,6 +35,7 @@
   <!-- the size ruler: 1 m at the top, 1 nm at the bottom; the seven levels sit at their real sizes -->
   <nav class="ruler" id="ruler" aria-label="The seven levels, from 1 metre to 1 nanometre">
     <div class="ruler__scale" id="rulerScale" aria-hidden="true"></div>
+    <div class="ruler__topics" id="rulerTopics"></div>
     <button class="stop" data-level="organism"  data-m="1.7"><b>Organism</b></button>
     <button class="stop" data-level="system"    data-m="0.2"><b>Organ system</b></button>
     <button class="stop" data-level="organ"     data-m="0.08"><b>Organ</b></button>
@@ -54,6 +55,7 @@
     <p class="cap__eyebrow"><span id="capN">Level 1 of 7</span> · <b id="capLevel">Organism</b> · <span id="capView"></span></p>
     <p class="cap__def" id="capDef"></p>
     <p class="cap__here" id="capHere"></p>
+    <div class="cap__topics" id="capTopics"></div>
     <div class="cap__more" id="capMore" hidden></div>
     <div class="cap__go">
       <button class="btn btn--more" id="btnMore" type="button" aria-expanded="false">More</button>
@@ -85,11 +87,22 @@
     <p class="tapcard__size"></p>
   </div>
 
-  <button class="aboutbtn" id="aboutBtn" type="button">About this picture</button>
+  <div class="topbtns">
+    <button class="aboutbtn" id="topicsBtn" type="button">Topics 2–5</button>
+    <button class="aboutbtn" id="aboutBtn" type="button">About this picture</button>
+  </div>
 
   <div class="loading" id="loading"><span>Loading…</span><i><b id="loadBar"></b></i></div>
   <div class="nogl" id="nogl" hidden><p>This browser cannot draw 3D. Open the lab in Chrome, Edge, Safari or Firefox on a laptop.</p></div>
 </main>
+
+<!-- the shelf: topics 2 to 5, and what else sits here -->
+<dialog class="about about--topics" id="topics" aria-label="Topics 2 to 5">
+  <button class="about__x" id="topicsClose" type="button" aria-label="Close">×</button>
+  <h2>Topics 2 to 5</h2>
+  <p>The science every other topic leans on. Each topic sits at the levels of the zoom it is about.</p>
+  <div id="topicList"></div>
+</dialog>
 
 <!-- what is real, the sources, the film's words, the contact line -->
 <dialog class="about" id="about" aria-label="About this picture">
@@ -123,11 +136,12 @@
     The cell: <a href="https://openorganelle.janelia.org/datasets/jrc_hela-2" target="_blank" rel="noopener">OpenOrganelle, jrc_hela-2</a>, Janelia Research Campus, CC&nbsp;BY&nbsp;4.0 (Xu et al. 2021 and Heinrich et al. 2021, <i>Nature</i> 599).
     The molecules: Protein Data Bank structures (CC0); HeLa protein numbers from Mueller et al. 2020, <i>Nature</i> 583, through PaxDb.
     The film: <a href="https://www.youtube.com/watch?v=RUB37QhWNkw" target="_blank" rel="noopener">632nm podcast, episode 61</a> (8 September 2026), three swear words silenced.
-    The 3D models were made from these data for this lab.
+    The 3D models were made from these data for this hub.
   </p>
   <p class="fineprint">Something wrong, or a suggestion? Please contact me: <a href="mailto:dmompelriera@nlcsjeju.kr">dmompelriera@nlcsjeju.kr</a>. Checked against the Cambridge IGCSE Biology 0610 syllabus for 2026–2028.</p>
 </dialog>
 
-<script type="module" src="js/intro.js?v=1791022401"></script>
+<script src="js/topics.js?v=1791024853"></script>
+<script type="module" src="js/intro.js?v=1791024853"></script>
 </body>
 </html>
