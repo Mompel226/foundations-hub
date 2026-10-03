@@ -289,11 +289,24 @@ export function build(THREE, group, T) {
   }
   group.add(cells, cutCells, backCells, wedges, nuclei, caps, nucleiB, capsB, stroma, mucus);
 
-  // the cell the zoom goes into next: on the surface, a few rows back from the face, inside the frame
-  const pick = full.filter(e => e.ny > 0.9 && e.x > 100 && e.x < 140 && e.z < -25 && e.z > -40)[0] || full[0];
+  // the cell the zoom goes into next: on the surface, in the FRONT row (the cut face), inside the frame, so the reader
+  // sees it rise and spread (Daniel, 4 Oct: "one of the ones that are on the front line"). While it is shown, it is
+  // drawn whole, with its nucleus, and the cut cell in its place (and that cell's cut nucleus) is hidden.
+  const pi = Math.max(0, front.findIndex(e => e.ny > 0.9 && e.x > 100 && e.x < 140));
+  const pick = front[pi];
   const top = new THREE.Vector3(pick.x + pick.nx * pick.h * H_GEO, pick.y + pick.ny * pick.h * H_GEO + 1.6, pick.z);
-  const single = new THREE.Mesh(cellGeometry(THREE, false), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2a1030 }));
+  const single = new THREE.Mesh(cellGeometry(THREE, false), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2a1030, transparent: true }));
   single.matrixAutoUpdate = false; single.matrix.copy(pose(pick)); single.visible = false; single.userData.part = 'tcell';
+  const singleNuc = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshLambertMaterial({ color: COL.nucleus }));
+  singleNuc.matrixAutoUpdate = false; singleNuc.visible = false; singleNuc.userData.part = 'tnucleus';
+  const nucUp = 7 + 1.25 + (pick.h * H_GEO - 40) * 0.12;          // the nucleus: this far up the cell from its base
+  const hidden = new THREE.Matrix4().makeScale(0, 0, 0), keep = [new THREE.Matrix4(), new THREE.Matrix4(), new THREE.Matrix4()];
+  cutCells.getMatrixAt(pi, keep[0]); nuclei.getMatrixAt(pi, keep[1]); caps.getMatrixAt(pi, keep[2]);
+  let frontHidden = false;
+  const hideFront = h => {
+    if (h === frontHidden) return; frontHidden = h;
+    [cutCells, nuclei, caps].forEach((m, k) => { m.setMatrixAt(pi, h ? hidden : keep[k]); m.instanceMatrix.needsUpdate = true; });
+  };
 
   // where things are named: the photograph's own pins, at the same places on the model's cut face
   const R = { tcell: 15, tnucleus: 14, connective: 90, capillary: 14, crypt: 60 };
@@ -319,7 +332,7 @@ export function build(THREE, group, T) {
   group.add(frame);
   return {
     target: { top: top.toArray(), base: [pick.x, pick.y, pick.z], h: pick.h * H_GEO, pose: pose(pick).clone() },
-    labels, single, frame, frameMat: fm,
+    labels, single, singleNuc, nucUp, hideFront, frame, frameMat: fm,
     materials: [mat, wedges.material, nucMat, faceMat, sideMat, single.material, mucusMat],
     size: { L, BOTTOM, DEPTH, H_CELL: hS, frame: T.frame },
   };
