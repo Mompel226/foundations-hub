@@ -150,7 +150,9 @@ export function build(THREE, group, T) {
     return { B, L: Lm };
   });
   // ---- the cells, in rows going back from the cut face (the glands run straight back: crypts cut across)
-  const full = [], front = [], rows = Math.floor(DEPTH / PITCH);
+  // the rows reach the block's back face: the last row is cut there as the first is at the front, so the block looks
+  // the same from behind (Daniel, 4 Oct: "in the back it looks different")
+  const full = [], front = [], back = [], rows = Math.round(DEPTH / (PITCH * 0.866)), DZ = DEPTH / rows;
   const along = (cells, closed, s) => {
     const i = s / 2, a = Math.floor(i), t = i - a, n = cells.length;
     const p = cells[closed ? a % n : Math.min(n - 1, a)], q = cells[closed ? (a + 1) % n : Math.min(n - 1, a + 1)];
@@ -163,8 +165,8 @@ export function build(THREE, group, T) {
       for (let s = off + PITCH / 2; s < total - (lin.closed ? 0 : PITCH / 2); s += PITCH) {
         const [x, y, nx, ny, h] = along(lin.cells, lin.closed, s);
         const nl = Math.hypot(nx, ny) || 1;
-        const e = { x, y, z: -k * PITCH * 0.866, nx: nx / nl, ny: ny / nl, h: h / H_GEO * (0.95 + r() * 0.08) };
-        (k === 0 ? front : full).push(e);
+        const e = { x, y, z: -k * DZ, nx: nx / nl, ny: ny / nl, h: h / H_GEO * (0.95 + r() * 0.08) };
+        (k === 0 ? front : k === rows ? back : full).push(e);
       }
     }
   }
@@ -192,6 +194,10 @@ export function build(THREE, group, T) {
         quad(b0, b0, l0, l0, [0, -DEPTH], [-DEPTH, 0], COL.side, COL.side, COL.side, COL.side);   // the sides between cells
         quad(b1, b1, l1, l1, [0, -DEPTH], [-DEPTH, 0], COL.side, COL.side, COL.side, COL.side);
         quad(l0, l0, l1, l1, [0, -DEPTH], [-DEPTH, 0], COL.top, COL.top, COL.top, COL.top);       // the top, facing the lumen
+        quad(b0, b0, b1, b1, [0, -DEPTH], [-DEPTH, 0], COL.side, COL.side, COL.side, COL.side);   // the base
+        const ZB = [-DEPTH, -DEPTH];                                                                  // and the back, cut
+        quad(b0, b1, m1, m0, ZB, ZB, COL.cut, COL.cut, COL.cut, COL.cut);
+        quad(m0, m1, l1, l0, ZB, ZB, COL.cut, COL.cut, COL.mucin, COL.mucin);
       }
     }
     const g = new THREE.BufferGeometry();
@@ -210,17 +216,26 @@ export function build(THREE, group, T) {
   const cutCells = new THREE.InstancedMesh(cellGeometry(THREE, true), mat, front.length);
   front.forEach((e, i) => cutCells.setMatrixAt(i, pose(e)));
   cutCells.userData.part = 'tcell'; cutCells.computeBoundingSphere();
+  // the back row: the same cut cell, mirrored to face back (its triangles turned, so they still face out)
+  const backGeo = cellGeometry(THREE, true); backGeo.scale(1, 1, -1);
+  { const P = backGeo.attributes.position.array, C = backGeo.attributes.color.array;
+    for (let t = 0; t < P.length; t += 9) for (const A of [P, C]) for (let k = 0; k < 3; k++) { const a = A[t + 3 + k]; A[t + 3 + k] = A[t + 6 + k]; A[t + 6 + k] = a; }
+    backGeo.computeVertexNormals(); }
+  const backCells = new THREE.InstancedMesh(backGeo, mat, back.length);
+  back.forEach((e, i) => backCells.setMatrixAt(i, pose(e)));
+  backCells.userData.part = 'tcell'; backCells.computeBoundingSphere();
 
   // the nuclei of the cut cells, cut too, near the base of each cell (5 µm wide, 10 µm long)
   const ng = new THREE.SphereGeometry(1, 16, 10, Math.PI, Math.PI); ng.scale(2.5, 5.2, 2.5);
   const capG = new THREE.CircleGeometry(1, 16); capG.scale(2.5, 5.2, 1);
   const nucMat = new THREE.MeshLambertMaterial({ color: COL.nucleus, side: THREE.DoubleSide });
   // (and one in each of the glands' wedge cells, near its base, along the cell)
-  const withNuc = front.concat(glands.flatMap(({ B, L: Lm }) => B.map((b, i) => {
+  const glandAxes = glands.flatMap(({ B, L: Lm }) => B.map((b, i) => {
     const b1 = B[(i + 1) % B.length], l0 = Lm[i], l1 = Lm[(i + 1) % B.length];
     const bx = (b[0] + b1[0]) / 2, by = (b[1] + b1[1]) / 2, ax = (l0[0] + l1[0]) / 2, ay = (l0[1] + l1[1]) / 2, h = Math.hypot(ax - bx, ay - by) || 1;
     return { x: bx, y: by, nx: (ax - bx) / h, ny: (ay - by) / h, h: h / H_GEO };
-  })));
+  }));
+  const withNuc = front.concat(glandAxes), atBack = back.concat(glandAxes.map(e => ({ ...e, z: -DEPTH })));
   const nuclei = new THREE.InstancedMesh(ng, nucMat, withNuc.length), caps = new THREE.InstancedMesh(capG, nucMat, withNuc.length);
   const nucleiAt = [];                           // where each cut nucleus is (its names go on these)
   withNuc.forEach((e, i) => {
@@ -232,6 +247,17 @@ export function build(THREE, group, T) {
   });
   nuclei.userData.part = 'tnucleus'; caps.userData.part = 'tnucleus';
   nuclei.computeBoundingSphere(); caps.computeBoundingSphere();
+  // and the same at the back face, mirrored
+  const ngB = ng.clone(); ngB.scale(1, 1, -1);
+  const nucleiB = new THREE.InstancedMesh(ngB, nucMat, atBack.length), capsB = new THREE.InstancedMesh(capG, nucMat, atBack.length);
+  atBack.forEach((e, i) => {
+    const hgt = 7 + r() * 2.5 + (e.h * H_GEO - 40) * 0.12;
+    q.setFromUnitVectors(up, nv.set(e.nx, e.ny, 0));
+    m4.compose(new THREE.Vector3(e.x + e.nx * hgt, e.y + e.ny * hgt, -DEPTH - 0.04), q, sc.set(1, 0.9 + r() * 0.25, 1));
+    nucleiB.setMatrixAt(i, m4); capsB.setMatrixAt(i, m4);
+  });
+  nucleiB.userData.part = 'tnucleus'; capsB.userData.part = 'tnucleus';
+  nucleiB.computeBoundingSphere(); capsB.computeBoundingSphere();
 
   // ---- the connective tissue: under the linings, left and right of the crypt, with the glands as holes
   const st = stromaTexture(THREE, T);
@@ -249,7 +275,7 @@ export function build(THREE, group, T) {
     return geo;
   };
   const faceMat = new THREE.MeshLambertMaterial({ map: st.tex });
-  const sideMat = new THREE.MeshLambertMaterial({ color: COL.stromaSide });
+  const sideMat = new THREE.MeshLambertMaterial({ color: COL.stromaSide, side: THREE.DoubleSide });   // (the glands' walls, seen from inside)
   const stroma = new THREE.Group();
   [solid(linings[0], -1), solid(linings[1], 1)].forEach(g => { const m = new THREE.Mesh(g, [faceMat, sideMat]); m.userData.part = 'connective'; stroma.add(m); });
   stroma.userData.part = 'connective';
@@ -261,7 +287,7 @@ export function build(THREE, group, T) {
     const g = new THREE.ExtrudeGeometry(sh, { depth: DEPTH - 1, bevelEnabled: false, steps: 1, curveSegments: 2 });
     g.translate(0, 0, -DEPTH); const m = new THREE.Mesh(g, mucusMat); m.userData.part = 'mucus'; mucus.add(m);
   }
-  group.add(cells, cutCells, wedges, nuclei, caps, stroma, mucus);
+  group.add(cells, cutCells, backCells, wedges, nuclei, caps, nucleiB, capsB, stroma, mucus);
 
   // the cell the zoom goes into next: on the surface, a few rows back from the face, inside the frame
   const pick = full.filter(e => e.ny > 0.9 && e.x > 100 && e.x < 140 && e.z < -25 && e.z > -40)[0] || full[0];

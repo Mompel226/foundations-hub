@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791041702';
+import { build as buildTissue } from './tissue3d.js?v=1791042281';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -172,6 +172,7 @@ export async function mount(el, opts = {}) {
   const listeners = { level: [], pick: [], hover: [], scale: [], progress: [], arrive: [], z: [] };
   const emit = (k, x) => listeners[k].forEach(f => f(x));
   const groups = {}, counts = {}, bodyMat = {}, anchors = [];
+  let skinPre = null, skinIn = null;            // the skin's depth-only copy (glassMaterial), and its inside
   let molApi = null;
 
   // ---------- the frames ----------
@@ -213,6 +214,25 @@ export async function mount(el, opts = {}) {
     o.renderOrder = id === 'skin' ? 3 : 1;
     bodyParts[id] = o;
   });
+  {   // the skin's window, round the uterus, the oviducts and the ovaries; and its depth-only copy, drawn just before it
+    const skin = bodyParts.skin, box = new THREE.Box3();
+    for (const id of ['uterus', 'tubes', 'ovaries', 'cervix']) if (bodyParts[id]) box.expandByObject(bodyParts[id]);
+    if (skin && !box.isEmpty()) {
+      const c = skin.worldToLocal(box.getCenter(new THREE.Vector3())), half = box.getSize(new THREE.Vector3()).length() / 2;
+      const U = skin.material.uniforms;
+      skin.onBeforeRender = () => {         // the window in the world, where the body is now
+        U.uWinC.value.copy(c).applyMatrix4(skin.matrixWorld);
+        const k = skin.matrixWorld.getMaxScaleOnAxis(); U.uWinR.value.set(half * 0.9 * k, half * 1.6 * k);
+      };
+      skinPre = new THREE.Mesh(skin.geometry, new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, transparent: true }));
+      skinPre.matrixAutoUpdate = false; skinPre.matrix.copy(skin.matrix); skinPre.renderOrder = 2.5; skinPre.userData.part = 'body';
+      skin.parent.add(skinPre);
+      // the inside of the body, dim, behind the organs: through the window you look into her, not out the other side
+      skinIn = new THREE.Mesh(skin.geometry, new THREE.MeshLambertMaterial({ color: 0x3a2f3a, side: THREE.BackSide, transparent: true }));
+      skinIn.matrixAutoUpdate = false; skinIn.matrix.copy(skin.matrix); skinIn.renderOrder = 0.5; skinIn.userData.part = 'body';
+      skin.parent.add(skinIn);
+    }
+  }
   G.body.add(body.scene);
   // the cut face of the uterus and cervix (tools/model-build/build_section.py), just in front of the cut
   const sectionTex = await new THREE.TextureLoader().loadAsync('assets/body/section.webp?v=' + v);
@@ -249,6 +269,12 @@ export async function mount(el, opts = {}) {
       const m = bodyMat[id];
       if (m.uniforms) m.uniforms.uOpacity.value = x; else { m.opacity = x; m.depthWrite = x > 0.95; }
       m.visible = x > 0.004;
+      if (id === 'skin' && skinPre) {
+        skinPre.visible = m.visible;
+        // the inside goes as the skin becomes clear (organism to organ system), or it would hide the other organs
+        const inside = THREE.MathUtils.clamp((x - 0.3) / 0.6, 0, 1);
+        skinIn.material.opacity = inside; skinIn.material.depthWrite = inside > 0.95; skinIn.visible = inside > 0.01;
+      }
     }
   }
   // where the organs are named: a point ON each organ's surface (the one nearest the middle of its points), never
@@ -311,7 +337,8 @@ export async function mount(el, opts = {}) {
   const tissueReady = new Promise(res => setTimeout(async () => {
     const trace = await fetch('assets/tissue/trace.json?v=' + v).then(r => r.json());
     tissue = buildTissue(THREE, G.tissue, trace);
-    tissue.labels.forEach(a => anchors.push({ group: 'tissue', frame: 'tissue', p: a.p, cands: a.cands, r: a.r, text: a.text, part: a.part, z: [2.86, 3.3], free: !!a.free }));
+    // (names on the cut face are for the cut face: from behind the block they are not shown)
+    tissue.labels.forEach(a => anchors.push({ group: 'tissue', frame: 'tissue', p: a.p, cands: a.cands, r: a.r, text: a.text, part: a.part, z: [2.86, 3.3], free: !!a.free, face: a.p[2] > 0 }));
     // the slice the photograph beside it shows is outlined on the block's cut face (tissue3d's frame)
     slideLine = { material: tissue.frameMat };
     // the one lining cell the zoom goes into has a group of its own: it lifts out of the tissue and spreads flat
@@ -633,12 +660,31 @@ export async function mount(el, opts = {}) {
       return [view('cell'), { f: 'cell', pos: on(0.25), at }, { f: 'cell', pos: on(0.6), at }, { f: 'cell', pos: on(0.9), at }, view('inside')]; },
     () => [{ f: 'mol', pos: [0, 0.03, 0.6], at: [0, 0.03, 0] }, { f: 'mol', pos: [0.012, 0.035, 0.4], at: [-0.005, 0.03, 0] }, view('molecules')],
   ];
+  // The reader may have turned a level round (or it turned itself): from where they left it, the path first turns the
+  // view back round the same middle to the level's own view, where the way on starts. Without this the camera swung
+  // straight across, through empty space, to reach the way in (Daniel, 4 Oct: "directed to the empty space").
+  // Keys from `from` along the arc, up to (not including) the level's view; just [from] if it is close enough.
+  function arcKeys(from, l) {
+    const V = VIEWS[l]; if (!V || !V.orbit) return [from];
+    const f = levelFrame(l), M = F(f), inv = M.clone().invert(), T = new THREE.Vector3().fromArray(V.at);
+    const sa = new THREE.Spherical().setFromVector3(from.pos.clone().applyMatrix4(inv).sub(T));
+    const sb = new THREE.Spherical().setFromVector3(new THREE.Vector3().fromArray(V.pos).sub(T));
+    let dth = sb.theta - sa.theta; dth = Math.atan2(Math.sin(dth), Math.cos(dth));
+    const ang = Math.hypot(dth, sb.phi - sa.phi), lr = Math.log(sb.radius / sa.radius);
+    if (ang < 0.04 && Math.abs(lr) < 0.04) return [from];
+    const n = Math.max(2, Math.ceil(ang / 0.25)), out = [from], at = W3(f, V.at), s = new THREE.Spherical();
+    for (let k = 1; k < n; k++) {
+      const t = k / n; s.set(sa.radius * Math.exp(lr * t), sa.phi + (sb.phi - sa.phi) * t, sa.theta + dth * t);
+      out.push({ pos: new THREE.Vector3().setFromSpherical(s).add(T).applyMatrix4(M), at: at.clone() });
+    }
+    return out;
+  }
   function makeFlight(i, poseA, poseB) {
     let keys = PATHS[i]();
     keys = keys.map(k => ({ pos: W3(k.f, k.pos), at: W3(k.f, k.at) }));
     if (i === 5) keys[0] = poseA || keys[0];     // the molecules are placed where the reader was looking
-    else if (poseA) keys[0] = poseA;
-    if (poseB) keys[keys.length - 1] = poseB;
+    else if (poseA) { const arc = arcKeys(poseA, LEVELS[i]); if (arc.length > 1) keys.unshift(...arc); else keys[0] = poseA; }
+    if (poseB) { const arc = arcKeys(poseB, LEVELS[i + 1]); if (arc.length > 1) keys.push(...arc.reverse()); else keys[keys.length - 1] = poseB; }
     const posC = new THREE.CatmullRomCurve3(keys.map(k => k.pos), false, 'centripetal');
     const atC = new THREE.CatmullRomCurve3(keys.map(k => k.at), false, 'centripetal');
     const N = 600, cum = [0]; let pp = posC.getPoint(0), pa = atC.getPoint(0);
@@ -1037,6 +1083,7 @@ export async function mount(el, opts = {}) {
       // model's parts are, so the names fit both)
       if (fades[a.group] < (a.group === 'inside' ? 0.02 : 0.6)) continue;
       if (a.cut && knifeOff < 0.03) continue;
+      if (a.face && camera.position.clone().applyMatrix4(F(a.frame).invert()).z < 0) continue;
       let p = W3(a.frame, a.dyn === 'single' ? singleAt : a.dyn && molApi ? molApi.where()[a.dyn] : a.p);
       if (a.cands) {                               // one of its places on the screen that can be seen from here: the last one if it still can
         const order = a.last != null ? [a.last, ...a.cands.keys()].filter((v, i, arr) => arr.indexOf(v) === i) : [...a.cands.keys()];
@@ -1241,14 +1288,24 @@ function stripes() {
 }
 
 // The skin as glass: see-through in the middle, brighter at the edges (where you look along the surface).
+// The skin: solid, lit from above, except in a window round the reproductive organs, where it is like glass, bright
+// only at its edges. The window is wherever the line of sight passes near them (uWinC, world; radii uWinR, world), so
+// from any side you see the uterus and nothing else. Only the surface nearest the eye is
+// drawn (a depth-only copy is drawn first): the arm behind the body, or the far side of the chest, never shows
+// through as a lighter shape (Daniel, 4 Oct: "the only thing you should be able to see through is the uterus").
 function glassMaterial(col) {
   return new THREE.ShaderMaterial({
-    uniforms: { uColor: { value: new THREE.Color(col) }, uOpacity: { value: 1 } },
-    vertexShader: `varying vec3 vN; varying vec3 vV;
-      void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = -mv.xyz; vN = normalMatrix * normal; gl_Position = projectionMatrix * mv; }`,
-    fragmentShader: `uniform vec3 uColor; uniform float uOpacity; varying vec3 vN; varying vec3 vV;
-      void main(){ float r = 1.0 - abs(dot(normalize(vN), normalize(vV))); r = pow(r, 2.2);
-        gl_FragColor = vec4(uColor * (0.5 + 1.1 * r), uOpacity * (0.06 + 0.7 * r)); }`,
+    uniforms: { uColor: { value: new THREE.Color(col) }, uOpacity: { value: 1 },
+      uWinC: { value: new THREE.Vector3(0, -1e12, 0) }, uWinR: { value: new THREE.Vector2(1, 2) } },
+    vertexShader: `varying vec3 vN; varying vec3 vV; varying vec3 vW;
+      void main(){ vec4 mv = modelViewMatrix * vec4(position, 1.0); vV = -mv.xyz; vN = normalMatrix * normal; vW = (modelMatrix * vec4(position, 1.0)).xyz; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform vec3 uColor; uniform float uOpacity; uniform vec3 uWinC; uniform vec2 uWinR; varying vec3 vN; varying vec3 vV; varying vec3 vW;
+      void main(){ vec3 n = normalize(vN); float r = 1.0 - abs(dot(n, normalize(vV))); r = pow(r, 2.2);
+        vec3 rd = normalize(vW - cameraPosition);
+        float solid = smoothstep(uWinR.x, uWinR.y, length(cross(uWinC - cameraPosition, rd)));
+        float lit = 0.42 + 0.48 * max(dot(n, normalize(vec3(0.25, 0.8, 0.55))), 0.0) + 0.35 * r;
+        vec3 c = uColor * mix(0.5 + 1.1 * r, lit, solid);
+        gl_FragColor = vec4(c, uOpacity * mix(0.06 + 0.7 * r, 0.94, solid)); }`,
     transparent: true, depthWrite: false, side: THREE.FrontSide,
   });
 }
