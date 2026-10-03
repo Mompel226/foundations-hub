@@ -13,11 +13,13 @@ web files into `../../assets/`. Python needs numpy, scipy, scikit-image, trimesh
 | cell | `python3 build_whole.py` → `node gltf/pack.mjs ../../assets/cell/whole.glb <cache>/openorganelle/whole/w_*.glb` | `assets/cell/whole.glb` |
 | organelles | `python3 fetch_roi.py` → `python3 build_meshes.py` → `node gltf/zones.mjs <cache>/openorganelle/cell3d <name> <budget>` for each organelle → `node gltf/pack.mjs ../../assets/cell/organelles.glb …` | `assets/cell/organelles.glb` |
 | organelles (small things) | `python3 instances.py <class> s1 [--voxels]` (ribo, vesicle, np, mt-out with --voxels, cent with --voxels) → `python3 build_small.py` | `assets/cell/small.bin` |
-| organelles' electron micrograph | `python3 build_em_slice.py` (one image of the stack, the plane z = 13.2 µm; reads the raw FIB-SEM at s2, a few tens of MB of blocks) | `assets/cell/em-slice.*`, `em-outline.png` |
+| organelles' electron micrograph | `python3 build_em_slice.py` (one image of the stack, the plane z = 13.2 µm, at s2) | `assets/cell/em-section.*`, `em-slice.json` |
 | molecules | `python3 build_molecules.py` → `node gltf/pack.mjs ../../assets/mol/molecules.glb <cache>/molecules/m_*.glb` | `assets/mol/*` |
 
-The budgets used for `zones.mjs`: er 520000, mito 90000, endo 90000, lyso 50000, ld 4000, nucleus 70000,
-membrane 50000 (golgi 400000 when the box holds Golgi; the box beside the nucleus has none).
+The budgets used for `zones.mjs`: er 400000, mito 90000, endo 60000, lyso 50000, ld 4000 (with `1` after it: one
+tile), nucleus 70000, membrane 50000 (golgi 400000 when the box holds Golgi; the box beside the nucleus has none).
+Each organelle is written in 3 × 3 tiles, so the page draws only the ones in view (4 Oct: the dive ran at 30 frames a
+second with one mesh each).
 
 The organelles' box (`build_meshes.SCENE_UM`, `cell3d.js` `BOX`) is the cytoplasm beside the nucleus, on its left.
 Four things must agree when it moves: `zones.mjs` `FOCUS` (full detail round what the reader looks at), the

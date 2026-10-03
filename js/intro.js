@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS } from './cell3d.js?v=1791042681';
+import { mount, PARTS, LEVELS } from './cell3d.js?v=1791043197';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -397,7 +397,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791042681', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791043197', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
@@ -413,7 +413,7 @@ async function start() {
     .on('hover', showTip)
     .on('z', z => {
       // the real thing beside the model: the light micrograph at the tissue, the electron micrograph among the organelles
-      const m = z > 2.9 && z <= 3.12, m2 = z > 3.12 && z < 3.48, e = z > 4.88 && z < 5.38;
+      const m = z > 2.9 && z <= 3.12, m2 = z > 3.12 && z < 3.48, e = z > 4.62 && z < 5.38;
       if ($('#micro').hidden === m || $('#micro2').hidden === m2 || $('#emfig').hidden === e) {
         $('#micro').hidden = !m; $('#micro2').hidden = !m2; $('#emfig').hidden = !e;
         [$('#micro'), $('#micro2')].forEach(f => { if (!f.hidden) fitPins(f); });
