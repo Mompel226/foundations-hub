@@ -7,9 +7,9 @@ Groups (each one mesh, named): skin; the bones one mesh per kind (hip, sacrum, c
 each can be named when the pointer is on it; bladder, rectum, vagina, uterus, cervix, tubes, ovaries.
 Units: metres, the Atlas's own frame (y up, +z the front of the body).
 
-One change of place: each ovary is moved about 2 mm so that its upper (tubal) pole touches the fimbriae of its
-oviduct (0.2-0.7 mm away), where the fimbriae fold over it in life; the Atlas leaves a gap of about 2.3 mm. Every other organ is where the Atlas puts it (checked: tubes, uterus, cervix and vagina
-meet within 0.2 mm).
+One change of place: each ovary is moved about 4 mm so that the fimbriae of its oviduct lie on its upper (tubal) end,
+as in life (seat(): a quarter of the fimbriae within 1.5 mm of it; the Atlas leaves a gap of about 2.3 mm). Every
+other organ is where the Atlas puts it (checked: tubes, uterus, cervix and vagina meet within 0.2 mm).
 """
 import glob, os
 import numpy as np
@@ -40,33 +40,46 @@ def load(p):
     return np.load(os.path.join(SRC, "VH_F_" + p + ".npz"))
 
 
-def seat(ovary, side):
-    """the smallest move (searched on a 1 mm, then a 0.25 mm grid) that brings the ovary's upper pole to
-    0.2-0.7 mm from its fimbriae, while staying at least 0.4 mm from the rest of the oviduct"""
+def seat(ovary, side, limit=6.0):
+    """The move (at most `limit` mm; a 1 mm, then a 0.25 mm grid) that lays the most of the oviduct's fimbriae on the
+    ovary's upper (tubal) end, as they lie in life: the share of fimbriae within 1.5 mm of its surface. No fimbria may
+    sink more than 0.5 mm into it; the rest of the oviduct stays clear (0.4 mm). The Atlas leaves a gap of about
+    2.3 mm (0% within 1.5 mm); a first move (until 4 Oct 2026) only closed it to a single touching point, and the
+    fimbriae looked beside the ovary, not on it (Daniel: "they seem to be not aligned with the fimbriae")."""
     import itertools
     from scipy.spatial import cKDTree
     tri = lambda p: trimesh.Trimesh(load(p)["v"].astype(np.float64), load(p)["f"], process=True)
-    po, _ = trimesh.sample.sample_surface(tri(ovary), 1500, seed=1)
-    ytop, yh = po[:, 1].max(), np.ptp(po[:, 1])
-    fim = cKDTree(trimesh.sample.sample_surface(tri("fibria_of_uterine_tube_" + side), 6000, seed=2)[0])
-    rest = cKDTree(np.vstack([trimesh.sample.sample_surface(tri(p), 6000, seed=3)[0] for p in
-                              ("uterine_tube_infundibulum_" + side, "ampulla_of_uterine_tube_" + side, "isthmus_of_fallopian_tube_" + side)]))
+    o = tri(ovary); so, fi = trimesh.sample.sample_surface(o, 6000, seed=1); sn = o.face_normals[fi]
+    tree = cKDTree(so)
+    ax = np.linalg.svd(so - so.mean(0), full_matrices=False)[2][0]; half = np.abs((so - so.mean(0)) @ ax).max()
+    fim = trimesh.sample.sample_surface(tri("fibria_of_uterine_tube_" + side), 3000, seed=2)[0]
+    rest = np.vstack([trimesh.sample.sample_surface(tri(p), 2000, seed=3)[0] for p in
+                      ("uterine_tube_infundibulum_" + side, "ampulla_of_uterine_tube_" + side, "isthmus_of_fallopian_tube_" + side)])
+    up = np.sign((fim.mean(0) - so.mean(0)) @ ax)                    # the tubal end: the end of the long axis nearer the fimbriae
 
-    def ok(t):
-        q = po + t
-        df, _ = fim.query(q); k = df.argmin()
-        if not 0.0002 <= df[k] <= 0.0007 or q[k, 1] < ytop + t[1] - 0.3 * yh:
-            return False
-        return rest.query(q, distance_upper_bound=0.001)[0].min() >= 0.0004
-    best = None
-    for step, span in ((1.0, 7), (0.25, 1.5)):
-        c0 = np.zeros(3) if best is None else best * 1000
+    def score(t):
+        q = fim - t; d, i = tree.query(q); sd = np.einsum("ij,ij->i", q - so[i], sn[i])   # > 0 outside the ovary
+        if sd.min() < -0.0005:
+            return None
+        dr, ir = tree.query(rest - t); sr = np.einsum("ij,ij->i", (rest - t) - so[ir], sn[ir])
+        if ((sr < 0.0004) & (dr < 0.003)).any():
+            return None
+        close = d < 0.0015
+        if close.sum() < 20 or np.median(((so[i[close]] - so.mean(0)) @ ax) * up / half) < 0.4:
+            return 0.0
+        return close.mean()
+    best, bs = np.zeros(3), score(np.zeros(3)) or 0.0
+    for step, span, refine in ((1.0, limit, False), (0.25, 1.0, True)):
+        c0 = best * 1000 if refine else np.zeros(3)
         R = np.arange(-span, span + 1e-9, step)
-        for d in itertools.product(R, R, R):
-            t = (c0 + np.array(d)) / 1000
-            if ok(t) and (best is None or np.linalg.norm(t) < np.linalg.norm(best)):
-                best = t
-    print(f"{ovary}: moved {np.round(best * 1000, 2).tolist()} mm")
+        for dd in itertools.product(R, R, R):
+            t = (c0 + np.array(dd)) / 1000
+            if np.linalg.norm(t) * 1000 > limit:
+                continue
+            sc = score(t)
+            if sc is not None and (sc > bs + 1e-9 or (abs(sc - bs) < 1e-9 and np.linalg.norm(t) < np.linalg.norm(best))):
+                best, bs = t, sc
+    print(f"{ovary}: moved {np.round(best * 1000, 2).tolist()} mm; fimbriae within 1.5 mm of it: {bs * 100:.0f}%")
     return best
 
 

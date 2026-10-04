@@ -71,11 +71,15 @@ a{color:inherit}
 .bracket:hover,.bracket:focus-visible,.bracket.is-here{opacity:1}
 
 /* ---------- the caption ---------- */
-.cap{position:absolute;right:18px;bottom:18px;z-index:6;width:var(--capw,380px);max-height:calc(100% - var(--captop,96px) - 18px);
+/* the right-hand column: the photograph or film above and this card below share one width (--colw) and the column's
+   height (fitCap in intro.js: the picture at most what the text leaves; Daniel, 4 Oct: the two overlapped, and were
+   not the same width) */
+.zoom{--colw:clamp(340px,29vw,430px)}
+.cap{position:absolute;right:18px;bottom:18px;z-index:6;width:var(--colw);max-height:calc(100% - var(--captop,96px) - 18px);
      display:flex;flex-direction:column;
      background:var(--glass);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line);
      border-radius:var(--r-lg);padding:13px 16px 12px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
-@media (max-width:1100px){.zoom{--capw:330px}}
+@media (max-width:1100px){.zoom{--colw:330px}}
 .cap__eyebrow{margin:0 0 4px;font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .cap__eyebrow b{color:var(--accent);font-weight:500}
 #capView{text-transform:none;letter-spacing:.04em}   /* capital µ would read as M */
@@ -106,6 +110,18 @@ a{color:inherit}
 .cap__go{display:flex;align-items:center;gap:8px;margin-top:12px;position:sticky;bottom:-12px;padding:6px 0 12px;margin-bottom:-12px;
          background:linear-gradient(180deg,rgba(14,20,27,0),rgba(14,20,27,.92) 30%)}
 .cap__spacer{flex:1}
+/* more to read below: a fade and a label just above the buttons, until the end is reached */
+.cap__scroll{position:sticky;bottom:52px;height:0;pointer-events:none;display:none}
+.cap.can-scroll .cap__scroll{display:block}
+.cap__scroll::before{content:"";position:absolute;left:-16px;right:-16px;bottom:0;height:46px;background:linear-gradient(180deg,rgba(14,20,27,0),rgba(14,20,27,.92))}
+.cap__scroll span{position:absolute;right:0;bottom:4px;font-size:11.5px;font-weight:600;color:var(--accent);background:rgba(14,20,27,.9);
+                  border:1px solid rgba(143,227,200,.45);border-radius:var(--r-pill);padding:2px 9px;animation:nudge 1.6s ease-in-out infinite}
+@keyframes nudge{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
+@media (prefers-reduced-motion:reduce){.cap__scroll span{animation:none}}
+/* the text given the whole column: the photograph shrinks to its heading (a press on the heading brings it back) */
+.text-first .micro .micro__img,.text-first .micro .micro__labels,.text-first .micro .micro__lines,.text-first .micro .key,.text-first .micro figcaption{display:none}
+.text-first .micro{cursor:pointer} .text-first .micro .micro__intro b::after{content:"  ▸ show the picture";font-size:11.5px;color:var(--muted);font-weight:600}
+.cap{cursor:default}
 .chips{list-style:none;margin:6px 0 10px;padding:0;display:flex;flex-wrap:wrap;gap:8px}
 .chips li{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:var(--r);padding:6px 10px;line-height:1.25}
 .chips b{display:block;font-size:17px;font-variant-numeric:tabular-nums}
@@ -162,10 +178,10 @@ a{color:inherit}
 .hovertip i{width:10px;height:10px;border-radius:50%;background:var(--c,#888)}
 
 /* the real tissue, beside the model */
-.micro{position:absolute;right:18px;top:96px;z-index:5;margin:0;width:min-content;background:var(--glass);
+.micro{position:absolute;right:18px;top:96px;z-index:5;margin:0;width:var(--colw);box-sizing:border-box;background:var(--glass);
        backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid var(--line-2);border-radius:14px;
        overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,.45)}
-.micro__img{position:relative;line-height:0}
+.micro__img{position:relative;line-height:0;width:max-content;max-width:100%;margin:0 auto}
 .micro__img img{height:min(36vh,400px);width:auto;display:block}
 /* a pin: its dot on the place, its name beside, below or above it, wherever it fits inside the picture (fitPins) */
 .pin{position:absolute;width:0;height:0;font-size:11px;line-height:1.2;font-weight:700;color:#fff;white-space:nowrap;pointer-events:none;
@@ -175,8 +191,8 @@ a{color:inherit}
 .micro figcaption{padding:8px 11px 9px;font-size:12px;line-height:1.4;color:#C7D2DC}
 /* the photograph with its names in a column beside it and a thin line to each place (callouts in intro.js): on the
    picture itself the names covered what they named */
-.micro--callouts{width:auto;display:grid;grid-template-columns:176px auto;position:absolute}
-.micro--callouts .micro__img{width:max-content;justify-self:start}
+.micro--callouts{display:grid;grid-template-columns:150px minmax(0,1fr);position:absolute}
+.micro--callouts .micro__img{width:max-content;justify-self:start;margin:0;grid-column:2}   /* (its own column: on a phone the names' column is hidden, and it fell into it) */
 .micro--callouts .micro__img img{height:min(54vh,520px)}
 .micro--callouts figcaption{grid-column:1/-1;width:0;min-width:100%;box-sizing:border-box}   /* (the caption wraps; it never widens the panel) */
 .micro--callouts .pin{font-size:0}
@@ -187,8 +203,7 @@ a{color:inherit}
 .micro__lines{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
 
 /* the electron micrograph: wide, with its colour key */
-.micro--em{width:clamp(240px,calc((100vh - 400px) * 1.5),420px)}
-.micro--wide{width:min(400px,30vw)} .micro--wide .micro__img img{width:100%;height:auto}
+.micro--wide .micro__img img{width:100%;height:auto}
 @media (max-height:780px){.micro figcaption{display:none}}
 .micro--em .micro__img img{width:100%;height:auto}
 .micro__over{position:absolute;inset:0}
@@ -206,7 +221,7 @@ a{color:inherit}
 .key li::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--c)}
 
 /* Eric Betzig, from the cell down */
-.film{position:absolute;right:18px;top:96px;z-index:5;margin:0;height:min(46vh,430px);aspect-ratio:9/16;
+.film{position:absolute;right:18px;top:96px;z-index:5;margin:0;height:var(--filmh,min(46vh,430px));aspect-ratio:9/16;
       background:#000;border-radius:14px;overflow:hidden;box-shadow:0 12px 34px rgba(0,0,0,.5);border:1px solid var(--line-2)}
 .film video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
 .film__bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;gap:6px;padding:6px;
@@ -217,7 +232,8 @@ a{color:inherit}
 .film__x{font-size:17px}
 /* who is talking, beside the film (Daniel, 4 Oct): on a laptop only, where there is room; shown while the film is
    (outside the film's box, which clips what is beyond its corners) */
-.filmnote{position:absolute;top:96px;right:calc(28px + min(46vh,430px) * 9 / 16);z-index:5;width:210px;padding:10px 12px;
+.filmnote{position:absolute;top:96px;right:calc(28px + var(--filmh,min(46vh,430px)) * 9 / 16);z-index:5;box-sizing:border-box;
+          width:calc(var(--colw) - var(--filmh,min(46vh,430px)) * 9 / 16 - 10px);max-height:var(--filmh,min(46vh,430px));overflow:auto;padding:10px 12px;
           border-radius:var(--r);background:var(--glass);border:1px solid var(--line);font-size:12.5px;line-height:1.45;color:#C7D2DC;
           display:none;flex-direction:column;gap:6px}
 .film:not([hidden]) + .filmnote{display:flex}
@@ -320,7 +336,10 @@ a{color:inherit}
   .micro figcaption{display:none}
   .micro--em{width:calc(100% - 16px)} .key{display:none}
   .micro--callouts{grid-template-columns:0 auto} .micro__labels,.micro__lines{display:none}
-  .micro--wide{width:62vw}
+  .micro--wide{width:62vw} .micro{width:min-content} .micro__img{max-width:none} .micro--em{width:calc(100% - 16px)}
+  .micro--callouts{width:auto} .micro--callouts .micro__img img{height:min(30vh,230px)}
+  .micro__intro{font-size:0;padding:7px 9px 5px} .micro__intro b{font-size:12.5px;margin:0}   /* (a phone: the heading only) */
+  .micro--em .micro__img,.micro--wide .micro__img{width:100%} .micro--em .micro__img img,.micro--wide .micro__img img{width:100%;height:auto}
   .filmpill{top:112px;right:8px}
   .scalebar{right:10px;bottom:auto;top:calc(112px + min(30vh,230px) + 10px)}
   .topbtns{right:8px;top:10px;flex-direction:column;align-items:flex-end;gap:4px}
