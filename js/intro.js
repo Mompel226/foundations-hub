@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS } from './cell3d.js?v=1791043197';
+import { mount, PARTS, LEVELS } from './cell3d.js?v=1791079728';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -28,9 +28,12 @@ const INFO = {
   lining_c:  { syl: false, name: 'lining of the cervix', does: 'One layer of tall cells that make mucus. It folds deep into the wall as crypts.', size: 'One cell thick: about 30 µm.' },
   cover:     { syl: false, name: 'outer covering', does: 'A thin, smooth layer over the outside of the uterus.', size: '' },
   canal:     { syl: false, name: 'canal of the cervix', does: 'The narrow way from the vagina into the uterus. Sperm swim through it; at birth it widens to about 10 cm.', size: '' },
-  tcell:     { syl: false, name: 'lining cell', does: 'A tall cell that makes mucus. Thousands of cells like it, side by side, make this tissue.', size: 'About 30 µm tall and 7 µm across.' },
+  tcell:     { syl: false, name: 'lining cell, on the surface of the canal', does: 'A tall cell that makes mucus. Thousands of cells like it, side by side, make this tissue.', size: 'About 30 µm tall and 7 µm across.' },
   tnucleus:  { syl: true,  name: 'nucleus', does: 'Contains the genetic material (DNA), which controls the activities of the cell. In these cells it sits near the base.', size: 'About 5 µm wide and 10 µm long.' },
-  capillary: { syl: true,  name: 'blood capillary', does: 'The smallest blood vessel. Substances pass between the blood and the cells through its thin wall.', size: 'About 8 µm across: just wide enough for one red blood cell.' },
+  capillary: { syl: true,  name: 'small blood vessel', does: 'Carries blood through the tissue. Substances pass between the blood and the cells through its thin wall. The red discs inside are red blood cells.', size: '' },
+  rbc:       { syl: true,  name: 'red blood cell', does: 'Carries oxygen round the body, joined to haemoglobin.', size: 'About 7.5 µm across.' },
+  gcell:     { syl: false, name: 'lining cell of a crypt', does: 'A tall cell that makes mucus, like the cells on the surface. The mucus made in a crypt flows out onto the surface of the canal.', size: 'About 65 µm tall here.' },
+  mucus:     { syl: false, name: 'mucus, inside the crypt', does: 'A thick, slippery liquid made by the lining cells. It protects the lining.', size: '' },
   crypt:     { syl: false, name: 'crypt', does: 'A deep fold of the lining into the wall. It makes more surface for making mucus.', size: '3 to 5 mm deep.' },
   section:   { syl: false, name: 'cut face', does: '', size: '' },
   emslice:   { syl: false, name: 'the slice in the photograph', does: 'The plane the electron micrograph beside you shows. The microscope cut this cell into more than 6,000 slices like it, one after another.', size: 'One slice is about 10 nm thick.' },
@@ -72,12 +75,12 @@ const TEXT = {
   organism: {
     def: '<b>Organism</b>: a living thing. This whole woman is one organism.',
     here: 'A real woman’s body, recorded slice by slice for a medical atlas.',
-    more: '<ul class="chips"><li><b>1.7 m</b><span>her height</span></li><li><b>30 million million</b><span>about how many cells a body has</span></li><li><b>7</b><span>levels, from her body to its molecules</span></li></ul><p class="hint">Scroll to zoom in and out through all seven levels. Drag to turn the body. Point at a part to see its name.</p>',
+    more: '<ul class="chips"><li><b>1.7 m</b><span>her height</span></li><li><b>30 million million</b><span>about how many cells a body has</span></li><li><b>7</b><span>levels, from her body to its molecules</span></li></ul><p class="hint">Scroll to zoom in and out through all seven levels. Scroll to zoom in and out. Point at a part to see its name.</p>',
     go: 'an organ system', mag: '× 8' },
   system: {
     def: '<b>Organ system</b>: a group of organs with related functions, working together to perform body functions.',
     here: 'Her reproductive system: the ovaries, the oviducts, the uterus, the cervix and the vagina.',
-    more: '<p class="hint">Tap an organ to see what it does. Drag to turn.</p>',
+    more: '<p class="hint">Tap an organ to see what it does. Scroll to zoom in and out.</p>',
     go: 'an organ', mag: '× 2.5' },
   organ: {
     def: '<b>Organ</b>: a structure made up of a group of tissues, working together to perform specific functions.',
@@ -94,21 +97,24 @@ const TEXT = {
     here: 'The middle of one real HeLa cell, a cell like the ones lining the cervix, grown flat in a laboratory. An electron microscope photographed this block of it in 3D: the cell goes on beyond the straight edges.',
     more: '<p>In 1951, cells like those in the lining of the cervix were taken from a cancer of a woman called <b>Henrietta Lacks</b>, without asking her. They still divide in laboratories today, and are called <b>HeLa cells</b>.</p>' +
       '<p>The microscope imaged a block 48 µm by 33 µm. This cell is bigger: where the block cuts it (the striped faces), it goes on. So you see the middle of the cell, round its nucleus, and the nucleus looks larger than it is: in the block it takes up about a quarter of the cell. It is also large because HeLa cells are cancer cells, whose nuclei are bigger than healthy ones.</p>' +
-      '<figure class="cap__fig"><div class="cap__figimg"><img src="assets/cell/em-section.webp?v=4" alt="An electron micrograph: one slice through this cell, from the glass up. The cell membrane is at the top, the nucleus on the right, the cytoplasm in between; on the left the cell gets thinner and goes on" width="750" height="400" loading="lazy"><img src="assets/cell/em-section-outline.png?v=4" alt="" width="750" height="400" loading="lazy"></div>' +
-      '<figcaption>One real slice through the block, 12 µm across: the glass at the bottom, the membrane at the top, the nucleus on the right. On the left the cell gets thinner and goes on past the block. The green box is the part shown at the next step, the organelles.</figcaption></figure>' +
+      '<p>Between the organelles the cytoplasm is <b>not empty</b>: it is full of ribosomes and proteins, too small to draw at this zoom. In the photograph below they are the grey grains.</p>' +
+      '<p>Near the cell membrane there are fewer large organelles than near the nucleus. In this cell, mitochondria fill about 3 parts in 100 of the space near the edge, and about 8 near the nucleus; the endoplasmic reticulum fills about 2 and about 11. Small sacs and thin tubes of endoplasmic reticulum reach all the way to the edge.</p>' +
+      '<figure class="cap__fig"><div class="cap__figimg"><img src="assets/cell/em-section.webp?v=6" alt="An electron micrograph: one slice through this cell, from the glass up. The cell membrane is at the top, the nucleus on the right, the cytoplasm in between; on the left the cell gets thinner and goes on" width="750" height="400" loading="lazy"><img src="assets/cell/em-section-outline.png?v=6" alt="" width="750" height="400" loading="lazy"></div>' +
+      '<figcaption>One real slice through the block, 12 µm across: the glass at the bottom, the membrane at the top, the nucleus on the right. On the left the cell gets thinner and goes on past the block. Each part the computer found is outlined in its colour in the 3D.</figcaption></figure>' +
       '<p>This one grew flat on a sapphire disc. Scientists froze it very fast, then set it in hard resin. A beam of ions removed a layer about 5 nanometres thick, and an electron microscope photographed the new surface. This was repeated more than 6,000 times, and a computer found every part of the cell.</p>' +
       '<ul class="chips"><li><b>48 µm</b><span>width of the block imaged</span></li><li><b>6 µm</b><span>height of the cell</span></li><li><b>21 µm</b><span>length of its nucleus</span></li></ul>' +
       '<p><b>On the picture: Eric Betzig</b>, Nobel Prize in Chemistry 2014, for microscopes that see single molecules in living cells. Listen to what he says about the pictures of cells in biology books.</p>' +
       '<details class="words"><summary>Read what he says</summary><p>“Almost everything you learn in biology textbooks is a hallucination. You guys have probably seen on the web: here’s a cargo on a kinesin walking along a microtubule like this. And it’s all in this vast empty space. I don’t know any cell that’s a bunch of vast empty space. I’m sorry, it’s crowded […]. There’s a hundred trillion water molecules in every cell. There’s ten billion protein molecules. There’s ten billion carbohydrates. There’s ten billion… It’s by far the most complex matter in the known universe. We understand the interiors of neutron stars far better than we understand the interior of cells. There’s a reason why only 9% of the drugs that enter phase one come out of phase three: because we don’t know what […] we’re doing. We don’t know the real mechanisms that are going on. And when you start to […] look at the dynamics, not just the structure, you realise that you had it all wrong. And you realise that so many of the things that they thought they knew, you can’t be sure that they know. We have to reinvestigate all of it.”</p></details>' +
-      '<p class="hint">From the <a href="https://www.youtube.com/watch?v=RUB37QhWNkw" target="_blank" rel="noopener">632nm podcast, episode 61</a>. Three swear words are silenced. Drag to turn the cell.</p>',
+      '<p class="hint">From the <a href="https://www.youtube.com/watch?v=RUB37QhWNkw" target="_blank" rel="noopener">632nm podcast, episode 61</a>. Three swear words are silenced.</p>',
     go: 'the organelles', mag: '× 7' },
   inside: {
     def: '<b>Organelles</b>: the parts inside a cell. Each one here is at its real size and in its real place.',
     here: 'You are in the cytoplasm beside the nucleus, just under the cell membrane. It is crowded: mitochondria, endoplasmic reticulum, ribosomes, vesicles.',
     more: '<p>In this box, 7.5 µm across, the microscope found:</p><ul class="chips"><li><b data-count="ribosomes">553,130</b><span>ribosomes</span></li><li><b data-count="vesicles">2,361</b><span>vesicles</span></li><li><b data-count="pores">144</b><span>pores in the nucleus</span></li><li><b data-count="microtubuleUm">225 µm</b><span>of microtubules</span></li></ul>' +
       '<p>Only the ribosomes near you are drawn. There are about 2,000 in every cubic micrometre of cytoplasm: if all of them were drawn, at their real size, you could not see anything else.</p>' +
+      '<p><b>Are mitochondria really this shape?</b> In this cell, yes. Most are short rods, about 1&nbsp;µm long; some are long tubes, up to about 9&nbsp;µm. Mitochondria join together and divide again all the time (fusion and fission). A thin slice through a rod or a tube shows an oval: that is the shape in the photograph beside, and in most books.</p>' +
       '<p>The dark space between them is <b>not empty</b>. It is cytoplasm, full of molecules too small to show here: about 140 million protein molecules, and about a million million water molecules, in this box alone.</p>' +
-      '<p class="hint">Drag to look around. Point at any part to see its name. Your syllabus names only some of these parts: press “Only the syllabus parts” to see the difference.</p>',
+      '<p class="hint">Point at any part to see its name. Your syllabus names only some of these parts: press “Only the syllabus parts” to see the difference.</p>',
     go: 'the molecules', mag: '× 50' },
   molecules: {
     def: '<b>Molecules</b>: a model of the cytoplasm, with every protein drawn at its real shape and size.',
@@ -116,7 +122,7 @@ const TEXT = {
     more: '<p>This is a <b>model</b>, not a measurement: no microscope can yet show every molecule in a whole cell. It uses the real shape of each kind of protein (Protein Data Bank) and how many of each kind a HeLa cell holds.</p>' +
       '<p>It is shown as a slice 70 nm thick: the molecules in front of the microtubule are left out, so that you can see it.</p>' +
       '<p>Kinesin really takes about 100 steps every second; here it takes one. In the time of one real step, the molecules around it move hundreds of nanometres: at that speed they would be a blur, so here they move only when the vesicle reaches them.</p>' +
-      '<p class="hint">Drag to turn. Tap a molecule to see what it is.</p>',
+      '<p class="hint">Tap a molecule to see what it is.</p>',
     go: null, mag: '' },
 };
 const SAID_SHORT = { organism: 'Organism', system: 'Organ system', organ: 'Organ', tissue: 'Tissue', cell: 'Cell', inside: 'Organelles', molecules: 'Molecules' };
@@ -325,6 +331,39 @@ function fitPins(fig) {
   });
 }
 
+// The tissue's photograph: each name in the column beside the picture, at the height of its place (moved apart
+// where two would touch), and a thin line from the name to the dot on the place (Daniel, 4 Oct: the names on the
+// small picture overlapped and hid what they named)
+function callouts(fig) {
+  const box = $('.micro__img', fig), col = $('.micro__labels', fig), svg = $('.micro__lines', fig);
+  if (!box || !col || !svg || fig.hidden) return;
+  const fr = fig.getBoundingClientRect(), br = box.getBoundingClientRect(), cr = col.getBoundingClientRect();
+  if (!br.height) return;
+  const pins = $$('.pin', fig).map(p => ({ x: br.left - fr.left + p.offsetLeft, y: br.top - fr.top + p.offsetTop,
+    text: p.textContent.trim(), c: getComputedStyle(p).getPropertyValue('--c').trim() }));
+  pins.sort((a, b) => a.y - b.y);
+  const gap = 30, top = br.top - fr.top + 12, bottom = br.bottom - fr.top - 12;
+  let y = -Infinity; pins.forEach(q => { q.ly = Math.max(q.y, y + gap, top); y = q.ly; });
+  let lim = bottom; for (let i = pins.length - 1; i >= 0; i--) { pins[i].ly = Math.min(pins[i].ly, lim); lim = pins[i].ly - gap; }
+  col.textContent = '';
+  const ns = 'http://www.w3.org/2000/svg';
+  svg.setAttribute('width', fr.width); svg.setAttribute('height', fr.height); svg.textContent = '';
+  const xL = cr.right - fr.left - 4, xE = br.left - fr.left + 10;
+  for (const q of pins) {
+    const s = document.createElement('span'); s.textContent = q.text; s.style.top = (q.ly - (cr.top - fr.top)) + 'px';
+    col.appendChild(s);
+    const d = `M${xL} ${q.ly} L${xE} ${q.ly} L${q.x} ${q.y}`;
+    for (const [w, c] of [[3.2, 'rgba(0,0,0,.5)'], [1.3, 'rgba(255,255,255,.95)']]) {
+      const path = document.createElementNS(ns, 'path'); path.setAttribute('d', d); path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', c); path.setAttribute('stroke-width', w); path.setAttribute('stroke-linejoin', 'round'); svg.appendChild(path);
+    }
+    const dot = document.createElementNS(ns, 'circle'); dot.setAttribute('cx', xL); dot.setAttribute('cy', q.ly); dot.setAttribute('r', 3.2);
+    dot.setAttribute('fill', q.c || '#fff'); svg.appendChild(dot);
+  }
+}
+window.addEventListener('resize', () => callouts($('#micro')));
+$('#micro img').addEventListener('load', () => callouts($('#micro')));
+
 // The caption keeps clear of whatever stands at the top right: the film, or the photograph.
 function fitCap() {
   const side = zoom.classList.contains('more-open') ? null : [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
@@ -397,7 +436,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791043197', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791079728', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
@@ -413,10 +452,11 @@ async function start() {
     .on('hover', showTip)
     .on('z', z => {
       // the real thing beside the model: the light micrograph at the tissue, the electron micrograph among the organelles
-      const m = z > 2.9 && z <= 3.12, m2 = z > 3.12 && z < 3.48, e = z > 4.62 && z < 5.38;
+      const m = z > 2.9 && z <= 3.12, m2 = z > 3.12 && z < 3.4, e = z > 4.62 && z < 5.38;
       if ($('#micro').hidden === m || $('#micro2').hidden === m2 || $('#emfig').hidden === e) {
         $('#micro').hidden = !m; $('#micro2').hidden = !m2; $('#emfig').hidden = !e;
-        [$('#micro'), $('#micro2')].forEach(f => { if (!f.hidden) fitPins(f); });
+        if (!$('#micro2').hidden) fitPins($('#micro2'));
+        if (!$('#micro').hidden) requestAnimationFrame(() => callouts($('#micro')));
         // the film and the micrograph share the top right: the film steps aside, and its button comes back after
         if (e) { video.pause(); $('#film').hidden = true; $('#filmPill').hidden = true; }
         else if (filmPlayed && z >= 3.5 && $('#film').hidden) $('#filmPill').hidden = false;

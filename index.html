@@ -17,11 +17,11 @@
 <link rel="stylesheet" media="print" onload="this.media='all'"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-<link rel="stylesheet" href="css/app.css?v=1791043197">
+<link rel="stylesheet" href="css/app.css?v=1791079728">
 </head>
 <body>
 <main class="zoom" id="zoom">
-  <div class="zoom__gl" id="gl" role="img" aria-label="A 3D picture that zooms from a whole body to the molecules of one cell. Drag to turn it."></div>
+  <div class="zoom__gl" id="gl" role="img" aria-label="A 3D picture that zooms from a whole body to the molecules of one cell. Scroll to zoom in and out."></div>
 
   <header class="top">
     <a class="up" href="https://nlcsbiology.com/biology-hub/" title="Every door: revision, the labs, and what NLCS Biology offers beyond the course">← Biology Hub</a>
@@ -66,7 +66,8 @@
   </section>
 
   <!-- the real tissue beside the model: the slice outlined on the model's front face, seen through a light microscope -->
-  <figure class="micro" id="micro" hidden>
+  <figure class="micro micro--callouts" id="micro" hidden>
+    <div class="micro__labels" aria-hidden="true"></div>
     <div class="micro__img">
       <img src="assets/tissue/endocervix-tissue.jpg?v=2" alt="A photograph through a light microscope of the lining of the cervix, stained pink and purple" width="1100" height="1692">
       <b class="pin" style="left:84.5%;top:11.8%;--c:#d9b3cc"><i></i>Lining cells</b>
@@ -75,6 +76,7 @@
       <b class="pin" style="left:64.8%;top:52.3%;--c:#d9364c"><i></i>Small blood vessel</b>
       <b class="pin" style="left:48.5%;top:75.3%;--c:#6a3f9c"><i></i>Crypt, cut across</b>
     </div>
+    <svg class="micro__lines" aria-hidden="true"></svg>
     <figcaption>The real tissue, through a light microscope: the slice outlined in green on the model. The model's cut face is traced from it. About 0.4&nbsp;mm across.</figcaption>
   </figure>
 
@@ -93,14 +95,14 @@
   <!-- the real cell beside the organelles: one electron-microscope slice of this same cell, the green frame in the 3D -->
   <figure class="micro micro--em" id="emfig" hidden>
     <div class="micro__img">
-      <img src="assets/cell/em-section.webp?v=5" alt="An electron micrograph: one slice through this HeLa cell, from the glass up. The cell membrane is at the top, the nucleus on the right, the cytoplasm in between, full of mitochondria and endoplasmic reticulum" width="750" height="400">
-      <img class="micro__over" src="assets/cell/em-section-outline.png?v=5" alt="" width="750" height="400">
+      <img src="assets/cell/em-section.webp?v=6" alt="An electron micrograph: one slice through this HeLa cell, from the glass up. The cell membrane is at the top, the nucleus on the right, the cytoplasm in between, full of mitochondria and endoplasmic reticulum" width="750" height="400">
+      <img class="micro__over" src="assets/cell/em-section-outline.png?v=6" alt="" width="750" height="400">
     </div>
     <ul class="key">
       <li style="--c:#5b4bb5">Nucleus</li><li style="--c:#2fa38c">Endoplasmic reticulum</li><li style="--c:#e8613a">Mitochondria</li>
       <li style="--c:#d1497b">Lysosomes</li><li style="--c:#b898c8">Endosomes</li><li style="--c:#f3e6a1">Lipid droplets</li><li style="--c:#e2c6dd">Cell membrane</li>
     </ul>
-    <figcaption>This cell under the electron microscope: one real slice, 12&nbsp;µm across, from the glass up. The green box is the green frame across the cell in the 3D: the part drawn in detail. Each part the computer found is outlined in its colour in the 3D. On the left, the cell goes on, thinner and thinner.</figcaption>
+    <figcaption>This cell under the electron microscope: one real slice, 12&nbsp;µm across, from the glass up. On the way in, the same slice stands inside the 3D cell, where it was taken. Each part the computer found is outlined in its colour in the 3D. On the left, the cell goes on, thinner and thinner.</figcaption>
   </figure>
 
   <div class="hovertip" id="hovertip" hidden><i></i><span></span></div>
@@ -173,6 +175,7 @@
   </ul>
   <h3>Chosen</h3>
   <ul><li>The colours of the 3D parts: most of the parts of a cell are smaller than a wave of light, so they have no colour of their own. One thing keeps one colour all the way down: the nucleus is violet in the tissue, the cell and the organelles. The haze shows how far away something is.</li></ul>
+  <ul><li>The shapes of the cell's parts are smoothed a little, as the microscope's steps (16 to 64&nbsp;nm) would show as small stairs. Each mitochondrion is drawn on its own, as the computer found it, even where two touch. In the whole cell (the step before the organelles), the steps are bigger (64&nbsp;nm), so the smallest lysosomes and endosomes are drawn as small balls of their own size, in their own places, and a few very small pieces of the endoplasmic reticulum are left out (about 9 in every 10 parts of it are drawn).</li></ul>
   <p class="fineprint">The computer that found each part of the cell makes some mistakes, so a few small pieces are missing or wrongly named.</p>
   <h3>Sources</h3>
   <p class="fineprint">
@@ -186,7 +189,7 @@
   <p class="fineprint">Something wrong, or a suggestion? Please contact me: <a href="mailto:dmompelriera@nlcsjeju.kr">dmompelriera@nlcsjeju.kr</a>. Checked against the Cambridge IGCSE Biology 0610 syllabus for 2026–2028.</p>
 </dialog>
 
-<script src="js/topics.js?v=1791043197"></script>
-<script type="module" src="js/intro.js?v=1791043197"></script>
+<script src="js/topics.js?v=1791079728"></script>
+<script type="module" src="js/intro.js?v=1791079728"></script>
 </body>
 </html>
