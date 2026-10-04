@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791097904';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791108252';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -90,7 +90,11 @@ const TEXT = {
   tissue: {
     def: '<b>Tissue</b>: a group of cells with similar structures, working together to perform a shared function.',
     here: 'The lining of the cervix: one layer of tall cells, all alike, that make mucus. Each nucleus (violet) sits near the base of its cell.',
-    more: '<p>This is a <b>model</b>, traced from the photograph beside it. Its front face is cut, as a slice for a microscope is cut, and inside the green frame it shows what the photograph shows, in the same places: the lining with its fold, a gland cut across, small blood vessels.</p><p>The gland is a <b>crypt</b>: the lining folds deep into the wall. Below the cells is <b>connective tissue</b>.</p><p class="hint">The colours are those of the stain on the slide: nuclei purple, the rest pink.</p>',
+    more: '<p>The slide is not one tissue. It shows <b>two different tissues</b> of the cervix:</p>' +
+      '<p><b>Lining tissue</b>, at the top: one layer of tall cells, all alike, that make mucus. The zoom goes into this tissue. The crypt is not a third tissue: it is the same lining, folded deep into the wall.</p>' +
+      '<p><b>Connective tissue</b>, below it: cells spread far apart, with fibres between them. It holds the lining in place and carries the small blood vessels.</p>' +
+      '<p>Cells of one kind make a <b>tissue</b>; several tissues working together make an <b>organ</b>, here the cervix.</p>' +
+      '<p class="hint">The 3D is a model of this slide: inside the green frame it matches the photograph. The colours are those of the stain: nuclei purple, the rest pink.</p>',
     go: 'one cell', mag: '× 10' },
   cell: {
     def: '<b>Cell</b>: the basic unit of every living organism.',
@@ -283,7 +287,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791097904').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791108252').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -548,7 +552,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791097904', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791108252', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
