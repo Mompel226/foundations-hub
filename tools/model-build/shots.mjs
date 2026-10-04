@@ -37,13 +37,14 @@ ws.onmessage = e => {
 const send = (method, params = {}) => new Promise((ok, no) => { const n = ++id; waiting.set(n, [ok, no]); ws.send(JSON.stringify({ id: n, method, params })); });
 await send('Page.enable'); await send('Runtime.enable'); await send('Log.enable');
 if (opt('mobile')) await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: dpr, mobile: true });
+if (opt('bps')) { await send('Network.enable'); await send('Network.emulateNetworkConditions', { offline: false, latency: 150, downloadThroughput: Number(opt('bps')), uploadThroughput: 3e5 }); }   // a slow network
 await send('Page.navigate', { url });
 const evalp = async expr => {
   const r = await send('Runtime.evaluate', { expression: `(async()=>{${expr}})()`, awaitPromise: true, returnByValue: true });
   if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || 'eval failed');
   return r.result.value;
 };
-await evalp(`for (let i = 0; i < 300 && !(window.cell && window.cell.counts && window.cell.counts.ribosomes); i++) await new Promise(r => setTimeout(r, 100));`);
+if (!opt('nowait')) await evalp(`for (let i = 0; i < 300 && !(window.cell && window.cell.counts && window.cell.counts.ribosomes); i++) await new Promise(r => setTimeout(r, 100));`);
 const gpu = await evalp(`const c=document.createElement('canvas').getContext('webgl2'); const d=c&&c.getExtension('WEBGL_debug_renderer_info'); return d? c.getParameter(d.UNMASKED_RENDERER_WEBGL):'none';`);
 console.log('renderer:', gpu);
 let n = 0;
