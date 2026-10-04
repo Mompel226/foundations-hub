@@ -118,9 +118,23 @@ a{color:inherit}
                   border:1px solid rgba(143,227,200,.45);border-radius:var(--r-pill);padding:2px 9px;animation:nudge 1.6s ease-in-out infinite}
 @keyframes nudge{0%,100%{transform:translateY(0)}50%{transform:translateY(3px)}}
 @media (prefers-reduced-motion:reduce){.cap__scroll span{animation:none}}
+/* a slide shown: the picture first, the text card just its level, definition and buttons; More shows the rest
+   (Daniel, 4 Oct: "by default I want to see the histology image big, and if you click More you see more text") */
+.zoom.pic-first:not(.more-open) .cap__here,.zoom.pic-first:not(.more-open) .cap__topics{display:none}
+.micro .micro__intro b::after{content:"  · click to enlarge";font-size:11.5px;color:var(--muted);font-weight:600}
+.micro{cursor:zoom-in}
+/* a slide enlarged: in the middle of the screen, as big as it fits; a press (or Esc) puts it back */
+.zoom.pic-big::after{content:"";position:absolute;inset:0;background:rgba(5,9,13,.62);z-index:25;cursor:zoom-out}
+.micro.is-big{right:auto;left:50%;top:50%;transform:translate(-50%,-50%);width:max-content;max-width:96vw;z-index:30;cursor:zoom-out}
+.micro.is-big .micro__intro b::after{content:"  · click to close"}
+.micro.is-big figcaption{display:block}
+/* (a short screen: the slide's sentence waits for the enlarged view; its heading stays) */
+@media (max-height:780px){.zoom.pic-first .micro:not(.is-big) .micro__intro{font-size:0;padding-bottom:7px} .zoom.pic-first .micro:not(.is-big) .micro__intro b{margin-bottom:0}
+  .zoom.pic-first .micro:not(.is-big) .key{display:none}}   /* (the colours' key too: the names in the 3D wear the same colours) */
+.micro--callouts.is-big{grid-template-columns:170px auto}
 /* the text given the whole column: the photograph shrinks to its heading (a press on the heading brings it back) */
 .text-first .micro .micro__img,.text-first .micro .micro__labels,.text-first .micro .micro__lines,.text-first .micro .key,.text-first .micro figcaption{display:none}
-.text-first .micro{cursor:pointer} .text-first .micro .micro__intro b::after{content:"  ▸ show the picture";font-size:11.5px;color:var(--muted);font-weight:600}
+.text-first .micro{cursor:pointer} .text-first .micro .micro__intro b::after{content:"  ▸ show the picture"}
 .cap{cursor:default}
 .chips{list-style:none;margin:6px 0 10px;padding:0;display:flex;flex-wrap:wrap;gap:8px}
 .chips li{background:rgba(255,255,255,.06);border:1px solid var(--line);border-radius:var(--r);padding:6px 10px;line-height:1.25}
@@ -313,6 +327,7 @@ a{color:inherit}
 
 /* ---------- phones and narrow windows ---------- */
 @media (max-width:760px){
+  .zoom:not(.text-first) .micro .micro__intro b::after{content:none} .micro{cursor:default}   /* (no enlarging on a phone) */
   .md{grid-template-columns:1fr} .md__stage{height:38vh;width:100%;aspect-ratio:auto}
   .about--wide{padding:18px 16px}
   .top{padding:9px 12px 20px}
