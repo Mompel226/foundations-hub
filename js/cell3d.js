@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791083863';
+import { build as buildTissue } from './tissue3d.js?v=1791084893';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -1217,7 +1217,7 @@ export async function mount(el, opts = {}) {
     for (const [o, m, ro] of swapped) { o.material.depthWrite = true; o.material = m; o.renderOrder = ro; }
     for (const o of hidden) o.visible = true;
   }
-  const CONTAINS = { tnucleus: ['tcell', 'gcell'], capillary: ['connective'], crypt: ['tcell', 'gcell', 'mucus', 'tnucleus', 'connective'] };
+  const CONTAINS = { tnucleus: ['tcell', 'gcell'], capillary: ['connective', 'rbc'], crypt: ['tcell', 'gcell', 'mucus', 'tnucleus', 'connective'] };
   const lin = z => idCam.near * idCam.far / (idCam.far - z * (idCam.far - idCam.near));
   function seen(a, p, d, strict) {
     if (a.free || !idBuf || !idCam) return true;
@@ -1269,83 +1269,154 @@ export async function mount(el, opts = {}) {
   }
 
   // ---------- names on the picture ----------
+  // Only when the zoom stands still at a level (Daniel, 4 Oct: names moving about with the picture were annoying, and
+  // pointing at a part still names it). Then every name at once, in empty space round the picture where it hides no
+  // part, joined to its part by ONE level line (lines never cross); no dot on the part (dots hid things). Moving again
+  // takes them away.
   const tagLayer = document.createElement('div'); tagLayer.className = 'tags'; el.appendChild(tagLayer);
   const tagPool = [];
+  const measure = (() => { const c = document.createElement('canvas').getContext('2d'); c.font = '600 12.5px Inter, "Segoe UI", system-ui, sans-serif'; return t => c.measureText(t).width; })();
+  const IGNORE = new Set(['hip', 'sacrum', 'coccyx', 'vertebrae', 'femur', 'cytoplasm']);   // names may lie over these
+  let layoutKey = '', placedTags = [];
+  const atRest = () => !tween && Math.abs(Zt - Z) < 1e-5 && Math.abs(Z - Math.round(Z)) < 1e-4 && !(orbit.enabled && orbit.autoRotate);
+  function hideTags() { tagLayer.classList.remove('is-shown'); placedTags = []; layoutKey = ''; }
   function drawTags() {
     if (opts.notags) return;
+    if (!atRest()) { if (layoutKey) hideTags(); return; }
+    camera.updateMatrixWorld();
+    const key = [Z, W(), H(), inset.left, inset.right, inset.top, inset.bottom, JSON.stringify(inset.avoid || []), ...camera.matrixWorld.elements.map(x => x.toFixed(5))].join('|');
+    if (key !== layoutKey) { layoutKey = key; layoutTags(); }
+    else if (placedTags.some(t => t.a.dyn)) moveDyn();
+  }
+  // where each name can go: its part's places on the screen (several for a name with several places)
+  function tagCandidates() {
     const Wd = W(), Hd = H(), out = [];
     const f = 1 / Math.tan(camera.fov * Math.PI / 360) * Hd / 2;
     const vp = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-    const q = new THREE.Vector4();
-    const fog = post.fog;
-    // where a point is on the screen, if the name would fit there (null if not)
-    const onScreen = (a, p) => {
-      q.set(p.x, p.y, p.z, 1).applyMatrix4(vp);
-      if (q.w <= 0) return null;
+    const q = new THREE.Vector4(), fog = post.fog;
+    const onScreen = p => {
+      q.set(p.x, p.y, p.z, 1).applyMatrix4(vp); if (q.w <= 0) return null;
       const sx = (q.x / q.w * 0.5 + 0.5) * Wd, sy = (-q.y / q.w * 0.5 + 0.5) * Hd;
-      if (sx < inset.left + 10 || sx + 20 + a.text.length * 7.2 > Wd - inset.right || sy < inset.top + 10 || sy > Hd - inset.bottom - 20) return null;
+      if (sx < inset.left + 4 || sx > Wd - inset.right - 4 || sy < inset.top + 16 || sy > Hd - inset.bottom - 16) return null;
       return [sx, sy];
     };
     for (const a of anchors) {
       if (Z < a.z[0] || Z > a.z[1]) continue;
-      // (the organelles' names come in as soon as their detailed model starts to show: it stands where the simpler
-      // model's parts are, so the names fit both)
       if (fades[a.group] < (a.group === 'inside' ? 0.02 : 0.6)) continue;
       if (a.cut && peelNow > 0.5) continue;      // (names on the part peeled away)
       if (a.face) {                                // (seen from behind its face: not shown. The organ's cut face looks
         const c = camera.position.clone().applyMatrix4(F(a.frame).invert());   // along the body's x, the tissue's along z)
         if (a.frame === 'body' ? c.x < SEC.x : c.z < 0) continue;
       }
-      let p = W3(a.frame, a.dyn === 'single' ? singleAt : a.dyn && molApi ? molApi.where()[a.dyn] : a.p);
-      if (a.cands) {                               // one of its places on the screen that can be seen from here: the last one if it still can
-        const order = a.last != null ? [a.last, ...a.cands.keys()].filter((v, i, arr) => arr.indexOf(v) === i) : [...a.cands.keys()];
-        const i = order.find(j => { const c = W3(a.frame, a.cands[j]); return onScreen(a, c) && seen(a, c, 0, true); });
-        if (i == null) { a.last = null; continue; }
-        a.last = i; p = W3(a.frame, a.cands[i]);
-      }
-      const d = p.distanceTo(camera.position);
-      const rpx = a.r * SCALE[a.frame] / d * f;
-      if (rpx < 5 || rpx > Hd * 0.42) continue;
+      const base = W3(a.frame, a.dyn === 'single' ? singleAt : a.dyn && molApi ? molApi.where()[a.dyn] : a.p);
+      const d = base.distanceTo(camera.position), rpx = a.r * SCALE[a.frame] / d * f;
+      if (rpx < 5 || rpx > Hd * 0.6) continue;
       if (!a.nofog && (fog * d) ** 2 > 0.5) continue;   // more than about 40% lost in the haze
       if (a.maxD && d > a.maxD * SCALE[a.frame]) continue;   // (ribosomes: only where they are drawn as shapes)
-      const at = onScreen(a, p); if (!at) continue;
-      const [sx, sy] = at;
-      if (!a.cands && !seen(a, p, d)) continue;
-      out.push({ a, sx, sy, rpx });
+      const pts = [];
+      if (a.cands) for (const c of a.cands) { const p = W3(a.frame, c), s = onScreen(p); if (s && seen(a, p, 0, true)) pts.push(s); }
+      else { const s = onScreen(base); if (s && seen(a, base, d)) pts.push(s); }
+      if (pts.length) out.push({ a, pts, rpx });
     }
-    out.sort((m, n) => n.rpx - m.rpx);
-    const placed = [], said = new Set();
-    let k = 0;
-    for (const t of out) {
-      if (said.has(t.a.text)) continue;          // each name once (the biggest of its kind)
-      const w = 14 + t.a.text.length * 7.2, h = 24;
-      const hits = box => placed.some(b => !(box[2] < b[0] || box[0] > b[2] || box[3] < b[1] || box[1] > b[3]));
-      // a name goes to the right of its point; if that place is taken, a little lower or higher (its dot stays on the
-      // point), then to the left (the two linings, side by side on the organ's face)
-      let box = null, left = false, dy = 0;
-      for (const [L, d] of [[false, 0], [false, 14], [false, -14], [true, 0], [true, 14], [true, -14]]) {
-        const b = L ? [t.sx - w, t.sy + d - h / 2, t.sx + 6, t.sy + d + h / 2] : [t.sx - 6, t.sy + d - h / 2, t.sx + w, t.sy + d + h / 2];
-        if ((L && b[0] < inset.left + 10) || hits(b)) continue;
-        box = b; left = L; dy = d; break;
+    // each name once: the biggest of its kind
+    const best = new Map(); for (const t of out) if (!best.has(t.a.text) || best.get(t.a.text).rpx < t.rpx) best.set(t.a.text, t);
+    return [...best.values()].sort((m, n) => n.rpx - m.rpx);
+  }
+  function layoutTags() {
+    idPass(true);
+    const Wd = W(), Hd = H(), L0 = inset.left + 8, R0 = Wd - inset.right - 8, T0 = inset.top + 6, B0 = Hd - inset.bottom - 6;
+    // what must not be covered: every part on the screen (the ID picture), a little grown
+    const sx = idW / Wd, sy = idH / Hd, occ = new Uint8Array(idW * idH);
+    if (idBuf) for (let y = 0; y < idH; y++) for (let x = 0; x < idW; x++) {
+      const k = (y * idW + x) * 4, n = idBuf[k] + idBuf[k + 1] * 256; if (!n) continue;
+      if (IGNORE.has(partOf(idList[n - 1]))) continue;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < idW && Y < idH) occ[Y * idW + X] = 1; }
+    }
+    // (the ID picture's rows run from the bottom)
+    const covers = (x0, y0, x1, y1) => {
+      let n = 0;
+      for (let y = Math.max(0, Math.floor((Hd - y1) * sy)); y <= Math.min(idH - 1, Math.floor((Hd - y0) * sy)); y++)
+        for (let x = Math.max(0, Math.floor(x0 * sx)); x <= Math.min(idW - 1, Math.floor(x1 * sx)); x++) n += occ[y * idW + x];
+      return n;
+    };
+    const H2 = 12.5, GAP = 26, ROW = 8;
+    // (things on top of the picture the names must keep clear of, given by the page: the ruler, on a phone)
+    const placed = (inset.avoid || []).map(b => ({ box: b, ly: -1e9, lx0: 0, lx1: 0, page: true }));
+    const boxHit = b => placed.some(t => !(b[2] + ROW < t.box[0] || b[0] - ROW > t.box[2] || b[3] + ROW < t.box[1] || b[1] - ROW > t.box[3]));
+    const lineHitsBox = (y, xa, xb) => placed.some(t => y > t.box[1] - 3 && y < t.box[3] + 3 && Math.max(xa, xb) > t.box[0] && Math.min(xa, xb) < t.box[2]);
+    const boxHitsLine = b => placed.some(t => t.ly > b[1] - 3 && t.ly < b[3] + 3 && Math.max(t.lx0, t.lx1) > b[0] && Math.min(t.lx0, t.lx1) < b[2]);
+    const lineOnLine = (y, xa, xb) => placed.some(t => Math.abs(t.ly - y) < 5 && Math.max(xa, xb) > Math.min(t.lx0, t.lx1) && Math.min(xa, xb) < Math.max(t.lx0, t.lx1));
+    // each line must end ON its part: the place is checked at full size, as pointing there would name it (the small ID
+    // picture let a line on a thin tube end just beside it, on the skin)
+    const rc = cv.getBoundingClientRect();
+    const onPart = (a, x, y) => { if (a.free) return true; const got = pickAt(x + rc.left, y + rc.top).part, ok = a.accept || [a.part, ...(CONTAINS[a.part] || [])];
+      return ok.includes(got) || (a.accept && a.accept.includes('section') && got === a.part); };
+    // (and well inside it: places are tried deepest first, by how much of the small ID picture round each is the part;
+    // on a border, a pixel either way named the neighbour)
+    const idPart = (x, y) => { const ix = Math.floor(x * sx), iy = Math.floor((Hd - y) * sy); if (!idBuf || ix < 0 || iy < 0 || ix >= idW || iy >= idH) return null;
+      const k = (iy * idW + ix) * 4, n = idBuf[k] + idBuf[k + 1] * 256; return n ? partOf(idList[n - 1]) : null; };
+    const depth = (a, [x, y]) => { const ok = a.accept || [a.part, ...(CONTAINS[a.part] || [])]; let n = 0;
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) n += ok.includes(idPart(x + dx * 3 / sx / 3, y + dy * 3 / sy / 3)) ? 1 : 0; return n; };
+    for (const c of tagCandidates()) {
+      c.pts.sort((p, q) => depth(c.a, q) - depth(c.a, p));
+      const good = []; for (const p of c.pts.slice(0, 6)) { if (onPart(c.a, p[0], p[1])) good.push(p); if (good.length === 2) break; }
+      c.pts = good;
+      if (!c.pts.length) continue;
+      const w = measure(c.a.text) + 22;
+      let pick = null;
+      for (const [px, py] of c.pts) for (const side of [1, -1]) for (const dy of [0, -8, 8]) {
+        const yc = py + dy, y0 = yc - H2, y1 = yc + H2; if (y0 < T0 || y1 > B0) continue;
+        const near = side > 0 ? px + GAP : px - GAP - w, far = side > 0 ? R0 - w : L0;
+        const steps = Math.floor(Math.abs(far - near) / 6);
+        if ((side > 0 && near > far) || (side < 0 && near < far)) continue;
+        let found = null, fallback = null;
+        for (let i = 0; i <= steps; i++) {
+          const x0 = side > 0 ? near + i * 6 : near - i * 6, b = [x0, y0, x0 + w, y1];
+          if (boxHit(b) || boxHitsLine(b)) continue;
+          const edge = side > 0 ? x0 : x0 + w;
+          if (lineHitsBox(py, px, edge) || lineOnLine(py, px, edge)) continue;
+          const cov = covers(b[0], b[1], b[2], b[3]);
+          if (!cov) { found = { b, edge, cost: Math.abs(edge - px) + Math.abs(dy) * 2 }; break; }
+          if (i === steps) fallback = { b, edge, cost: 4000 + cov + Math.abs(edge - px) };
+        }
+        const o = found || fallback;
+        if (o && (!pick || o.cost < pick.cost)) pick = { ...o, px, py, side };
       }
-      if (!box) continue;
-      placed.push(box); said.add(t.a.text);
+      if (!pick) continue;                         // (no free row: left out, not squeezed in)
+      placed.push({ a: c.a, box: pick.b, ly: pick.py, lx0: pick.px, lx1: pick.edge, side: pick.side, ax: pick.px });
+    }
+    placedTags = placed.filter(t => !t.page);
+    renderTags();
+  }
+  function renderTags() {
+    let k = 0;
+    for (const t of placedTags) {
       let n = tagPool[k];
-      if (!n) { n = document.createElement('div'); n.className = 'tag'; n.innerHTML = '<i></i><span></span>'; tagLayer.appendChild(n); tagPool.push(n); }
-      // only the position changes from frame to frame: the name, its colour and its showing are written when
-      // they change (writing them every frame made the browser restyle every name, every frame)
+      if (!n) { n = document.createElement('div'); n.className = 'tag'; n.innerHTML = '<b></b><span></span>'; tagLayer.appendChild(n); tagPool.push(n); }
       if (n.dataset.t !== t.a.text) {
         n.dataset.t = t.a.text; n.lastChild.textContent = t.a.text;
         n.style.setProperty('--c', '#' + (PARTS[t.a.part] ? PARTS[t.a.part].col : 0xffffff).toString(16).padStart(6, '0'));
       }
-      if (n.classList.contains('is-left') !== left) n.classList.toggle('is-left', left);
-      if (+n.dataset.dy !== dy) { n.dataset.dy = dy; n.style.setProperty('--dy', dy + 'px'); }
-      n.style.transform = left ? `translate(calc(${Math.round(t.sx)}px - 100%),${Math.round(t.sy)}px)` : `translate(${Math.round(t.sx)}px,${Math.round(t.sy)}px)`;
+      n.classList.toggle('is-left', t.side < 0);
+      const [line, pill] = n.children, x0 = Math.min(t.lx0, t.lx1), x1 = Math.max(t.lx0, t.lx1);
+      line.style.transform = `translate(${x0.toFixed(1)}px,${(t.ly - 0.75).toFixed(1)}px)`; line.style.width = (x1 - x0).toFixed(1) + 'px';
+      pill.style.transform = `translate(${t.box[0].toFixed(1)}px,${t.box[1].toFixed(1)}px)`;
       if (n.hidden) n.hidden = false;
       k++;
-      if (k >= 7) break;
     }
     for (; k < tagPool.length; k++) if (!tagPool[k].hidden) tagPool[k].hidden = true;
+    requestAnimationFrame(() => tagLayer.classList.add('is-shown'));
+  }
+  // a name on something that moves while the zoom stands still (the kinesin and its vesicle): the name stays, its line
+  // follows the part
+  function moveDyn() {
+    const vp = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse), q = new THREE.Vector4();
+    for (const t of placedTags) {
+      if (!t.a.dyn || !molApi) continue;
+      const p = W3(t.a.frame, molApi.where()[t.a.dyn]); q.set(p.x, p.y, p.z, 1).applyMatrix4(vp); if (q.w <= 0) continue;
+      t.lx0 = (q.x / q.w * 0.5 + 0.5) * W();
+    }
+    renderTags();
   }
 
   // ---------- scale bar: a round size at the distance of what is in the middle ----------
