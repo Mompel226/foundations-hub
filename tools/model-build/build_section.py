@@ -309,7 +309,13 @@ def vagina_face():
     lin = wall_v & (d_lum < 0.35)                                                   # the lining, on the canal side
     img_v[..., :3][lin] = LINING_V[None]
     img_v[..., :3][lumen_v] = LUMEN[None]
-    img_v[..., 3] = ((wall_v | lumen_v) * 255).astype(np.float32)
+    # the Atlas closes the vagina's lower end; it opens to the outside: the face (and, in the page, the 3D) ends level
+    # 4 mm above the closed end, so the canal runs out open (Daniel, 4 Oct)
+    open_y = float(np.nonzero(lumen_v)[0].max())                                     # the lowest row of the canal
+    open_y = hi_v[0] - (open_y * PXV) + 0.004                                         # body y, metres
+    rowy = hi_v[0] - np.arange(Hv) * PXV
+    keep = (rowy >= open_y)[:, None]
+    img_v[..., 3] = ((wall_v | lumen_v) & keep) * 255.0
     Image.fromarray(np.clip(img_v, 0, 255).astype(np.uint8), "RGBA").save(OUT + "section-vagina.webp", quality=88, method=6)
     def tbv(r, c):
         return [X, float(hi_v[0] - r * PXV), float(lo_v[1] + c * PXV)]
@@ -319,7 +325,7 @@ def vagina_face():
     dw[rows < Hv * 0.35] = 0
     r, c = np.unravel_index(np.argmax(dw), dw.shape)
     print(f"vagina face {Wv} x {Hv} px ({Wv * PXV * 1000:.0f} x {Hv * PXV * 1000:.0f} mm); wall px {int(wall_v.sum())}, canal px {int(lumen_v.sum())}")
-    return {"corners": [tbv(0, 0), tbv(0, Wv), tbv(Hv, Wv), tbv(Hv, 0)], "px_m": PXV, "size": [Wv, Hv], "label": tbv(r, c)}
+    return {"corners": [tbv(0, 0), tbv(0, Wv), tbv(Hv, Wv), tbv(Hv, 0)], "px_m": PXV, "size": [Wv, Hv], "label": tbv(r, c), "open_y": round(open_y, 5)}
 
 
 meta = {
