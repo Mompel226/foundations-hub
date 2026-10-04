@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791088601';
+import { build as buildTissue } from './tissue3d.js?v=1791089219';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -440,7 +440,9 @@ export async function mount(el, opts = {}) {
     // turned a quarter turn so that its side with the organelles' box faces the reader arriving from the tissue
     P.cell.makeTranslation(b[0] - 0.9, b[1] + LIFT, b[2] - 0.5).multiply(new THREE.Matrix4().makeRotationY(Math.PI / 2));
     placeGroups(); lastState = null; stateAt(Z);
-    precompile(G.tissue); precompile(G.single); post.warm();
+    // (and the body's parts hidden at first, the cut face and the peel: shown for the first time at Z 1.4, they held
+    // that frame for 200-300 ms)
+    precompile(G.body); precompile(G.tissue); precompile(G.single); post.warm();
     res();
   }, 60));
   // the lining cell at a point of its lift (0 in the tissue, 1 out of it) and its spreading (0 tall, 1 flat), as a
@@ -1297,7 +1299,9 @@ export async function mount(el, opts = {}) {
   const IGNORE = new Set(['hip', 'sacrum', 'coccyx', 'vertebrae', 'femur', 'cytoplasm']);   // names may lie over these
   let layoutKey = '', placedTags = [], tagReport = [];
   const inHold = () => Z > HOLD_Z[0] + 0.01 && Z < HOLD_Z[1] - 0.01;       // (the camera stands still there)
-  const atRest = () => (inHold() || (!tween && Math.abs(Zt - Z) < 1e-5 && Math.abs(Z - Math.round(Z)) < 1e-4)) && !(orbit.enabled && orbit.autoRotate);
+  // (at the stay: when the button stands there, or the scrolling has stopped there; scrolled through, no names: laying
+  // them out cost a frame of 200 ms mid-scroll)
+  const atRest = () => ((inHold() && (tween || Math.abs(Zt - Z) < 1e-5)) || (!tween && Math.abs(Zt - Z) < 1e-5 && Math.abs(Z - Math.round(Z)) < 1e-4)) && !(orbit.enabled && orbit.autoRotate);
   function hideTags() { tagLayer.classList.remove('is-shown'); placedTags = []; layoutKey = ''; }
   function drawTags() {
     if (opts.notags) return;
