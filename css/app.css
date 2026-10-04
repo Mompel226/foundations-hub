@@ -215,6 +215,16 @@ a{color:inherit}
 .film__play,.film__x{width:28px;height:28px;flex:none;border-radius:50%;border:1px solid rgba(255,255,255,.35);background:rgba(0,0,0,.35);
                      color:#fff;font-size:12px;line-height:1;cursor:pointer}
 .film__x{font-size:17px}
+/* who is talking, beside the film (Daniel, 4 Oct): on a laptop only, where there is room; shown while the film is
+   (outside the film's box, which clips what is beyond its corners) */
+.filmnote{position:absolute;top:96px;right:calc(28px + min(46vh,430px) * 9 / 16);z-index:5;width:210px;padding:10px 12px;
+          border-radius:var(--r);background:var(--glass);border:1px solid var(--line);font-size:12.5px;line-height:1.45;color:#C7D2DC;
+          display:none;flex-direction:column;gap:6px}
+.film:not([hidden]) + .filmnote{display:flex}
+.filmnote > b{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.filmnote span b{color:#fff}
+.more-open .filmnote{visibility:hidden}
+@media (max-width:1100px){.film:not([hidden]) + .filmnote{display:none}}
 .film__sound{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);border:none;border-radius:var(--r-pill);
              background:#fff;color:#111;font-weight:700;font-size:14px;padding:10px 16px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.4)}
 .filmpill{position:absolute;right:18px;top:96px;z-index:5;border:1px solid var(--line-2);border-radius:var(--r-pill);
