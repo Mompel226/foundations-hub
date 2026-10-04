@@ -99,11 +99,12 @@ kept apart where two touch: made into one mask, 22 touching mitochondria had bec
 - The way in: one straight line from the cell's view to a place about 0.3 µm under the membrane, where the cell
   is thick, chosen so that the nearest organelles are about 1 µm away across the whole view (deeper in, sheets of
   ER fill the view within half a micrometre).
-- `em-section.webp`, `em-section-outline.png`, `em-slice.json`: one image of the raw FIB-SEM stack (scale s2,
-  16 × 16 nm pixels), the plane z = 13.2 µm of the dataset, 12 × 6.4 µm, from the glass up; contrast stretched, the
-  ion beam's faint stripes lightened. The outlines are the same segmentations the 3D was built from, inside the
-  detailed box only, which is outlined in green, as the green frame drawn across the cell in the 3D
-  (`tools/build_em_slice.py`). Shown beside the organelles and in the cell's "More".
+- `em-section.webp`, `em-section-outline.png`: one image of the raw FIB-SEM stack (scale s2, 16 × 16 nm pixels),
+  the plane z = 13.2 µm of the dataset, 12 × 6.4 µm, from the glass up; contrast stretched, the ion beam's faint
+  stripes lightened. The outlines are the same segmentations the 3D was built from, over the whole slice
+  (`tools/build_em_slice.py`). Shown beside the organelles and in the cell's "More". (Until 4 Oct 2026 the slice
+  also stood inside the 3D cell, where it was taken; seen at a slant on the way in, it was a pale smear, and it was
+  taken out: Archive/2026-10-04.)
 
 ## 7. The molecules (`mol/*`) — a model
 

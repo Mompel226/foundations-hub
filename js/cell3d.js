@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791081212';
+import { build as buildTissue } from './tissue3d.js?v=1791083863';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -81,7 +81,6 @@ export const PARTS = {
   npore:     { name: 'nuclear pore', col: 0xf08a7a },
   centriole: { name: 'centriole', col: 0xb9d36a },
   cytoplasm: { name: 'cytoplasm', col: 0x8a7f99 },
-  emslice:   { name: 'the slice in the photograph', col: 0x8fe3c8 },
   cut:       { name: 'the edge of the imaged block', col: 0x9fb4c6 },
   molecule:  { name: 'a molecule', col: 0x9aa7b3 },
 };
@@ -522,11 +521,11 @@ export async function mount(el, opts = {}) {
       o.userData.part = id;
       if (id === 'cell') {
         // see-through, and left out of the depth buffer: the outlines and shading belong to what is inside
-        o.material = new THREE.MeshLambertMaterial({ color: PARTS.cell.col, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide });
+        o.material = groups.cellMat = new THREE.MeshLambertMaterial({ color: PARTS.cell.col, transparent: true, opacity: 0.16, depthWrite: false, side: THREE.DoubleSide });
         o.renderOrder = 2;
       } else if (id === 'cut') {
         // where the imaged block cuts the cell (it goes on beyond): a faint, flat, striped face, not a membrane
-        o.material = new THREE.MeshBasicMaterial({ map: stripes(), color: 0x9fb4c6, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
+        o.material = groups.cutMat = new THREE.MeshBasicMaterial({ map: stripes(), color: 0x9fb4c6, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
         const uv = new Float32Array(o.geometry.attributes.position.count * 2), q = new THREE.Vector3();
         for (let i = 0; i < uv.length / 2; i++) { q.fromBufferAttribute(o.geometry.attributes.position, i); uv[2 * i] = (q.x + q.z) * 0.6; uv[2 * i + 1] = q.y * 0.6; }
         o.geometry.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
@@ -648,26 +647,9 @@ export async function mount(el, opts = {}) {
     else { const M1 = nearest(mtAll, ahead(1.4, 0.3)); if (M1) anchors.push({ group: 'inside', frame: 'cell', p: M1, r: 0.05, text: 'Microtubule', part: 'mt', z: [4.6, 5.45] }); }
     const C1 = small.CENT.find(x => x.len >= 0.3); if (C1) anchors.push({ group: 'inside', frame: 'cell', p: C1.c, r: 0.25, text: 'Centrioles', part: 'centriole', z: [4.5, 5.45] });
     const NP = nearest(small.NPOR.p, [-11.8, 1.8, -0.4]); if (NP) anchors.push({ group: 'inside', frame: 'cell', p: NP, r: 0.06, text: 'Nuclear pore', part: 'npore', z: [4.6, 5.45] });
-    // the electron-microscope slice shown beside the organelles (build_em_slice.py): where it lies, marked in the 3D
-    // by a faint sheet and a green frame, as the photograph's box is
-    // (build_em_slice.py: the plane z = E.z, one image of the microscope's stack.) The photograph itself stands in the
-    // 3D cell where it was taken, see-through, cut to the cell's own outline: its membrane lies on the 3D membrane,
-    // and the 3D organelles pass through it where it shows them cut. (A green frame was drawn there before: it was
-    // drawn over everything, looked like the end of the cell, and did not follow the cell's edge: Daniel, 4 Oct.)
-    fetch('assets/cell/em-slice.json?v=' + v).then(r => r.json()).then(E => {
-      const [y0, y1] = E.y || [0, E.size[1] * E.nm_per_px / 1000], x0 = E.x[0], x1 = E.x[1], z = E.z;
-      const tex = new THREE.TextureLoader().load('assets/cell/em-section-3d.webp?v=' + v, () => wake());
-      tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8;
-      const sm2 = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide, toneMapped: false });
-      const sheet = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, y1 - y0), sm2);
-      sheet.position.set((x0 + x1) / 2, (y0 + y1) / 2, z); sheet.renderOrder = 3;
-      const emMark = new THREE.Group(); emMark.add(sheet); emMark.visible = false; emMark.userData.part = 'emslice';
-      G.inside.add(emMark); groups.emMark = emMark; groups.emSheet = sm2;
-      // named on the photograph, inside the cell, at whichever place is on the screen
-      const pts = []; for (let k = 0; k <= 10; k++) pts.push([x0 + 1.5 + k * (x1 - x0 - 3) / 10, 1.6, z], [x0 + 1.5 + k * (x1 - x0 - 3) / 10, 0.8, z]);
-      anchors.push({ group: 'inside', frame: 'cell', p: pts[0], cands: pts, r: 0.4, text: 'The slice in the photograph', part: 'emslice', z: [4.62, 4.95], free: true, nofog: true });
-      lastState = null; stateAt(Z);
-    }).catch(() => {});
+    // (The electron micrograph's slice stood in the 3D cell where it was taken, until 4 Oct: seen at a slant on the way
+    // in, it was a pale smear across the organelles, never a photograph (Daniel: "smeared"). It is shown flat, beside
+    // the organelles and in the cell's More. A green frame before it had looked like the end of the cell.)
     // the molecules' model (small) is made in the background a little later, so the last step never waits
     setTimeout(() => { if (!molApi) ensure(5); }, 2500);
     return small;
@@ -710,8 +692,8 @@ export async function mount(el, opts = {}) {
     // which levels are drawn, and how much of each: [layer, weight]
     // tissue to cell: first the spread lining cell becomes the HeLa cell (the tissue stays), then the tissue goes
     const mixes = [[2.78, 2.92, LAYER.body, LAYER.tissue], [3.70, 3.80, LAYER.tissue, LAYER.dish], [3.83, 3.94, LAYER.dish, LAYER.cell],
-      [4.45, 4.75, LAYER.cell, LAYER.inside], [5.35, 5.6, LAYER.deep, LAYER.mol]];
-    const order = [[2.78, LAYER.body], [3.70, LAYER.tissue], [3.83, LAYER.dish], [4.45, LAYER.cell], [4.985, LAYER.inside], [5.35, LAYER.deep], [9, LAYER.mol]];
+      [4.25, 4.40, LAYER.cell, LAYER.inside], [5.35, 5.6, LAYER.deep, LAYER.mol]];
+    const order = [[2.78, LAYER.body], [3.70, LAYER.tissue], [3.83, LAYER.dish], [4.25, LAYER.cell], [4.985, LAYER.inside], [5.35, LAYER.deep], [9, LAYER.mol]];
     layers = null;
     for (const [a, b, A, B] of mixes) if (Z > a && Z < b) { const k = sm(Z, a, b); layers = [[A, 1 - k], [B, k]]; }
     if (!layers) layers = [[order.find(([z]) => Z <= z)[1], 1]];
@@ -742,13 +724,15 @@ export async function mount(el, opts = {}) {
       slideLine.material.opacity = 0.9 * sm(Z, 2.9, 2.98) * (1 - sm(Z, 3.08, 3.2));
     }
     if (groups.glass) groups.glass.visible = Z < 4.45;
-    // once the camera is through the membrane, its folds ahead would lay a pink veil over everything: it fades to a trace
-    if (groups.membraneMat) groups.membraneMat.opacity = 0.16 * (1 - 0.7 * sm(Z, 4.93, 5.0));
-    if (groups.emMark) {                         // the slice the electron micrograph shows
-      // (shown on the way in; it goes before the camera reaches it, where it would stand across the view)
-      const k = sm(Z, 4.6, 4.68) * (1 - sm(Z, 4.9, 4.97));
-      groups.emMark.visible = k > 0.01; groups.emSheet.opacity = 0.62 * k;
-    }
+    // the box's own (fine) membrane only as a trace, once the camera is through it: before that the whole cell's
+    // membrane already veils everything, and the two stacked made the box a milky square over the cell; passing
+    // through it, the view went milky (Daniel, 4 Oct: "smeared")
+    if (groups.membraneMat) groups.membraneMat.opacity = 0.05 * sm(Z, 4.95, 5.0);
+    // and the whole cell's membrane and the striped faces where the block ends go as the camera comes close to the
+    // membrane: grazed so near, its see-through folds stacked into a haze with faint stripes (checked by hiding each)
+    const thru = 1 - sm(Z, 4.66, 4.8);
+    if (groups.cellMat) { groups.cellMat.opacity = 0.16 * thru; groups.cellMat.visible = thru > 0.01; }
+    if (groups.cutMat) { groups.cutMat.opacity = 0.32 * thru; groups.cutMat.visible = thru > 0.01; }
   }
   const patchM = new THREE.Matrix4(), patchBox = new THREE.Vector4(), tissueInv = new THREE.Matrix4();
   function draw() {
@@ -1208,7 +1192,7 @@ export async function mount(el, opts = {}) {
     const hidden = [], swapped = [];
     scene.traverse(o => {
       if (!(o.isMesh || o.isInstancedMesh || o.isPoints || o.isLine)) return;
-      const shell = o.userData.part === 'body' || o.userData.part === 'cell' || o.userData.part === 'cut' || o.userData.part === 'glass' || o.userData.part === 'emslice';
+      const shell = o.userData.part === 'body' || o.userData.part === 'cell' || o.userData.part === 'cut' || o.userData.part === 'glass';
       if (o.isMesh && o.visible && partOf(o) && shownEnough(o) && !shell) {
         // see-through parts are drawn first and leave no depth: they can be found where nothing solid is, but
         // never hide a solid part behind them
