@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791097904';
+import { build as buildTissue } from './tissue3d.js?v=1791108252';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -385,7 +385,8 @@ export async function mount(el, opts = {}) {
     };
     for (const sd of [-1, 1]) { organ('ovaries', 'Ovary', sd, [0.55, 2.4]); organ('tubes', 'Oviduct', sd, [0.55, 2.4]); }
     organ('uterus', 'Uterus', null, [0.55, 1.88]); organ('cervix', 'Cervix', null, [0.55, 1.75]); organ('vagina', 'Vagina', null, [0.55, 1.75]);
-    organ('bladder', 'Bladder', null, [0.75, 1.6]); organ('rectum', 'Rectum', null, [0.75, 1.6]);
+    // (the rectum: no name in the reproductive system's picture, only when pointed at; Daniel, 4 Oct)
+    organ('bladder', 'Bladder', null, [0.75, 1.6]);
     const L = SEC.labels;
     // each name at the point deepest inside its tissue on the cut face (the middle of a thin, curved layer, such as the
     // lining of the canal, can fall outside it): a distance map of each tissue's area in section-map.png
