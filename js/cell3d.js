@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791089219';
+import { build as buildTissue } from './tissue3d.js?v=1791091114';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -186,7 +186,7 @@ export async function mount(el, opts = {}) {
   Object.values(G).forEach(g => { g.visible = false; g.matrixAutoUpdate = false; scene.add(g); });
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   const v = opts.v || '1';
-  const listeners = { level: [], pick: [], hover: [], scale: [], progress: [], arrive: [], z: [] };
+  const listeners = { level: [], pick: [], hover: [], scale: [], progress: [], arrive: [], z: [], loadstage: [] };
   const emit = (k, x) => listeners[k].forEach(f => f(x));
   const groups = {}, counts = {}, bodyMat = {}, anchors = [];
   let skinPre = null, skinIn = null;            // the skin's depth-only copy (glassMaterial), and its inside
@@ -475,21 +475,30 @@ export async function mount(el, opts = {}) {
   const warmRT = new THREE.WebGLRenderTarget(1, 1), warmScene = new THREE.Scene();
   // the same kinds of light as the scene's, so the shaders made here are the ones used later
   warmScene.add(new THREE.HemisphereLight(0xffffff, 0x000000, 1), new THREE.DirectionalLight(0xffffff, 1));
-  async function precompile(g) {
+  const warmups = [];                            // every warm-up, for allReady
+  function precompile(g) { const p = warmUp(g); warmups.push(p); return p; }
+  async function warmUp(g) {
     // (parts hidden until later, such as the lifted cell, are shown for this too: a shader first made on screen
-    // held the page for a second when the lining cell appeared)
-    const hid = []; g.traverse(o => { if (o !== g && !o.visible) { hid.push(o); o.visible = true; } });
-    const was = g.visible; g.visible = true;
-    try { await renderer.compileAsync(g, camera, scene); } catch (e) { /* made when first drawn instead */ }
-    g.visible = was;
+    // held the page for a second when the lining cell appeared). They are shown only for an instant, while the work
+    // is handed to the graphics card, never across a wait: shown while the shaders were made (seconds on a slower
+    // laptop), and hidden again "as they were" after, they hid what the reader had reached meanwhile.
+    const showAll = () => {
+      const hid = []; g.traverse(o => { if (o !== g && !o.visible) { hid.push(o); o.visible = true; } });
+      const was = g.visible; g.visible = true;
+      return () => { hid.forEach(o => { o.visible = false; }); g.visible = was; };
+    };
+    let restore = showAll(), job = null;
+    try { job = renderer.compileAsync(g, camera, scene); } catch (e) { /* made when first drawn instead */ } finally { restore(); }
+    try { await job; } catch (e) { /* made when first drawn instead */ }
     await new Promise(r => setTimeout(r, 30));
     const parent = g.parent, culled = [];
+    restore = showAll();
     g.traverse(o => { if (o.frustumCulled) { culled.push(o); o.frustumCulled = false; } });
-    const vis = g.visible; g.visible = true; warmScene.add(g);
+    warmScene.add(g);
     const prev = renderer.getRenderTarget();
     renderer.setRenderTarget(warmRT); renderer.render(warmScene, camera); renderer.setRenderTarget(prev);
-    parent.add(g); g.visible = vis; culled.forEach(o => { o.frustumCulled = true; });
-    hid.forEach(o => { o.visible = false; });   // (only what was hidden is hidden again: nothing else changed)
+    parent.add(g); culled.forEach(o => { o.frustumCulled = true; });
+    restore();
     wake();
   }
 
@@ -1125,6 +1134,15 @@ export async function mount(el, opts = {}) {
   let hoverWant = null, hoverLast = 0;
   function hoverAt(x, y) { hoverWant = [x, y]; wake(); }
 
+  // An immediate read of a picture from the graphics card. three.js's background read (readRenderTargetPixelsAsync)
+  // leaves its read buffer bound while it waits, and an immediate read made meanwhile fails without a word and leaves
+  // the buffer as it was: on a slower laptop the names' check picture came back empty and no names were shown at a
+  // level (Daniel, 4 Oct). Unbound first; three.js binds its buffer again when it collects its own read.
+  function readNow(rt, x, y, w, h, buf) {
+    const gl = renderer.getContext(); gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
+    renderer.readRenderTargetPixels(rt, x, y, w, h, buf);
+  }
+
   // GPU picking: the scene drawn once into one pixel under the pointer, each part in its own colour
   const pickRT = new THREE.WebGLRenderTarget(1, 1);
   const pickCam = new THREE.Camera(); pickCam.matrixWorldAutoUpdate = false; pickCam.matrixAutoUpdate = false;
@@ -1186,7 +1204,7 @@ export async function mount(el, opts = {}) {
     const bg = scene.background; scene.background = null;
     const prevRT = renderer.getRenderTarget(), prevClear = renderer.getClearColor(new THREE.Color()), prevA = renderer.getClearAlpha();
     renderer.setRenderTarget(pickRT); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, pickCam);
-    renderer.readRenderTargetPixels(pickRT, 0, 0, 1, 1, pickBuf);
+    readNow(pickRT, 0, 0, 1, 1, pickBuf);
     renderer.setRenderTarget(prevRT); renderer.setClearColor(prevClear, prevA);
     scene.background = bg;
     for (const [o, m] of swapped) o.material = m;
@@ -1227,7 +1245,7 @@ export async function mount(el, opts = {}) {
     renderer.setRenderTarget(idRT); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, camera);
     const snap = { vp: new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse), near: camera.near, far: camera.far };
     const done = () => { idBuf = buf; idList = list; idW = w; idH = h; idCam = snap; };
-    if (sync) { renderer.readRenderTargetPixels(idRT, 0, 0, w, h, buf); done(); }
+    if (sync) { readNow(idRT, 0, 0, w, h, buf); done(); }
     else {
       idPending = true;
       renderer.readRenderTargetPixelsAsync(idRT, 0, 0, w, h, buf).then(() => { done(); idPending = false; wake(); }, () => { idPending = false; });
@@ -1297,7 +1315,7 @@ export async function mount(el, opts = {}) {
   const tagPool = [];
   const measure = (() => { const c = document.createElement('canvas').getContext('2d'); c.font = '600 12.5px Inter, "Segoe UI", system-ui, sans-serif'; return t => c.measureText(t).width; })();
   const IGNORE = new Set(['hip', 'sacrum', 'coccyx', 'vertebrae', 'femur', 'cytoplasm']);   // names may lie over these
-  let layoutKey = '', placedTags = [], tagReport = [];
+  let layoutKey = '', placedTags = [], tagReport = [], tagWhy = [], layoutIdParts = null, layoutShort = false, layoutTries = 0;
   const inHold = () => Z > HOLD_Z[0] + 0.01 && Z < HOLD_Z[1] - 0.01;       // (the camera stands still there)
   // (at the stay: when the button stands there, or the scrolling has stopped there; scrolled through, no names: laying
   // them out cost a frame of 200 ms mid-scroll)
@@ -1308,8 +1326,10 @@ export async function mount(el, opts = {}) {
     if (!atRest()) { if (layoutKey) hideTags(); return; }
     camera.updateMatrixWorld();
     const key = [inHold() ? 'hold' : Z, W(), H(), inset.left, inset.right, inset.top, inset.bottom, JSON.stringify(inset.avoid || []), ...camera.matrixWorld.elements.map(x => x.toFixed(5))].join('|');
-    if (key !== layoutKey) { layoutKey = key; layoutTags(); }
+    if (key !== layoutKey) { layoutKey = key; layoutTries = 0; layoutTags(); }
+    else if (layoutShort && layoutTries < 12) { layoutTries++; layoutTags(); }    // (found too little: again, next frame)
     else if (placedTags.some(t => t.a.dyn)) moveDyn();
+    if (layoutShort && layoutTries < 12) wake();
   }
   // where each name can go: its part's places on the screen (several for a name with several places)
   function tagCandidates() {
@@ -1323,23 +1343,25 @@ export async function mount(el, opts = {}) {
       if (sx < inset.left + 4 || sx > Wd - inset.right - 4 || sy < inset.top + 16 || sy > Hd - inset.bottom - 16) return null;
       return [sx, sy];
     };
+    const why = tagWhy = [];                       // (for checks: api.tagWhy, why a name in range was not a candidate)
     for (const a of anchors) {
       if (Z < a.z[0] || Z > a.z[1]) continue;
-      if (fades[a.group] < (a.group === 'inside' ? 0.02 : 0.6)) continue;
-      if (a.cut && peelNow > 0.5) continue;      // (names on the part peeled away)
+      const no = r => why.push(a.text + ': ' + r);
+      if (fades[a.group] < (a.group === 'inside' ? 0.02 : 0.6)) { no('fade ' + fades[a.group]); continue; }
+      if (a.cut && peelNow > 0.5) { no('peeled'); continue; }      // (names on the part peeled away)
       if (a.face) {                                // (seen from behind its face: not shown. The organ's cut face looks
         const c = camera.position.clone().applyMatrix4(F(a.frame).invert());   // along the body's x, the tissue's along z)
-        if (a.frame === 'body' ? c.x < SEC.x : c.z < 0) continue;
+        if (a.frame === 'body' ? c.x < SEC.x : c.z < 0) { no('behind'); continue; }
       }
       const base = W3(a.frame, a.dyn === 'single' ? singleAt : a.dyn && molApi ? molApi.where()[a.dyn] : a.p);
       const d = base.distanceTo(camera.position), rpx = a.r * SCALE[a.frame] / d * f;
-      if (rpx < 5 || rpx > Hd * 0.6) continue;
-      if (!a.nofog && (fog * d) ** 2 > 0.5) continue;   // more than about 40% lost in the haze
-      if (a.maxD && d > a.maxD * SCALE[a.frame]) continue;   // (ribosomes: only where they are drawn as shapes)
-      const pts = [];
-      if (a.cands) for (const c of a.cands) { const p = W3(a.frame, c), s = onScreen(p); if (s && seen(a, p, 0, true)) pts.push(s); }
-      else { const s = onScreen(base); if (s && seen(a, base, d)) pts.push(s); }
-      if (pts.length) out.push({ a, pts, rpx });
+      if (rpx < 5 || rpx > Hd * 0.6) { no('size ' + Math.round(rpx)); continue; }
+      if (!a.nofog && (fog * d) ** 2 > 0.5) { no('haze'); continue; }   // more than about 40% lost in the haze
+      if (a.maxD && d > a.maxD * SCALE[a.frame]) { no('far'); continue; }   // (ribosomes: only where they are drawn as shapes)
+      const pts = []; let on = 0;
+      if (a.cands) for (const c of a.cands) { const p = W3(a.frame, c), s = onScreen(p); if (s) on++; if (s && seen(a, p, 0, true)) pts.push(s); }
+      else { const s = onScreen(base); if (s) on++; if (s && seen(a, base, d)) pts.push(s); }
+      if (pts.length) out.push({ a, pts, rpx }); else no('on screen ' + on + ', seen 0' + (idBuf ? '' : ' (no ID picture)'));
     }
     // each name once: the biggest of its kind
     const best = new Map(); for (const t of out) if (!best.has(t.a.text) || best.get(t.a.text).rpx < t.rpx) best.set(t.a.text, t);
@@ -1352,6 +1374,7 @@ export async function mount(el, opts = {}) {
   }
   function layoutTags() {
     idPass(true);
+    { const n = {}; for (let k = 0; k < idBuf.length; k += 4) { const i = idBuf[k] + idBuf[k + 1] * 256; if (i) { const p = partOf(idList[i - 1]) || '?'; n[p] = (n[p] || 0) + 1; } } layoutIdParts = n; }
     const Wd = W(), Hd = H(), L0 = inset.left + 8, R0 = Wd - inset.right - 8, T0 = inset.top + 6, B0 = Hd - inset.bottom - 6;
     // what must not be covered: every part on the screen (the ID picture), a little grown
     const sx = idW / Wd, sy = idH / Hd, occ = new Uint8Array(idW * idH);
@@ -1428,6 +1451,8 @@ export async function mount(el, opts = {}) {
       if (c.a.path) { const hb = Math.max(14, c.rpx); placed.push({ box: [L0, pick.py - hb, R0, pick.py + hb], ly: -1e9, lx0: 0, lx1: 0, page: true }); }
     }
     placedTags = placed.filter(t => !t.page); tagReport = report;
+    // (a check picture that held no part, or names in range none of which could be checked: try again)
+    layoutShort = !Object.keys(layoutIdParts || {}).length || (tagWhy.length > 0 && !report.length);
     renderTags();
   }
   function renderTags() {
@@ -1522,8 +1547,21 @@ export async function mount(el, opts = {}) {
   stateAt(0); arrive(0);
   wake();
 
+  // Everything, every level, downloaded and its shaders made and drawn once (Daniel, 4 Oct: "I'd rather spend more
+  // time everything loading and then showing everything perfectly"): the page waits for this before the reader can
+  // move. Each step says where it is (loadstage)
+  const allReady = (async () => {
+    const step = (k, label) => emit('loadstage', { k, n: 5, label });
+    step(0, 'the tissue'); await tissueReady;
+    step(1, 'the cell'); await cellReady;
+    step(2, 'the organelles'); await insideReady;
+    step(3, 'the molecules'); await ensure(5);
+    step(4, 'the pictures');                     // (the warm-ups started meanwhile; new ones may join while waiting)
+    for (let i = 0; i < 6; i++) { const n = warmups.length; await Promise.all(warmups); if (warmups.length === n) break; }
+    step(5, 'ready');
+  })();
   const api = {
-    THREE, camera, scene, renderer, post, groups, counts, insideReady, cellReady, tissueReady,
+    THREE, camera, scene, renderer, post, groups, counts, insideReady, cellReady, tissueReady, allReady,
     get tissue() { return tissue; },
     get level() { return LEVELS[Math.round(Z)]; },
     get Z() { return Z; },
@@ -1559,6 +1597,19 @@ export async function mount(el, opts = {}) {
     partAt(x, y) { return pickAt(x, y).part; },
     get anchors() { return anchors; },
     get tagReport() { return tagReport; },
+    get tagWhy() { return tagWhy; },
+    get layoutIdParts() { return layoutIdParts; },
+    // for checks: what the "seen" test computes for each place of one name
+    seenDebug(text) {
+      idPass(true); const a = anchors.find(x => x.text === text && Z >= x.z[0] && Z <= x.z[1]); if (!a) return 'none';
+      return (a.cands || [a.p]).slice(0, 5).map(c => { const p = W3(a.frame, c), q = new THREE.Vector4(p.x, p.y, p.z, 1).applyMatrix4(idCam.vp);
+        const ix = Math.floor((q.x / q.w * 0.5 + 0.5) * idW), iy = Math.floor((q.y / q.w * 0.5 + 0.5) * idH), k = (iy * idW + ix) * 4, n = idBuf[k] + idBuf[k + 1] * 256;
+        const zA = lin(q.z / q.w * 0.5 + 0.5), rpx = a.r * SCALE[a.frame] / Math.max(1e-9, zA) * (idH / 2) / Math.tan(camera.fov * Math.PI / 360);
+        return { ix, iy, at: n ? partOf(idList[n - 1]) : null, zA: +zA.toFixed(1), rpx: +rpx.toFixed(1), near: idCam.near, far: idCam.far, seen: seen(a, p, 0, true) }; });
+    },
+    // for checks: which parts the ID picture holds now, and how many of its pixels each
+    idParts() { idPass(true); const n = {}; for (let k = 0; k < idBuf.length; k += 4) { const i = idBuf[k] + idBuf[k + 1] * 256; if (i) { const p = partOf(idList[i - 1]) || '?'; n[p] = (n[p] || 0) + 1; } } return { size: [idW, idH], listed: idList.length, parts: n }; },
+    get tagState() { return { atRest: atRest(), layoutKey: !!layoutKey, Z, Zt, tween: !!tween }; },
     seekFlight() { return false; },
     stopAutoRotate() { orbit.autoRotate = false; },
     dispose() { cancelAnimationFrame(raf); ro.disconnect(); orbit.dispose(); renderer.dispose(); cv.remove(); },

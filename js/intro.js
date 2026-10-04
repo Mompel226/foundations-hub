@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791089219';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791091114';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -252,7 +252,7 @@ function inset() {
   const zr = zoom.getBoundingClientRect(), box = sel => { const r = $(sel).getBoundingClientRect(); return [r.left - zr.left - 6, r.top - zr.top - 6, r.right - zr.left + 6, r.bottom - zr.top + 6].map(Math.round); };
   const scale = box('#scalebar'); scale[2] = Math.max(scale[2], scale[0] + Math.round(zoom.clientWidth * 0.2) + 60);   // (its width is set a moment later: its widest)
   cell.setInset(narrow ? { left: 30, right: 0, top: 60, bottom: zoom.clientHeight - capBox.top + 8, avoid: [box('#ruler'), scale] }
-    : { left: 230, right: zoom.clientWidth - left + 6, top: 60, bottom: 0, avoid: [scale] });
+    : { left: 272, right: zoom.clientWidth - left + 6, top: 60, bottom: 0, avoid: [scale] });
 }
 window.addEventListener('resize', () => inset());
 // On a laptop, "More" lets the caption take the whole right-hand column: the film or the photograph steps aside
@@ -275,7 +275,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791089219').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791091114').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -431,7 +431,7 @@ const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
 
 // ---------- moving between levels ----------
 async function go(to) {
-  if (busy || !cell || to === cell.level) return;
+  if (busy || !cell || to === cell.level || zoom.classList.contains('is-loading')) return;
   busy = true;
   $$('.cap button, .stop').forEach(b => { b.disabled = true; });
   hideCard();
@@ -467,7 +467,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791089219', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791091114', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
@@ -475,8 +475,17 @@ async function start() {
     return;
   }
   window.cell = cell;
-  $('#loading').classList.add('is-done');
   setLevelUI('organism');
+  // The page waits until every level is downloaded and ready to draw: nothing can be pressed or scrolled until then
+  // (at most 60 s: then it opens anyway, and what is missing loads as the reader reaches it)
+  cell.on('loadstage', st => {
+    $('#loadText').textContent = st.k < st.n ? 'Getting ' + st.label + ' ready (' + (st.k + 1) + ' of ' + st.n + ')' : 'Ready';
+    $('#loadBar').style.width = Math.round(st.k / st.n * 100) + '%';
+  });
+  await Promise.race([cell.allReady.catch(e => console.error(e)), new Promise(r => setTimeout(r, 60000))]);
+  $('#loadBar').style.width = '100%';
+  zoom.classList.remove('is-loading');
+  $('#loading').classList.add('is-done');
   // scrolling moves through the levels by itself: the caption follows the level nearest the view
   cell.on('level', l => { if (!busy) setLevelUI(l); else { $('#capLevel').textContent = SAID_SHORT[l]; } })
     .on('pick', showCard)
@@ -514,7 +523,8 @@ async function start() {
     if (!filmPlayed) { filmPlayed = true; playFilm(true); }
     else if ($('#film').hidden) { $('#film').hidden = false; $('#filmPill').hidden = true; fitCap(); }
   });
-  cell.on('progress', f => { $('#loadBar').style.width = Math.round(f * 100) + '%'; });
+  // (the organelles' file is the biggest: its own progress fills the bar between steps 3 and 4)
+  cell.on('progress', f => { if (zoom.classList.contains('is-loading')) $('#loadBar').style.width = Math.round((2 + f) / 5 * 100) + '%'; });
   cell.insideReady.then(fillCounts);
 }
 start();
