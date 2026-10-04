@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791095185';
+import { build as buildTissue } from './tissue3d.js?v=1791095888';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -294,9 +294,13 @@ export async function mount(el, opts = {}) {
   let knifeOff = 1;                              // metres beyond the cut; 1 = no cut
   // (always on, parked a metre away when there is no cut: switching it off and on would rebuild the shaders)
   for (const id in bodyMat) if (id !== 'skin') bodyMat[id].clippingPlanes = [knife];
+  // the vagina ends open, level, a little above the Atlas's closed end (build_section.py open_y)
+  const vagEnd = new THREE.Plane();
+  if (SEC.vagina && SEC.vagina.open_y != null && bodyMat.vagina) bodyMat.vagina.clippingPlanes = [knife, vagEnd];
   function setKnife(off) {
     knifeOff = off;
     knife.set(new THREE.Vector3(-1, 0, 0), SEC.x + off).applyMatrix4(F('body'));
+    vagEnd.set(new THREE.Vector3(0, 1, 0), -(SEC.vagina && SEC.vagina.open_y != null ? SEC.vagina.open_y : -9)).applyMatrix4(F('body'));
   }
   // The peel: the knife is put at the cut all at once (with the cut face drawn), and the part on the reader's side
   // is a copy of each organ, clipped the other way, that lifts a little away and fades out. (The knife used to sweep
@@ -311,7 +315,7 @@ export async function mount(el, opts = {}) {
     body.scene.traverse(o => {
       if (!o.isMesh || o.userData.bodyId === 'skin' || !bodyMat[o.userData.bodyId] || o === skinPre || o === skinIn) return;
       const id = o.userData.bodyId;
-      peelMat[id] ||= new THREE.MeshLambertMaterial({ color: bodyMat[id].color, transparent: true, depthWrite: false, clippingPlanes: [knifeOpp] });
+      peelMat[id] ||= new THREE.MeshLambertMaterial({ color: bodyMat[id].color, transparent: true, depthWrite: false, clippingPlanes: id === 'vagina' ? [knifeOpp, vagEnd] : [knifeOpp] });
       const t = new THREE.Mesh(o.geometry, peelMat[id]);
       t.matrixAutoUpdate = false; t.matrix.multiplyMatrices(inv, o.matrixWorld);
       t.userData.part = o.userData.part; t.userData.bodyId = id; t.renderOrder = 6;

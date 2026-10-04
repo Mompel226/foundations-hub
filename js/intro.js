@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791095185';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791095888';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -278,7 +278,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791095185').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791095888').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -507,7 +507,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791095185', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791095888', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
