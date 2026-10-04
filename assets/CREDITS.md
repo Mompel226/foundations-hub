@@ -15,10 +15,11 @@ and external os, the vagina, both oviducts and ovaries, the bladder, the rectum,
 both hip bones, the fourth and fifth lumbar vertebrae and both femurs.
 Changes (`tools/build_anatomy.py`): parts joined into groups (the bones one group per kind, so each can be
 named); each simplified (the skin from 266,696 to 22,000 triangles); colours added; the skin drawn as see-through
-glass. One change of place: each ovary moved by about 2 mm (left 1.7 mm, right 1.9 mm), the smallest move that
-brings its upper pole to 0.2–0.7 mm from the fimbriae of its oviduct, where they fold over it in life; the Atlas
-leaves a gap of about 2.3 mm. Every other organ is where the Atlas puts it (tubes, uterus, cervix and vagina meet
-within 0.2 mm).
+glass. One change of place: each ovary moved by about 4 mm (left 3.6 mm, right 4.0 mm), the move that lays the most
+of its oviduct's fimbriae on its upper (tubal) end, as they lie in life: a quarter of the fimbriae within 1.5 mm of
+it (left 25%, right 29%), none sunk into it; the Atlas leaves a gap of about 2.3 mm (0% within 1.5 mm). (Until
+4 Oct 2026 a 2 mm move only closed the gap to one touching point.) Every other organ is where the Atlas puts it
+(tubes, uterus, cervix and vagina meet within 0.2 mm).
 
 ## 3b. The organ, cut open (`body/section.webp`, `section-map.png`, `section.json`)
 
@@ -29,6 +30,10 @@ Inside the wall the layers are drawn, not measured, at the widths histology desc
 0.15 mm; in the cervix, mostly connective tissue with bundles of smooth muscle, and crypts of the canal's lining
 3–5 mm deep (IARC Screening Group's atlas, "Anatomical considerations – columnar epithelium",
 screening.iarc.fr).
+The vagina is cut by the same plane (`section-vagina.webp`, 60 µm a pixel): the Atlas's vagina is hollow, so the cut
+shows its wall (smooth muscle and connective tissue, drawn as the cervix's mix), its lining (stratified squamous
+epithelium, drawn 0.3 mm), and its canal, as dark as the canal of the cervix, so that the two read as one passage;
+the cervicovaginal junction carries its walls up round the tip of the cervix (the fornices).
 Coloured as a slide stained with haematoxylin and eosin; the lining of the cervix (on the canal and in its crypts) is
 painted as the tissue model has it, at this scale: a row of pale cells and, at their base, the row of their nuclei (a
 solid purple band, twice too wide, was painted until 4 Oct 2026). Round the place the zoom goes in (the 2 mm of the tissue

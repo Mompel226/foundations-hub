@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791092743';
+import { build as buildTissue } from './tissue3d.js?v=1791095185';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -266,6 +266,21 @@ export async function mount(el, opts = {}) {
   const cap = new THREE.Mesh(capGeo, new THREE.MeshLambertMaterial({ map: sectionTex, alphaTest: 0.5, side: THREE.DoubleSide }));
   cap.userData.part = 'section'; cap.renderOrder = 2;
   G.body.add(cap);
+  // the vagina's cut face (build_section.py vagina_face): its wall, lining and canal, which goes on from the canal of
+  // the cervix; just behind the uterus and cervix face, which wins where both are drawn (Daniel, 4 Oct: the vagina
+  // was the one organ there not shown cut open)
+  let vcap = null;
+  if (SEC.vagina) {
+    const vt = await new THREE.TextureLoader().loadAsync('assets/body/section-vagina.webp?v=' + v);
+    vt.colorSpace = THREE.SRGBColorSpace; vt.anisotropy = 8;
+    const g = new THREE.BufferGeometry(), vc = SEC.vagina.corners.map(p => [p[0] + 1e-5, p[1], p[2]]);
+    g.setAttribute('position', new THREE.Float32BufferAttribute([...vc[0], ...vc[1], ...vc[2], ...vc[3]], 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute([0, 1, 1, 1, 1, 0, 0, 0], 2));
+    g.setIndex([0, 3, 1, 1, 3, 2]); g.computeVertexNormals();
+    vcap = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ map: vt, alphaTest: 0.5, side: THREE.DoubleSide }));
+    vcap.userData.part = 'vagina'; vcap.renderOrder = 2; vcap.visible = false;
+    G.body.add(vcap);
+  }
   // which tissue each point of the cut face is (for naming what the pointer is on)
   const secMap = await new Promise(res => {
     const im = new Image(); im.onload = () => {
@@ -406,6 +421,8 @@ export async function mount(el, opts = {}) {
     const face = (k, text, part) => anchors.push({ group: 'body', frame: 'body', p: deepest(part) || [L[k][0] + 3e-5, L[k][1], L[k][2]], r: 0.004, text, part, z: [1.9, 2.75], face: true, accept: ['section'] });
     face('muscle', 'Uterus: muscle tissue', 'muscle'); face('lining_u', 'Lining of the uterus', 'lining_u');
     face('connective', 'Cervix: connective tissue', 'connective'); face('lining_c', 'Lining of the canal', 'lining_c');
+    if (SEC.vagina) anchors.push({ group: 'body', frame: 'body', p: [SEC.vagina.label[0] + 3e-5, SEC.vagina.label[1], SEC.vagina.label[2]], r: 0.004,
+      text: 'Vagina', part: 'vagina', z: [1.9, 2.75], face: true });
   }
 
   // Several places on a mesh for one name, within `radius` of a point, spread out (each the farthest from those
@@ -708,7 +725,7 @@ export async function mount(el, opts = {}) {
     else bodyLook('system', 'organ', sm(Z, 1.1, 1.7), 1);
     setKnife(Z < 1.4 ? 1 : 0);
     setPeel(sm(Z, 1.42, 1.86), Z >= 1.4);
-    cap.visible = Z >= 1.4;
+    cap.visible = Z >= 1.4; if (vcap) vcap.visible = cap.visible;
     // which levels are drawn, and how much of each: [layer, weight]
     // tissue to cell: first the spread lining cell becomes the HeLa cell (the tissue stays), then the tissue goes
     const mixes = [[2.74, 2.94, LAYER.body, LAYER.tissue], [3.82, 3.90, LAYER.tissue, LAYER.dish], [3.91, 3.98, LAYER.dish, LAYER.cell],
@@ -1164,6 +1181,7 @@ export async function mount(el, opts = {}) {
   const pickRT = new THREE.WebGLRenderTarget(1, 1);
   const pickCam = new THREE.Camera(); pickCam.matrixWorldAutoUpdate = false; pickCam.matrixAutoUpdate = false;
   const pickBuf = new Uint8Array(4), pickMats = [];
+  const BONE_PARTS = new Set(['hip', 'sacrum', 'coccyx', 'vertebrae', 'femur']);
   const PICK_VS = `varying vec2 vUv;
     #include <common>
     #include <clipping_planes_pars_vertex>
@@ -1215,7 +1233,10 @@ export async function mount(el, opts = {}) {
       if (!(o.isMesh || o.isInstancedMesh || o.isPoints || o.isLine)) return;
       const shell = o.userData.part === 'body' || o.userData.part === 'cell' || o.userData.part === 'cut' || o.userData.part === 'glass';
       if (o.isMesh && o.visible && o.userData.part !== 'glass' && partOf(o) && (solidOnly ? solidEnough(o) : shownEnough(o)) && !(skipShells && shell)) {
-        list.push(o); swapped.push([o, o.material]); o.material = pickMat(list.length, Array.isArray(o.material) ? o.material[0] : o.material);
+        list.push(o); swapped.push([o, o.material, o.renderOrder]); const m = pickMat(list.length, Array.isArray(o.material) ? o.material[0] : o.material);
+        // (as in the ID picture: see-through parts leave no depth, faint bones go first, so the organ behind a faint
+        // hip bone is what pointing there names; Daniel, 4 Oct: the rectum could not be pointed at)
+        const solid = solidEnough(o); m.depthWrite = solid; o.material = m; o.renderOrder = solid ? 1 : BONE_PARTS.has(o.userData.part) ? -3 : -1;
       } else if (o.visible) { hidden.push(o); o.visible = false; }
     });
     const bg = scene.background; scene.background = null;
@@ -1224,7 +1245,7 @@ export async function mount(el, opts = {}) {
     readNow(pickRT, 0, 0, 1, 1, pickBuf);
     renderer.setRenderTarget(prevRT); renderer.setClearColor(prevClear, prevA);
     scene.background = bg;
-    for (const [o, m] of swapped) o.material = m;
+    for (const [o, m, ro] of swapped) { o.material.depthWrite = true; o.material = m; o.renderOrder = ro; }
     for (const o of hidden) o.visible = true;
     const n = pickBuf[0] + pickBuf[1] * 256;
     return n > 0 ? list[n - 1] : null;
@@ -1254,7 +1275,8 @@ export async function mount(el, opts = {}) {
         const solid = solidEnough(o);
         list.push(o); solids.push(solid); swapped.push([o, o.material, o.renderOrder]);
         const m = pickMat(list.length, Array.isArray(o.material) ? o.material[0] : o.material);
-        m.depthWrite = solid; o.material = m; o.renderOrder = solid ? 1 : -1;
+        // (faint bones first of all: an organ seen through one is what the place is, as the rectum behind the hip)
+        m.depthWrite = solid; o.material = m; o.renderOrder = solid ? 1 : BONE_PARTS.has(o.userData.part) ? -3 : -1;
       } else if (o.visible) { hidden.push(o); o.visible = false; }
     });
     const bg = scene.background; scene.background = null;

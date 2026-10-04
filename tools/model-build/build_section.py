@@ -257,9 +257,74 @@ h2, w2 = H // 2 * 2, W // 2 * 2
 blk = reg[:h2, :w2].reshape(h2 // 2, 2, w2 // 2, 2)
 reg2 = np.where((blk == 4).any(axis=(1, 3)), 4, blk[:, 0, :, 0])
 Image.fromarray(reg2.astype(np.uint8) * 40, "L").save(OUT + "section-map.png", optimize=True)
+# ---- the vagina, cut by the same plane (Daniel, 4 Oct: the uterus and cervix were cut open and coloured as a slide,
+# the vagina beside them was not, and how it joins the cervix could not be seen). The Atlas's vagina is hollow (an
+# outer and an inner surface); the cervicovaginal junction carries its walls up round the tip of the cervix (the
+# fornices). Its own, coarser picture (60 µm a pixel: the zoom never goes into it): the wall (smooth muscle and
+# connective tissue), its lining (stratified squamous epithelium, about 0.3 mm), and the canal, dark as the canal of
+# the cervix, so that the two read as one passage. Drawn just behind the uterus and cervix face (section.webp wins).
+def vagina_face():
+    PXV = 0.00006
+    vo, vi = bodies("vagina")[:2]
+    J = tri("cervicovaginal_junction")
+    cerv = [bodies("cervix")[0], tri("external_cervical_os"), bodies("cervix")[1]]
+    allv = np.concatenate([segs([m]).reshape(-1, 2) for m in (vo, J)])
+    lo_v, hi_v = allv.min(0) - 0.002, allv.max(0) + 0.002
+    Hv, Wv = int(np.ceil((hi_v[0] - lo_v[0]) / PXV)), int(np.ceil((hi_v[1] - lo_v[1]) / PXV))
+    def pixv(p):
+        return (hi_v[0] - p[..., 0]) / PXV, (p[..., 1] - lo_v[1]) / PXV
+    def rast(S):
+        img = np.zeros((Hv, Wv), bool)
+        for a, b in S:
+            k = int(max(abs(np.subtract(pixv(a), pixv(b)))) * 2) + 2
+            t = np.linspace(0, 1, k)[:, None]; r, c = pixv(a + (b - a) * t)
+            ok = (r >= 0) & (r < Hv) & (c >= 0) & (c < Wv); img[r[ok].astype(int), c[ok].astype(int)] = True
+        return img
+    # (the vagina's two surfaces are open at the top, where the junction carries them on, so neither fills alone: all
+    # the cut lines together divide the face into closed regions, and each is told by what borders it)
+    out_l = ndimage.binary_dilation(rast(segs([vo])), iterations=1)
+    inner_l = ndimage.binary_dilation(rast(segs([vi])), iterations=1)
+    junc_l = ndimage.binary_dilation(rast(segs([J])), iterations=1)
+    cline = ndimage.binary_dilation(rast(segs(cerv)), iterations=1)
+    lines = out_l | inner_l | junc_l | cline
+    regions, nreg = ndimage.label(ndimage.binary_fill_holes(lines) & ~lines)
+    junc_in = ndimage.binary_fill_holes(junc_l)                                       # the fornices' walls (closed loops)
+    wall_v = np.zeros((Hv, Wv), bool); lumen_v = np.zeros((Hv, Wv), bool)
+    for k in range(1, nreg + 1):
+        R = regions == k; edge = ndimage.binary_dilation(R, iterations=2) & ~R
+        t_out, t_in, t_jn, t_cv = (edge & out_l).sum(), (edge & inner_l).sum(), (edge & junc_l).sum(), (edge & cline).sum()
+        if (R & junc_in).sum() > 0.5 * R.sum() or t_out > 0.15 * edge.sum():
+            wall_v |= R                                                               # between the outer surface and the canal
+        elif t_in + t_jn > 0.3 * edge.sum():
+            lumen_v |= R                                                              # the canal, and the vault round the cervix
+        # (else: inside the cervix, which the uterus and cervix face shows)
+    wall_v |= (out_l | junc_l | inner_l) & ndimage.binary_dilation(wall_v | lumen_v, iterations=3)   # (the lines are wall)
+    lumen_v &= ~wall_v
+    d_lum = ndimage.distance_transform_edt(~lumen_v) * PXV * 1000                       # mm from the canal
+    rng = np.random.default_rng(11)
+    nz = ndimage.gaussian_filter(rng.standard_normal((Hv, Wv)).astype(np.float32), (1.5, 4)); nz /= nz.std() + 1e-9
+    WALL_V, LINING_V = 0.5 * MUSCLE + 0.5 * CT, hexc("#B9649C")
+    img_v = np.zeros((Hv, Wv, 4), np.float32)
+    img_v[..., :3][wall_v] = WALL_V[None] * (1 + 0.06 * nz[wall_v, None])
+    lin = wall_v & (d_lum < 0.35)                                                   # the lining, on the canal side
+    img_v[..., :3][lin] = LINING_V[None]
+    img_v[..., :3][lumen_v] = LUMEN[None]
+    img_v[..., 3] = ((wall_v | lumen_v) * 255).astype(np.float32)
+    Image.fromarray(np.clip(img_v, 0, 255).astype(np.uint8), "RGBA").save(OUT + "section-vagina.webp", quality=88, method=6)
+    def tbv(r, c):
+        return [X, float(hi_v[0] - r * PXV), float(lo_v[1] + c * PXV)]
+    # its name: the deepest point of the wall, in the tube below the cervix
+    dw = ndimage.distance_transform_edt(wall_v)
+    rows = np.arange(Hv)[:, None] * np.ones((1, Wv))
+    dw[rows < Hv * 0.35] = 0
+    r, c = np.unravel_index(np.argmax(dw), dw.shape)
+    print(f"vagina face {Wv} x {Hv} px ({Wv * PXV * 1000:.0f} x {Hv * PXV * 1000:.0f} mm); wall px {int(wall_v.sum())}, canal px {int(lumen_v.sum())}")
+    return {"corners": [tbv(0, 0), tbv(0, Wv), tbv(Hv, Wv), tbv(Hv, 0)], "px_m": PXV, "size": [Wv, Hv], "label": tbv(r, c)}
+
+
 meta = {
     "x": X, "corners": [to_body(0, 0), to_body(0, W), to_body(H, W), to_body(H, 0)], "px_m": PX, "size": [W, H],
-    "dive": P, "normal": n, "labels": labels,
+    "dive": P, "normal": n, "labels": labels, "vagina": vagina_face(),
 }
 json.dump(meta, open(OUT + "section.json", "w"), indent=1)
 print(f"plane x = {X * 1000:.2f} mm; face {W} x {H} px ({W * PX * 1000:.0f} x {H * PX * 1000:.0f} mm); dive at "

@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791092743';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791095185';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -234,7 +234,8 @@ function setLevelUI(level) {
   const below = i >= LEVELS.indexOf('cell');
   if (!below) { video.pause(); $('#film').hidden = true; $('#filmPill').hidden = true; }
   zoom.style.setProperty('--caph', $('#cap').offsetHeight + 'px');
-  inset();
+  zoom.classList.remove('text-first');           // (each level starts with its picture)
+  fitCap();
 }
 // tell the picture how much of the screen the ruler and the caption take: on a laptop the caption is a column
 // on the right, so the picture is centred between the ruler and the caption; on a phone it is at the bottom
@@ -251,7 +252,9 @@ function inset() {
   // (the names keep clear of what stands over the picture: the scale bar, and on a phone the ruler)
   const zr = zoom.getBoundingClientRect(), box = sel => { const r = $(sel).getBoundingClientRect(); return [r.left - zr.left - 6, r.top - zr.top - 6, r.right - zr.left + 6, r.bottom - zr.top + 6].map(Math.round); };
   const scale = box('#scalebar'); scale[2] = Math.max(scale[2], scale[0] + Math.round(zoom.clientWidth * 0.2) + 60);   // (its width is set a moment later: its widest)
-  cell.setInset(narrow ? { left: 30, right: 0, top: 60, bottom: zoom.clientHeight - capBox.top + 8, avoid: [box('#ruler'), scale] }
+  // (on a phone the page's title runs over the picture: the names keep below it)
+  const headB = Math.round(($('.top') || $('header')).getBoundingClientRect().bottom - zr.top + 4);
+  cell.setInset(narrow ? { left: 30, right: 0, top: Math.max(60, headB), bottom: zoom.clientHeight - capBox.top + 8, avoid: [box('#ruler'), scale] }
     : { left: 272, right: zoom.clientWidth - left + 6, top: 60, bottom: 0, avoid: [scale] });
 }
 window.addEventListener('resize', () => inset());
@@ -275,7 +278,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791092743').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791095185').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -396,12 +399,49 @@ window.addEventListener('resize', () => callouts($('#micro')));
 $('#micro img').addEventListener('load', () => callouts($('#micro')));
 
 // The caption keeps clear of whatever stands at the top right: the film, or the photograph.
+// On a laptop the right-hand column holds the picture (a photograph or the film) above and the text card below, one
+// width (--colw), sharing the column's height: the text keeps its own height up to 45% of the column (beyond that it
+// scrolls, and says so), the picture is sized to the rest. Laid out again whenever anything in the column changes
+// size, at every level and on every resize (Daniel, 4 Oct: going back from the cell to the tissue, the text card ran
+// under the photograph: the film had gone in another step, and the card's top was still the film's).
 function fitCap() {
+  const narrow = zoom.clientWidth < 760, zr = zoom.getBoundingClientRect();
   const side = zoom.classList.contains('more-open') ? null : [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
-  const top = side ? side.getBoundingClientRect().bottom - zoom.getBoundingClientRect().top + 12 : 96;
-  zoom.style.setProperty('--captop', Math.round(top) + 'px');
-  inset();
+  if (side && !narrow) sizeSide(side);
+  const top = Math.round(side ? side.getBoundingClientRect().bottom - zr.top + 12 : 96);
+  if (zoom.style.getPropertyValue('--captop') !== top + 'px') zoom.style.setProperty('--captop', top + 'px');
+  inset(); scrollCue();
 }
+function sizeSide(side) {
+  const colH = zoom.clientHeight - 96 - 18, cap = $('#cap');
+  const room = colH - Math.min(cap.scrollHeight, colH * (colH < 650 ? 0.5 : 0.45)) - 12;   // what the text leaves (half, on a short screen)
+  if (side.id === 'film') { zoom.style.setProperty('--filmh', Math.round(Math.max(200, Math.min(430, room))) + 'px'); return; }
+  const img = $('.micro__img img', side);
+  if (!img || zoom.classList.contains('text-first')) return;
+  const ar = (img.naturalWidth || +img.getAttribute('width')) / (img.naturalHeight || +img.getAttribute('height'));
+  img.style.width = 'auto'; img.style.height = '0px';
+  const other = side.getBoundingClientRect().height;                   // the panel without its picture
+  const availW = side.clientWidth - (side.classList.contains('micro--callouts') ? 150 : 0) - 2;
+  img.style.height = Math.round(Math.max(110, Math.min(room - other, availW / ar))) + 'px';
+  if (side.id === 'micro') callouts(side);
+}
+// more to read in the text card: a fade and "Scroll for more" just above the buttons, until the end is reached
+function scrollCue() {
+  const c = $('#cap'), can = c.scrollHeight > c.clientHeight + 4 && c.scrollTop + c.clientHeight < c.scrollHeight - 8;
+  if (c.classList.contains('can-scroll') !== can) c.classList.toggle('can-scroll', can);
+}
+$('#cap').addEventListener('scroll', scrollCue, { passive: true });
+{ const ro = new ResizeObserver(() => requestAnimationFrame(fitCap));
+  ['#film', '#micro', '#micro2', '#emfig', '.cap__more'].forEach(sel => ro.observe($(sel)));
+  $$('.micro__img img').forEach(im => im.addEventListener('load', () => requestAnimationFrame(fitCap))); }
+// a press on the text gives it the whole column (the photograph shrinks to its heading); a press on the heading brings
+// the photograph back
+$('#cap').addEventListener('click', e => {
+  if (e.target.closest('button, a, summary, details, figure') || zoom.classList.contains('text-first')) return;
+  if (!$('#cap').classList.contains('can-scroll') && $('#capMore').hidden) return;     // (it all shows already)
+  zoom.classList.add('text-first'); fitCap();
+});
+$$('.micro').forEach(f => f.addEventListener('click', () => { if (zoom.classList.contains('text-first')) { zoom.classList.remove('text-first'); fitCap(); } }));
 
 // ---------- the tap card ----------
 function hideCard() { $('#tapcard').hidden = true; }
@@ -467,7 +507,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791092743', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791095185', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
