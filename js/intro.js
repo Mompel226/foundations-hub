@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791083863';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791084893';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -245,8 +245,11 @@ function inset() {
   // a photograph or the film at the top right takes room too: the picture (and its names) keep clear of it
   const side = zoom.classList.contains('more-open') ? null : [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
   const left = Math.min(capBox.left, side ? side.getBoundingClientRect().left : Infinity);
-  cell.setInset(narrow ? { left: 30, right: 0, top: 60, bottom: zoom.clientHeight - capBox.top + 8 }
-    : { left: 230, right: zoom.clientWidth - left + 6, top: 60, bottom: 0 });
+  // (the names keep clear of what stands over the picture: the scale bar, and on a phone the ruler)
+  const zr = zoom.getBoundingClientRect(), box = sel => { const r = $(sel).getBoundingClientRect(); return [r.left - zr.left - 6, r.top - zr.top - 6, r.right - zr.left + 6, r.bottom - zr.top + 6].map(Math.round); };
+  const scale = box('#scalebar'); scale[2] = Math.max(scale[2], scale[0] + Math.round(zoom.clientWidth * 0.2) + 60);   // (its width is set a moment later: its widest)
+  cell.setInset(narrow ? { left: 30, right: 0, top: 60, bottom: zoom.clientHeight - capBox.top + 8, avoid: [box('#ruler'), scale] }
+    : { left: 230, right: zoom.clientWidth - left + 6, top: 60, bottom: 0, avoid: [scale] });
 }
 window.addEventListener('resize', () => inset());
 // On a laptop, "More" lets the caption take the whole right-hand column: the film or the photograph steps aside
@@ -269,7 +272,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791083863').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791084893').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -361,24 +364,26 @@ function callouts(fig) {
   if (!br.height) return;
   const pins = $$('.pin', fig).map(p => ({ x: br.left - fr.left + p.offsetLeft, y: br.top - fr.top + p.offsetTop,
     text: p.textContent.trim(), c: getComputedStyle(p).getPropertyValue('--c').trim() }));
+  // each name on its pin's own row, so its line is level (the pins are chosen a full row apart: trace_tissue.py);
+  // only if two came too close would one move, and its line bend once
   pins.sort((a, b) => a.y - b.y);
-  const gap = 30, top = br.top - fr.top + 12, bottom = br.bottom - fr.top - 12;
+  const gap = 40, top = br.top - fr.top + 12, bottom = br.bottom - fr.top - 12;
   let y = -Infinity; pins.forEach(q => { q.ly = Math.max(q.y, y + gap, top); y = q.ly; });
   let lim = bottom; for (let i = pins.length - 1; i >= 0; i--) { pins[i].ly = Math.min(pins[i].ly, lim); lim = pins[i].ly - gap; }
   col.textContent = '';
   const ns = 'http://www.w3.org/2000/svg';
   svg.setAttribute('width', fr.width); svg.setAttribute('height', fr.height); svg.textContent = '';
-  const xL = cr.right - fr.left - 4, xE = br.left - fr.left + 10;
+  // the line starts just after the name, well clear of the photograph's edge, and ends ON the structure: no dots at
+  // either end (they hid what they pointed at: Daniel, 4 Oct)
+  const xL = cr.right - fr.left - 24, xE = br.left - fr.left + 10;
   for (const q of pins) {
     const s = document.createElement('span'); s.textContent = q.text; s.style.top = (q.ly - (cr.top - fr.top)) + 'px';
     col.appendChild(s);
-    const d = `M${xL} ${q.ly} L${xE} ${q.ly} L${q.x} ${q.y}`;
+    const d = Math.abs(q.ly - q.y) < 1 ? `M${xL} ${q.ly} L${q.x} ${q.y}` : `M${xL} ${q.ly} L${xE} ${q.ly} L${q.x} ${q.y}`;
     for (const [w, c] of [[3.2, 'rgba(0,0,0,.5)'], [1.3, 'rgba(255,255,255,.95)']]) {
       const path = document.createElementNS(ns, 'path'); path.setAttribute('d', d); path.setAttribute('fill', 'none');
       path.setAttribute('stroke', c); path.setAttribute('stroke-width', w); path.setAttribute('stroke-linejoin', 'round'); svg.appendChild(path);
     }
-    const dot = document.createElementNS(ns, 'circle'); dot.setAttribute('cx', xL); dot.setAttribute('cy', q.ly); dot.setAttribute('r', 3.2);
-    dot.setAttribute('fill', q.c || '#fff'); svg.appendChild(dot);
   }
 }
 window.addEventListener('resize', () => callouts($('#micro')));
@@ -456,7 +461,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791083863', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791084893', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);

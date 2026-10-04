@@ -148,13 +148,14 @@ a{color:inherit}
 
 /* names on the picture: a dot on the part, in the part's own colour, and its name */
 .tags{position:absolute;inset:0;pointer-events:none;z-index:3;overflow:hidden}
-.tag{position:absolute;left:0;top:0;display:flex;align-items:center;gap:6px;white-space:nowrap;will-change:transform}
-.tag i{width:9px;height:9px;margin:-4.5px 0 0 -4.5px;border-radius:50%;background:var(--c,#fff);box-shadow:0 0 0 2px rgba(14,20,27,.85);flex:none;align-self:flex-start;margin-top:-4.5px}
-.tag span{font-size:12.5px;font-weight:600;color:#fff;background:rgba(14,20,27,.72);border:1px solid rgba(255,255,255,.14);
-          border-left:3px solid var(--c,#fff);border-radius:6px;padding:2px 7px;transform:translateY(calc(-50% + var(--dy,0px)))}
-.tag.is-left{flex-direction:row-reverse}
-.tag.is-left i{margin:-4.5px -4.5px 0 0}
-.tag.is-left span{border-left:1px solid rgba(255,255,255,.14);border-right:3px solid var(--c,#fff)}
+/* names: only when the zoom stands still; a level line from the part to its name, no dot (cell3d.js layoutTags) */
+.tag{position:absolute;left:0;top:0}
+.tag b{position:absolute;left:0;top:0;height:1.5px;background:rgba(255,255,255,.95);box-shadow:0 0 0 .75px rgba(0,0,0,.5),0 0 3px rgba(0,0,0,.45)}
+.tag span{position:absolute;left:0;top:0;height:25px;line-height:23px;padding:0 8px;font-size:12.5px;font-weight:600;color:#fff;white-space:nowrap;
+          background:rgba(14,20,27,.8);border:1px solid rgba(255,255,255,.16);border-left:3px solid var(--c,#fff);border-radius:6px}
+.tag.is-left span{border-left:1px solid rgba(255,255,255,.16);border-right:3px solid var(--c,#fff)}
+.tags .tag{opacity:0;transition:opacity .1s}
+.tags.is-shown .tag{opacity:1;transition:opacity .25s}
 .hovertip{position:absolute;left:0;top:0;z-index:7;pointer-events:none;display:flex;align-items:center;gap:6px;
           background:rgba(250,248,242,.96);color:#1A1A1A;border-radius:8px;padding:4px 10px 4px 8px;font-size:13px;font-weight:600;
           box-shadow:0 4px 14px rgba(0,0,0,.35)}
@@ -174,14 +175,14 @@ a{color:inherit}
 .micro figcaption{padding:8px 11px 9px;font-size:12px;line-height:1.4;color:#C7D2DC}
 /* the photograph with its names in a column beside it and a thin line to each place (callouts in intro.js): on the
    picture itself the names covered what they named */
-.micro--callouts{width:auto;display:grid;grid-template-columns:148px auto;position:absolute}
+.micro--callouts{width:auto;display:grid;grid-template-columns:176px auto;position:absolute}
 .micro--callouts .micro__img{width:max-content;justify-self:start}
 .micro--callouts .micro__img img{height:min(54vh,520px)}
 .micro--callouts figcaption{grid-column:1/-1;width:0;min-width:100%;box-sizing:border-box}   /* (the caption wraps; it never widens the panel) */
 .micro--callouts .pin{font-size:0}
-.micro--callouts .pin i{left:-4px;top:-4px;width:8px;height:8px;box-shadow:0 0 0 2px #fff,0 0 4px rgba(0,0,0,.8)}
+.micro--callouts .pin i{display:none}   /* (the line ends on the structure itself: a dot hid it) */
 .micro__labels{position:relative}
-.micro__labels span{position:absolute;right:10px;transform:translateY(-50%);font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;
+.micro__labels span{position:absolute;right:30px;transform:translateY(-50%);font-size:12.5px;font-weight:700;color:#fff;white-space:nowrap;
                     line-height:1.25}
 .micro__lines{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
 

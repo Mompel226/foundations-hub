@@ -97,10 +97,13 @@ while True:
     cx2 -= 5
 print(f"second gland centre x {cx2} px, {gap:.0f} µm from the first")
 big = max(vessels, key=lambda v: v["rx"] * v["ry"])
+# (each mark on its own row, a full name apart, so that the names beside the photograph can be joined to them by level
+# lines: "Lining cells" and "Nucleus" were on the same row, and their lines ran over each other: Daniel, 4 Oct. The
+# nucleus is a large one on the left slope of the lining, found by its stain)
 marks = [
-    {"part": "tcell", "text": "Lining cells", "px": [930, float(np.interp(930, surf[:, 0], surf[:, 1])) + 0.45 * H_SURF / S]},
-    {"part": "tnucleus", "text": "Nucleus", "px": [330, float(np.interp(330, surf[:, 0], surf[:, 1])) + 0.85 * H_SURF / S]},
-    {"part": "connective", "text": "Connective tissue", "px": [480, 760]},
+    {"part": "tcell", "text": "Lining cells", "px": [605, float(np.interp(605, surf[:, 0], surf[:, 1])) + 0.35 * H_SURF / S]},
+    {"part": "tnucleus", "text": "Nucleus", "px": [155, 365]},
+    {"part": "connective", "text": "Connective tissue", "px": [462, 609]},
     {"part": "capillary", "text": "Small blood vessel", "px": [big["x"], big["y"]]},
     {"part": "crypt", "text": "Crypt, cut across", "px": [gcx, gcy]},
 ]
