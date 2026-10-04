@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791091114';
+import { build as buildTissue } from './tissue3d.js?v=1791092743';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -108,10 +108,13 @@ const RANGE = { organism: [0.01, 30], system: [0.002, 6], organ: [0.0004, 2], ti
 // Where each level's camera stands, in its frame's units (body: metres; tissue, cell: µm)
 export const VIEWS = {
   organism:  { pos: [0.95, 0.32, 2.15], at: [0, 0.04, -0.05], orbit: [1.1, 3.6] },
-  system:    { pos: [0.15, 0.21, 0.24], at: [-0.012, 0.052, -0.05], orbit: [0.16, 0.9] },
-  // (the cut face seen at about 45°, from the front and the side: straight from the side, the zoom turned too far to
-  // the left, Daniel 4 Oct; this way the uterus is also seen as the solid organ it is)
-  organ:     { pos: [0.0575, 0.061, 0.018], at: [-0.0105, 0.031, -0.057], orbit: [0.04, 0.3] },
+  // (from her side, 65° round from the front and a little from above: the textbook view of the pelvis, the bladder in
+  // front, the uterus over it, the cervix going down into the vagina, the rectum behind; Daniel, 4 Oct: "turn it towards
+  // the right ... to see the shape of the uterus with the cervix and the vagina and the bladder in front")
+  system:    { pos: [0.1729, 0.1124, 0.0312], at: [-0.012, 0.03, -0.055], orbit: [0.16, 0.9] },
+  // (the cut face seen nearly face on, 20° from it, a little from above, framed low enough to show the vagina going on
+  // from the cervix: at 45° the face read flat and the join to the vagina was hidden behind the cervix; Daniel, 4 Oct)
+  organ:     { pos: [0.0852, 0.0494, -0.0252], at: [-0.0105, 0.024, -0.06], orbit: [0.04, 0.3] },
   tissue:    { pos: [170, 110, 930], at: [0, -270, -30], orbit: [180, 2400] },
   cell:      { pos: [-44, 36, 40], at: [-5, 1.5, 0], orbit: [12, 95] },
   inside:    null,                                                    // (below: at the end of the straight line in)
@@ -133,7 +136,7 @@ const ahead = (s, side = 0, up = 0) => {             // a point s µm on along t
 // the detailed region (build_meshes.SCENE_UM), cell frame: the cytoplasm beside the nucleus, on its left, where the cell
 // is thickest with no nucleus over it, so the zoom dives straight down into it through the cell membrane
 const BOX = { lo: [-17.85, 0.0, -3.8], hi: [-10.35, 4.6, 3.7] };
-const SECONDS = [4, 5, 15, 8, 12, 9];
+const SECONDS = [4, 5, 15, 10, 12, 9];
 // a stay on the way from the tissue to the cell, at the close-up of the lining cells (Z), and how long the Zoom-in
 // button stands there (seconds)
 const HOLD = [0.32, 0.50], HOLD_Z = [3.32, 3.50], HOLD_S = 4;                             // each step down, when a button is pressed
@@ -141,7 +144,7 @@ const HOLD = [0.32, 0.50], HOLD_Z = [3.32, 3.50], HOLD_S = 4;                   
 // of the cut face, so it is given more (Daniel: "make the movement from organ to tissue slower"; and again on 4 Oct,
 // the change from the cut face to the tissue was too fast: 2.4 -> 2.8, the blend 2.74-2.94; and from the organelles to
 // the molecules, "like boom": 1 -> 1.5, the blend 5.35-5.6 -> 5.28-5.72)
-const STEP_LEN = [1, 1, 2.8, 1.7, 1.4, 1.5];
+const STEP_LEN = [1, 1, 2.8, 2.0, 1.4, 1.5];
 
 const sm = (x, a, b) => THREE.MathUtils.smoothstep(x, a, b);
 // a module loaded later, tried three times (a weak connection drops one now and then; a browser remembers a failed
@@ -284,6 +287,8 @@ export async function mount(el, opts = {}) {
   // is a copy of each organ, clipped the other way, that lifts a little away and fades out. (The knife used to sweep
   // through the organs, and on the way showed their hollow insides: Daniel, 4 Oct, "it contains a lot of artifacts".)
   const knifeOpp = new THREE.Plane(), peelGroup = new THREE.Group(), peelMat = {};
+  const peelPre = {};
+  const peelPreMat = new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true, transparent: true, side: THREE.DoubleSide, clippingPlanes: [knifeOpp] });
   let peelNow = 0;
   {
     body.scene.updateMatrixWorld(true);
@@ -294,8 +299,13 @@ export async function mount(el, opts = {}) {
       peelMat[id] ||= new THREE.MeshLambertMaterial({ color: bodyMat[id].color, transparent: true, depthWrite: false, clippingPlanes: [knifeOpp] });
       const t = new THREE.Mesh(o.geometry, peelMat[id]);
       t.matrixAutoUpdate = false; t.matrix.multiplyMatrices(inv, o.matrixWorld);
-      t.userData.part = o.userData.part; t.userData.bodyId = id; t.renderOrder = 1;
-      peelGroup.add(t);
+      t.userData.part = o.userData.part; t.userData.bodyId = id; t.renderOrder = 6;
+      // its depth first, drawn just before it: so that, see-through as it fades, only its outer surface shows. Drawn
+      // see-through from the start, the hollow uterus showed its inside through itself, a dark slit and rings, just as
+      // it split (Daniel, 4 Oct)
+      const pre = new THREE.Mesh(o.geometry, peelPreMat); pre.matrixAutoUpdate = false; pre.matrix.copy(t.matrix);
+      pre.renderOrder = 5; pre.userData.part = 'body'; (peelPre[id] ||= []).push(pre);
+      peelGroup.add(pre, t);
     });
     peelGroup.visible = false; body.scene.add(peelGroup);
   }
@@ -305,7 +315,13 @@ export async function mount(el, opts = {}) {
     const slide = new THREE.Vector3(0.018, 0.008, 0).multiplyScalar(p * p);    // body frame, metres: away and up
     peelGroup.position.copy(slide); peelGroup.updateMatrix();
     knifeOpp.set(new THREE.Vector3(1, 0, 0), -(SEC.x + slide.x)).applyMatrix4(F('body'));
-    for (const id in peelMat) { const m = peelMat[id], base = bodyMat[id].opacity ?? 1; m.opacity = base * (1 - p); m.visible = bodyMat[id].visible && m.opacity > 0.004; }
+    // (solid as it starts to lift, as the organ was; it fades only once it is clear of the cut)
+    const fadeK = 1 - THREE.MathUtils.smoothstep(p, 0.35, 1);
+    for (const id in peelMat) {
+      const m = peelMat[id], base = bodyMat[id].opacity ?? 1; m.opacity = base * fadeK; m.visible = bodyMat[id].visible && m.opacity > 0.004;
+      // (the depth pass only for an organ drawn solid: a faint bone with one would hide what is behind it)
+      for (const pre of peelPre[id] || []) pre.visible = m.visible && base > 0.9;
+    }
   }
   function bodyLook(a, b, k, fade) {      // see-through-ness between two body levels, k from 0 (a) to 1 (b)
     for (const id in bodyMat) {
@@ -695,9 +711,9 @@ export async function mount(el, opts = {}) {
     cap.visible = Z >= 1.4;
     // which levels are drawn, and how much of each: [layer, weight]
     // tissue to cell: first the spread lining cell becomes the HeLa cell (the tissue stays), then the tissue goes
-    const mixes = [[2.74, 2.94, LAYER.body, LAYER.tissue], [3.76, 3.85, LAYER.tissue, LAYER.dish], [3.87, 3.96, LAYER.dish, LAYER.cell],
+    const mixes = [[2.74, 2.94, LAYER.body, LAYER.tissue], [3.82, 3.90, LAYER.tissue, LAYER.dish], [3.91, 3.98, LAYER.dish, LAYER.cell],
       [4.25, 4.40, LAYER.cell, LAYER.inside], [5.28, 5.72, LAYER.deep, LAYER.mol]];
-    const order = [[2.74, LAYER.body], [3.76, LAYER.tissue], [3.87, LAYER.dish], [4.25, LAYER.cell], [4.985, LAYER.inside], [5.28, LAYER.deep], [9, LAYER.mol]];
+    const order = [[2.74, LAYER.body], [3.82, LAYER.tissue], [3.91, LAYER.dish], [4.25, LAYER.cell], [4.985, LAYER.inside], [5.28, LAYER.deep], [9, LAYER.mol]];
     layers = null;
     for (const [a, b, A, B] of mixes) if (Z > a && Z < b) { const k = sm(Z, a, b); layers = [[A, 1 - k], [B, k]]; }
     if (!layers) layers = [[order.find(([z]) => Z <= z)[1], 1]];
@@ -705,8 +721,8 @@ export async function mount(el, opts = {}) {
     for (const k in fades) fades[k] = layers.reduce((s, [L, w]) => s + (L[k] ? w : 0), 0);
     patchK = tissue ? sm(Z, 2.4, 2.62) * (Z < 2.94 ? 1 : 0) : 0;
     // the one lining cell the zoom goes into lights up; the slice the photograph shows is outlined
-    // then the camera stays close (HOLD, 3.32-3.50), it rises out of the tissue (3.50-3.62) and spreads flat
-    // (3.62-3.76), and the HeLa cell takes its place (3.76-3.85)
+    // then the camera stays close (HOLD, 3.32-3.50), it rises out of the tissue (3.50-3.60) and spreads flat
+    // (3.60-3.82), and the HeLa cell takes its place (3.82-3.90)
     if (tissue) {
       // the front-row cell: shown whole from 3.0 (its cut twin hidden), lit up, then it rises, its membrane clearing
       // so its nucleus shows; a dish appears under it; it spreads to the HeLa cell's footprint, its nucleus to the
@@ -715,8 +731,8 @@ export async function mount(el, opts = {}) {
       sg.visible = show; tissue.singleNuc.visible = show; tissue.hideFront(show);
       // (it stays lit, and drawn with depth so it keeps its outline, until it has spread: among the other cells a
       // faint see-through cell could not be told from them)
-      sm1.emissive.setHex(0x8a3c9a).multiplyScalar(sm(Z, 3.05, 3.25) * (1 - 0.7 * sm(Z, 3.70, 3.78)));
-      const lift = sm(Z, 3.50, 3.62), flat = sm(Z, 3.62, 3.76);
+      sm1.emissive.setHex(0x8a3c9a).multiplyScalar(sm(Z, 3.05, 3.25) * (1 - 0.7 * sm(Z, 3.76, 3.84)));
+      const lift = sm(Z, 3.50, 3.60), flat = sm(Z, 3.60, 3.82);
       sm1.opacity = 1 - 0.38 * sm(Z, 3.48, 3.56) - 0.17 * flat; sm1.depthWrite = true;
       sg.matrix.copy(singleMatrix(lift, flat)); sg.matrixWorldNeedsUpdate = true;
       tissue.singleNuc.matrix.copy(singleNucMatrix(lift, flat)); tissue.singleNuc.matrixWorldNeedsUpdate = true;
@@ -815,7 +831,7 @@ export async function mount(el, opts = {}) {
   }
   let membraneTop = 6.4;
   const PATHS = [
-    () => [view('organism'), { f: 'body', pos: [0.5, 0.2, 1.0], at: VIEWS.system.at }, view('system')],
+    () => turning(view('organism'), view('system'), [1.1, 0.6], 'body'),   // (the turn to the side spread over the zoom)
     () => turning(view('system'), view('organ'), [0.2], 'body'),
     // into the cut face: the way the camera looks turns gradually, as it comes closer, from the organ's view to the
     // tissue's (face on, a little from above); before, the first stop was on the other side of the face, and the
@@ -836,10 +852,11 @@ export async function mount(el, opts = {}) {
       const stop = (y, D, dir, u) => { const a = new THREE.Vector3(b[0], b[1] + y, b[2]); return { f: 'tissue', at: a.toArray(), pos: a.clone().addScaledVector(dir, D).toArray(), u }; };
       const dF = new THREE.Vector3(0.12, 0.09, 1).normalize();         // face on, as the photograph beside it
       // (the close-up STAYS from 0.32 to 0.50: the row of lining cells framed face on, as on the second slide, which is
-      // up for the whole stay; Daniel, 4 Oct: it went by too fast to see. Then it rises 0.50-0.62, spreads 0.62-0.76)
+      // up for the whole stay; Daniel, 4 Oct: it went by too fast to see. Then it rises 0.50-0.60, and spreads, slowly,
+      // 0.60-0.82: "the animation to flatten the cell happens a bit too fast")
       return [{ ...view('tissue'), u: 0 },
-        stop(16, 100, dT.clone().add(dF).normalize(), 0.24), { ...stop(16, 95, dF, 0.32), stay: HOLD[1] - HOLD[0] }, stop(40, 112, dF, 0.62),
-        stop(LIFT + 3, 105, dF.clone().add(dC).normalize(), 0.76),
+        stop(16, 100, dT.clone().add(dF).normalize(), 0.24), { ...stop(16, 95, dF, 0.32), stay: HOLD[1] - HOLD[0] }, stop(40, 112, dF, 0.60),
+        stop(LIFT + 3, 105, dF.clone().add(dC).normalize(), 0.82),
         { ...view('cell'), u: 1 }]; },
     // into the cell: one straight line from the cell's view, down through the membrane into the cytoplasm beside the
     // nucleus. The gaze turns 7° from the middle of the cell to the way in while the whole cell is still in view; after
@@ -922,7 +939,7 @@ export async function mount(el, opts = {}) {
     // into the cell through the clear water outside it
     // (and from the tissue to the cell, the cell's haze comes with the HeLa cell: the camera is close to the lining cell
     // long before, and by distance the haze greyed it and hid its name)
-    const kf = fl.i === 4 ? sm(Z, 4.86, 5.0) : fl.i === 3 ? sm(Z, 3.74, 3.97) : k;
+    const kf = fl.i === 4 ? sm(Z, 4.86, 5.0) : fl.i === 3 ? sm(Z, 3.80, 3.98) : k;
     post.set({ fog: THREE.MathUtils.lerp(A.fog, B.fog, kf * kf), aoRadius: lg(A.aoRadius, B.aoRadius), ao: THREE.MathUtils.lerp(A.ao, B.ao, k), edge: THREE.MathUtils.lerp(A.edge, B.edge, k) });
     haze(THREE.MathUtils.lerp(hazeOf(LEVELS[fl.i]), hazeOf(LEVELS[fl.i + 1]), kf));
   }
@@ -1219,14 +1236,14 @@ export async function mount(el, opts = {}) {
   // The small picture is read back without waiting for the graphics card (it arrives a frame or two later): waiting
   // for it held the page for up to 100 ms among the organelles, several times a second.
   const idRT = new THREE.WebGLRenderTarget(1, 1);
-  let idBuf = null, idList = [], idW = 0, idH = 0, idAt = 0, idCam = null, idPending = false;
+  let idBuf = null, idList = [], idSolid = [], idW = 0, idH = 0, idAt = 0, idCam = null, idPending = false;
   function idPass(sync) {
     if (idPending && !sync) return;
     const w = Math.max(40, Math.ceil(W() / 3)), h = Math.max(30, Math.ceil(H() / 3));
     if (idRT.width !== w || idRT.height !== h) idRT.setSize(w, h);
     const buf = new Uint8Array(w * h * 4);
     camera.updateMatrixWorld();
-    const list = [];
+    const list = [], solids = [];
     const hidden = [], swapped = [];
     scene.traverse(o => {
       if (!(o.isMesh || o.isInstancedMesh || o.isPoints || o.isLine)) return;
@@ -1235,7 +1252,7 @@ export async function mount(el, opts = {}) {
         // see-through parts are drawn first and leave no depth: they can be found where nothing solid is, but
         // never hide a solid part behind them
         const solid = solidEnough(o);
-        list.push(o); swapped.push([o, o.material, o.renderOrder]);
+        list.push(o); solids.push(solid); swapped.push([o, o.material, o.renderOrder]);
         const m = pickMat(list.length, Array.isArray(o.material) ? o.material[0] : o.material);
         m.depthWrite = solid; o.material = m; o.renderOrder = solid ? 1 : -1;
       } else if (o.visible) { hidden.push(o); o.visible = false; }
@@ -1244,7 +1261,7 @@ export async function mount(el, opts = {}) {
     const prevRT = renderer.getRenderTarget(), prevClear = renderer.getClearColor(new THREE.Color()), prevA = renderer.getClearAlpha();
     renderer.setRenderTarget(idRT); renderer.setClearColor(0x000000, 0); renderer.clear(); renderer.render(scene, camera);
     const snap = { vp: new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse), near: camera.near, far: camera.far };
-    const done = () => { idBuf = buf; idList = list; idW = w; idH = h; idCam = snap; };
+    const done = () => { idBuf = buf; idList = list; idSolid = solids; idW = w; idH = h; idCam = snap; };
     if (sync) { readNow(idRT, 0, 0, w, h, buf); done(); }
     else {
       idPending = true;
@@ -1380,7 +1397,7 @@ export async function mount(el, opts = {}) {
     const sx = idW / Wd, sy = idH / Hd, occ = new Uint8Array(idW * idH);
     if (idBuf) for (let y = 0; y < idH; y++) for (let x = 0; x < idW; x++) {
       const k = (y * idW + x) * 4, n = idBuf[k] + idBuf[k + 1] * 256; if (!n) continue;
-      if (IGNORE.has(partOf(idList[n - 1]))) continue;
+      if (IGNORE.has(partOf(idList[n - 1])) || !idSolid[n - 1]) continue;   // (a name may lie over a see-through part)
       for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < idW && Y < idH) occ[Y * idW + X] = 1; }
     }
     // (the ID picture's rows run from the bottom)
@@ -1390,7 +1407,7 @@ export async function mount(el, opts = {}) {
         for (let x = Math.max(0, Math.floor(x0 * sx)); x <= Math.min(idW - 1, Math.floor(x1 * sx)); x++) n += occ[y * idW + x];
       return n;
     };
-    const H2 = 12.5, GAP = 26, ROW = 8;
+    const H2 = 12.5, GAP = 26, ROW = 8, COVER_W = 3;    // (a pixel of the small ID picture covered weighs as 3 px of line)
     // (things on top of the picture the names must keep clear of, given by the page: the ruler, on a phone)
     const placed = (inset.avoid || []).map(b => ({ box: b, ly: -1e9, lx0: 0, lx1: 0, page: true }));
     const boxHit = b => placed.some(t => !(b[2] + ROW < t.box[0] || b[0] - ROW > t.box[2] || b[3] + ROW < t.box[1] || b[1] - ROW > t.box[3]));
@@ -1428,19 +1445,20 @@ export async function mount(el, opts = {}) {
         const near = side > 0 ? px + gap : px - gap - w, far = side > 0 ? R0 - w : L0;
         const steps = Math.floor(Math.abs(far - near) / 6);
         if ((side > 0 && near > far) || (side < 0 && near < far)) continue;
-        let found = null, fallback = null;
+        // (the best place on this row: a short line, weighed against how much of a solid part the name covers. The
+        // first place covering nothing at all was taken before, however far: lines ran half across the picture, Daniel
+        // 4 Oct. Further along the row the line only grows, so a place covering nothing ends the search)
+        let o = null;
         for (let i = 0; i <= steps; i++) {
           const x0 = side > 0 ? near + i * 6 : near - i * 6, b = [x0, y0, x0 + w, y1];
           if (boxHit(b) || boxHitsLine(b)) continue;
           const edge = side > 0 ? x0 : x0 + w;
           if (lineHitsBox(py, px, edge) || lineOnLine(py, px, edge)) continue;
           const cov = covers(b[0], b[1], b[2], b[3]);
-          if (!cov) { found = { b, edge, cost: Math.abs(edge - px) + Math.abs(dy) * 2 }; break; }
-          // (where parts fill the whole picture, as among the molecules: the place along the row that covers least)
-          const c2 = 4000 + 40 * cov + Math.abs(edge - px);
-          if (!fallback || c2 < fallback.cost) fallback = { b, edge, cost: c2 };
+          const cost = Math.abs(edge - px) + COVER_W * cov + Math.abs(dy) * 2;
+          if (!o || cost < o.cost) o = { b, edge, cost };
+          if (!cov) break;
         }
-        const o = found || fallback;
         if (o && (!pick || o.cost < pick.cost)) pick = { ...o, px, py, side };
       }
       report.push({ text: c.a.text, seen: seenPts, onPart: c.pts.length, placed: !!pick });
