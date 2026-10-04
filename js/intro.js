@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791097399';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791097904';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -118,7 +118,7 @@ const TEXT = {
     go: 'the molecules', mag: '× 50' },
   molecules: {
     def: '<b>Molecules</b>: a model of the cytoplasm, with every protein drawn at its real shape and size.',
-    here: 'A motor protein, kinesin, walks along a microtubule and pulls a vesicle, 8 nm a step. There is no empty space around it.',
+    here: 'A motor protein, kinesin, walks along a microtubule and pulls a vesicle, 8 nm a step. There is no empty space around it. The film showed this same scene, a vesicle pulled along a microtubule; here the space around it is crowded, as in a real cell.',
     more: '<p>This is a <b>model</b>, not a measurement: no microscope can yet show every molecule in a whole cell. It uses the real shape of each kind of protein (Protein Data Bank) and how many of each kind a HeLa cell holds.</p>' +
       '<p>It is shown as a slice 70 nm thick: the molecules in front of the microtubule are left out, so that you can see it.</p>' +
       '<p>Kinesin really takes about 100 steps every second; here it takes one. In the time of one real step, the molecules around it move hundreds of nanometres: at that speed they would be a blur, so here they move only when the vesicle reaches them.</p>' +
@@ -283,7 +283,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791097399').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791097904').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -337,8 +337,16 @@ function showTip(p) {
   tip.querySelector('span').textContent = cap(name);
   tip.style.setProperty('--c', '#' + (part.col != null ? part.col.toString(16).padStart(6, '0') : '888888'));
   tip.hidden = false;
-  const W = zoom.clientWidth, x = p.x + 16, y = p.y - 12, w = tip.offsetWidth;
-  tip.style.transform = `translate(${Math.min(x, W - w - 10)}px,${Math.max(8, y)}px)`;
+  // (never over the text card, a slide, the film or its note: beside the pointer on the other side, else not at all;
+  // Daniel, 4 Oct: a name ran over the molecules' definition)
+  const W = zoom.clientWidth, zr = zoom.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight, y = Math.max(8, p.y - 12);
+  const boxes = ['#cap', '#film', '.filmnote', '#micro', '#micro2', '#emfig', '#tapcard'].map(sel => $(sel)).filter(Boolean)
+    .map(e => e.getBoundingClientRect()).filter(r => r.width > 0);
+  const hits = x => boxes.some(r => x < r.right - zr.left + 6 && x + w > r.left - zr.left - 6 && y < r.bottom - zr.top + 6 && y + h > r.top - zr.top - 6);
+  let x = Math.min(p.x + 16, W - w - 10);
+  if (hits(x)) x = p.x - 16 - w;
+  if (x < 4 || hits(x)) { tip.hidden = true; return; }
+  tip.style.transform = `translate(${x}px,${y}px)`;
 }
 
 // ---------- the photograph beside the model (tissue level) ----------
@@ -540,7 +548,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791097399', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791097904', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
