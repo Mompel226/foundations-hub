@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791084893';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791086809';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -272,7 +272,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791084893').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791086809').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -461,7 +461,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791084893', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791086809', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
@@ -477,23 +477,37 @@ async function start() {
     .on('hover', showTip)
     .on('z', z => {
       // the real thing beside the model: the light micrograph at the tissue, the electron micrograph among the organelles
-      const m = z > 2.9 && z <= 3.12, m2 = z > 3.12 && z < 3.4, e = z > 4.62 && z < 5.38;
+      // (each stays for a good stretch of the zoom, and says what it is before it appears: .is-in)
+      const m = z > 2.86 && z <= 3.25, m2 = z > 3.25 && z < 3.42, e = z > 4.62 && z < 5.38;
       if ($('#micro').hidden === m || $('#micro2').hidden === m2 || $('#emfig').hidden === e) {
-        $('#micro').hidden = !m; $('#micro2').hidden = !m2; $('#emfig').hidden = !e;
+        for (const [f, on] of [[$('#micro'), m], [$('#micro2'), m2], [$('#emfig'), e]]) {
+          if (f.hidden !== on) continue;
+          f.hidden = !on; f.classList.remove('is-in');
+          if (on) requestAnimationFrame(() => requestAnimationFrame(() => f.classList.add('is-in')));
+        }
         if (!$('#micro2').hidden) fitPins($('#micro2'));
         if (!$('#micro').hidden) requestAnimationFrame(() => callouts($('#micro')));
-        // the film and the micrograph share the top right: the film steps aside, and its button comes back after
-        if (e) { video.pause(); $('#film').hidden = true; $('#filmPill').hidden = true; }
-        else if (filmPlayed && z >= 3.5 && $('#film').hidden) $('#filmPill').hidden = false;
+        // the film and the micrograph share the top right: the film steps aside
+        if (e) { video.pause(); $('#film').hidden = true; }
         fitCap();
       }
+      // the film's button, whenever the film has been seen, is closed, and the reader is at the cell or below (checked at
+      // every step: checked only when a photograph came or went, it never came back after going back up and in again)
+      const pill = filmPlayed && z >= 3.5 && !e && $('#film').hidden;
+      if ($('#filmPill').hidden === pill) $('#filmPill').hidden = !pill;
     })
     .on('scale', s => {
       const sb = $('#scalebar'); $('i', sb).style.width = Math.round(s.px) + 'px'; $('span', sb).textContent = s.label;
       // the ruler's marker follows the real width of the view
       if (!busy) setNow(zoom.clientWidth / s.px * s.um * 1e-6);
     });
-  cell.on('arrive', l => { if (l === 'cell' && !filmPlayed) { filmPlayed = true; playFilm(true); } });
+  // the film plays by itself the first time the reader reaches the cell; coming back to the cell, it is there again,
+  // paused where it was (Daniel, 4 Oct: after going back and in again, the film had gone)
+  cell.on('arrive', l => {
+    if (l !== 'cell') return;
+    if (!filmPlayed) { filmPlayed = true; playFilm(true); }
+    else if ($('#film').hidden) { $('#film').hidden = false; $('#filmPill').hidden = true; fitCap(); }
+  });
   cell.on('progress', f => { $('#loadBar').style.width = Math.round(f * 100) + '%'; });
   cell.insideReady.then(fillCounts);
 }

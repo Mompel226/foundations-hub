@@ -29,7 +29,9 @@ Inside the wall the layers are drawn, not measured, at the widths histology desc
 0.15 mm; in the cervix, mostly connective tissue with bundles of smooth muscle, and crypts of the canal's lining
 3–5 mm deep (IARC Screening Group's atlas, "Anatomical considerations – columnar epithelium",
 screening.iarc.fr).
-Coloured as a slide stained with haematoxylin and eosin. Round the place the zoom goes in (the 2 mm of the tissue
+Coloured as a slide stained with haematoxylin and eosin; the lining of the cervix (on the canal and in its crypts) is
+painted as the tissue model has it, at this scale: a row of pale cells and, at their base, the row of their nuclei (a
+solid purple band, twice too wide, was painted until 4 Oct 2026). Round the place the zoom goes in (the 2 mm of the tissue
 model's block), the face is painted from the model's own front face (`tools/model-build/bake-face.js`, drawn flat
 at 1 µm a pixel): its surface with the small folds, the glands cut across, and the crypt 0.64 mm from the middle,
 which carries on into the wall as one of the painted crypts. On the way in, the model itself is drawn over that

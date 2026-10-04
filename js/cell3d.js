@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791084893';
+import { build as buildTissue } from './tissue3d.js?v=1791086809';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -133,10 +133,12 @@ const ahead = (s, side = 0, up = 0) => {             // a point s µm on along t
 // the detailed region (build_meshes.SCENE_UM), cell frame: the cytoplasm beside the nucleus, on its left, where the cell
 // is thickest with no nucleus over it, so the zoom dives straight down into it through the cell membrane
 const BOX = { lo: [-17.85, 0.0, -3.8], hi: [-10.35, 4.6, 3.7] };
-const SECONDS = [4, 5, 15, 8, 12, 6];                             // each step down, when a button is pressed
+const SECONDS = [4, 5, 15, 8, 12, 9];                             // each step down, when a button is pressed
 // how much scrolling each step takes (1 = the usual): organ to tissue magnifies 160 times and grows the tissue out
-// of the cut face, so it is given more (Daniel: "make the movement from organ to tissue slower")
-const STEP_LEN = [1, 1, 2.4, 1.2, 1.4, 1];
+// of the cut face, so it is given more (Daniel: "make the movement from organ to tissue slower"; and again on 4 Oct,
+// the change from the cut face to the tissue was too fast: 2.4 -> 2.8, the blend 2.74-2.94; and from the organelles to
+// the molecules, "like boom": 1 -> 1.5, the blend 5.35-5.6 -> 5.28-5.72)
+const STEP_LEN = [1, 1, 2.8, 1.2, 1.4, 1.5];
 
 const sm = (x, a, b) => THREE.MathUtils.smoothstep(x, a, b);
 // a module loaded later, tried three times (a weak connection drops one now and then; a browser remembers a failed
@@ -417,18 +419,6 @@ export async function mount(el, opts = {}) {
     tissueCol = tissue.materials.map(m => (m.color ? m.color.clone() : null));
     // (names on the cut face are for the cut face: from behind the block they are not shown)
     tissue.labels.forEach(a => anchors.push({ group: 'tissue', frame: 'tissue', p: a.p, cands: a.cands, r: a.r, text: a.text, part: a.part, z: [2.86, 3.3], free: !!a.free, face: a.p[2] > 0 }));
-    // on the way in to the cut face, names close to where the camera goes (the organ's own names, each at one
-    // place far apart, leave the screen as it comes closer): on the face, just in front of it (the organ's face is
-    // 20 µm in front of the cut), several places each, the first one on the screen is used
-    {
-      const cx = trace.block.crypt_x, xs = [0, -160, 160, -320, 320, -480, 480];
-      const near = (text, part, r, cands) => anchors.push({ group: 'body', frame: 'tissue', p: cands[0], cands, r, text, part, z: [2.3, 2.86], free: true, face: true });
-      near('Lining of the canal', 'lining_c', 120, xs.map(x => [x, -25, 21]));
-      // (the connective tissue's name left of the middle, the crypt's on the crypt to the right, lower: names go to the
-      // right of their point and must not meet)
-      near('Cervix: connective tissue', 'connective', 200, [-420, -620, -260, -820].map(x => [x, -420, 21]));
-      near('Crypt: the lining folds into the wall', 'crypt', 120, [-700, -1100, -1500, -1900, -2400].map(y => [cx, y, 21]));
-    }
     // the slice the photograph beside it shows is outlined on the block's cut face (tissue3d's frame)
     slideLine = { material: tissue.frameMat };
     // the one lining cell the zoom goes into has a group of its own: it lifts out of the tissue and spreads flat
@@ -441,8 +431,6 @@ export async function mount(el, opts = {}) {
       G.single.add(dish);
     }
     const b = tissue.target.base;
-    anchors.push({ group: 'single', frame: 'tissue', p: [b[0], b[1] + 20, b[2]], r: 12, text: 'One lining cell', part: 'tcell', z: [3.12, 3.5], free: true, nofog: true, dyn: 'single' });
-    anchors.push({ group: 'single', frame: 'tissue', p: [b[0], b[1] + 20, b[2]], r: 12, text: 'Grown in a dish, a cell like this spreads flat', part: 'tcell', z: [3.54, 3.78], free: true, nofog: true, dyn: 'single' });
     // the HeLa cell sits where that cell has spread: the middle of its base on the middle of the lifted cell's base,
     // turned a quarter turn so that its side with the organelles' box faces the reader arriving from the tissue
     P.cell.makeTranslation(b[0] - 0.9, b[1] + LIFT, b[2] - 0.5).multiply(new THREE.Matrix4().makeRotationY(Math.PI / 2));
@@ -691,15 +679,15 @@ export async function mount(el, opts = {}) {
     cap.visible = Z >= 1.4;
     // which levels are drawn, and how much of each: [layer, weight]
     // tissue to cell: first the spread lining cell becomes the HeLa cell (the tissue stays), then the tissue goes
-    const mixes = [[2.78, 2.92, LAYER.body, LAYER.tissue], [3.70, 3.80, LAYER.tissue, LAYER.dish], [3.83, 3.94, LAYER.dish, LAYER.cell],
-      [4.25, 4.40, LAYER.cell, LAYER.inside], [5.35, 5.6, LAYER.deep, LAYER.mol]];
-    const order = [[2.78, LAYER.body], [3.70, LAYER.tissue], [3.83, LAYER.dish], [4.25, LAYER.cell], [4.985, LAYER.inside], [5.35, LAYER.deep], [9, LAYER.mol]];
+    const mixes = [[2.74, 2.94, LAYER.body, LAYER.tissue], [3.70, 3.80, LAYER.tissue, LAYER.dish], [3.83, 3.94, LAYER.dish, LAYER.cell],
+      [4.25, 4.40, LAYER.cell, LAYER.inside], [5.28, 5.72, LAYER.deep, LAYER.mol]];
+    const order = [[2.74, LAYER.body], [3.70, LAYER.tissue], [3.83, LAYER.dish], [4.25, LAYER.cell], [4.985, LAYER.inside], [5.28, LAYER.deep], [9, LAYER.mol]];
     layers = null;
     for (const [a, b, A, B] of mixes) if (Z > a && Z < b) { const k = sm(Z, a, b); layers = [[A, 1 - k], [B, k]]; }
     if (!layers) layers = [[order.find(([z]) => Z <= z)[1], 1]];
     if (layers.some(([L]) => L === LAYER.mol) && !molApi) layers = [[LAYER.deep, 1]];
     for (const k in fades) fades[k] = layers.reduce((s, [L, w]) => s + (L[k] ? w : 0), 0);
-    patchK = tissue ? sm(Z, 2.4, 2.62) * (Z < 2.92 ? 1 : 0) : 0;
+    patchK = tissue ? sm(Z, 2.4, 2.62) * (Z < 2.94 ? 1 : 0) : 0;
     // the one lining cell the zoom goes into lights up; the slice the photograph shows is outlined
     // then, with the camera close, it rises out of the tissue (3.36-3.52) and spreads flat (3.52-3.70), and the HeLa
     // cell takes its place (3.70-3.80)
@@ -1060,7 +1048,8 @@ export async function mount(el, opts = {}) {
     // when the scrolling stops close to a level, the zoom settles on it (so that the picture can be turned).
     // Never during the scrolling: a trackpad moves Z a hundredth at a time.
     clearTimeout(settle);
-    settle = setTimeout(() => { const r = Math.round(Zt); if (!tween && Math.abs(Zt - r) < 0.08 && Zt !== r) { Zt = r; wake(); } }, 450);
+    // (within 0.12 of a level: the names come only at a level, so stopping just short of one would show none)
+    settle = setTimeout(() => { const r = Math.round(Zt); if (!tween && Math.abs(Zt - r) < 0.12 && Zt !== r) { Zt = r; wake(); } }, 450);
   }
   let settle = 0;
   cv.addEventListener('wheel', e => {
