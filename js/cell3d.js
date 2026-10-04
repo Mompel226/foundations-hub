@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791096054';
+import { build as buildTissue } from './tissue3d.js?v=1791097399';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -1116,7 +1116,7 @@ export async function mount(el, opts = {}) {
     // (within 0.12 of a level: the names come only at a level, so stopping just short of one would show none)
     settle = setTimeout(() => { const r = Math.round(Zt); if (!tween && Math.abs(Zt - r) < 0.12 && Zt !== r) { Zt = r; wake(); } }, 450);
   }
-  let settle = 0;
+  let settle = 0, pausedAt = 0;
   cv.addEventListener('wheel', e => {
     e.preventDefault();
     const px = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
@@ -1127,7 +1127,7 @@ export async function mount(el, opts = {}) {
       const from = Z;
       await ensure(Math.max(0, Math.ceil(Math.max(from, to)) - 1));
       if (tween) tween.cancel();
-      const t0 = performance.now(), dur = reduced ? 1 : secs * 1000;
+      let t0 = performance.now(); const dur = reduced ? 1 : secs * 1000;
       // (one step down through the stay, by the button: it moves to the close-up, stands there HOLD_S seconds, then goes
       // on; each moving part eased. The camera stands still all through the stay, so only time passes there)
       const lo = Math.min(from, to), hi = Math.max(from, to), stay = !reduced && to > from && hi - lo < 1.01 && lo <= HOLD_Z[0] && hi >= HOLD_Z[1];
@@ -1139,7 +1139,8 @@ export async function mount(el, opts = {}) {
         return HOLD_Z[1] + (to - HOLD_Z[1]) * ease(Math.min(1, (t - T1 - TH) / T2));
       };
       const total = stay ? dur + TH : dur;
-      tween = { cancel() { tween = null; res(); }, step(now) {
+      tween = { cancel() { tween = null; res(); }, shift(ms) { t0 += ms; }, step(now) {
+        if (pausedAt) return;                      // (a slide enlarged: the glide waits for it)
         const k = Math.min(1, (now - t0) / total);
         Zt = zAt(now - t0); Z = Zt;
         if (k >= 1) { tween = null; Zt = to; res(); }
@@ -1614,6 +1615,11 @@ export async function mount(el, opts = {}) {
     get molecules() { return molApi; },
     on(k, f) { listeners[k].push(f); return api; },
     setInset(o) { Object.assign(inset, o); applyInset(); wake(); },
+    // hold a glide where it is (a slide shown enlarged: the stay at the close-up would otherwise end under it), and go on
+    pause(on) {
+      if (on && !pausedAt) pausedAt = performance.now();
+      else if (!on && pausedAt) { if (tween) tween.shift(performance.now() - pausedAt); pausedAt = 0; wake(); }
+    },
     // glide to any level; a button press. Several levels in one glide go faster.
     async goTo(to) {
       const b = LEVELS.indexOf(to); if (b < 0) return;

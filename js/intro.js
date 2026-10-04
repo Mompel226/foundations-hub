@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791096054';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791097399';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -257,7 +257,9 @@ function inset() {
   const scale = box('#scalebar'); scale[2] = Math.max(scale[2], scale[0] + Math.round(zoom.clientWidth * 0.2) + 60);   // (its width is set a moment later: its widest)
   // (on a phone the page's title runs over the picture: the names keep below it)
   const headB = Math.round(($('.top') || $('header')).getBoundingClientRect().bottom - zr.top + 4);
-  cell.setInset(narrow ? { left: 30, right: 0, top: Math.max(60, headB), bottom: zoom.clientHeight - capBox.top + 8, avoid: [box('#ruler'), scale] }
+  // (and on a phone, the slide at the top right: a name ran under it)
+  const sideBox = narrow && side ? box('#' + side.id) : null;
+  cell.setInset(narrow ? { left: 30, right: 0, top: Math.max(60, headB), bottom: zoom.clientHeight - capBox.top + 8, avoid: [box('#ruler'), scale, ...(sideBox ? [sideBox] : [])] }
     : { left: 272, right: zoom.clientWidth - left + 6, top: 60, bottom: 0, avoid: [scale] });
 }
 window.addEventListener('resize', () => inset());
@@ -281,7 +283,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791096054').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791097399').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -410,7 +412,12 @@ $('#micro img').addEventListener('load', () => callouts($('#micro')));
 function fitCap() {
   const narrow = zoom.clientWidth < 760, zr = zoom.getBoundingClientRect();
   const side = zoom.classList.contains('more-open') ? null : [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
+  // (a slide shown: the picture first, the text short)
+  const pf = !!side && side.id !== 'film' && !narrow && !zoom.classList.contains('text-first');
+  if (zoom.classList.contains('pic-first') !== pf) zoom.classList.toggle('pic-first', pf);
+  if ((!side || !side.classList.contains('is-big')) && zoom.classList.contains('pic-big')) { $$('.micro.is-big').forEach(f => f.classList.remove('is-big')); zoom.classList.remove('pic-big'); if (cell) cell.pause(false); }
   if (side && !narrow) sizeSide(side);
+  if (side && side.classList.contains('is-big')) { inset(); scrollCue(); return; }     // (enlarged: over everything, the column stays)
   const top = Math.round(side ? side.getBoundingClientRect().bottom - zr.top + 12 : 96);
   if (zoom.style.getPropertyValue('--captop') !== top + 'px') zoom.style.setProperty('--captop', top + 'px');
   inset(); scrollCue();
@@ -424,7 +431,16 @@ function sizeSide(side) {
   const ar = (img.naturalWidth || +img.getAttribute('width')) / (img.naturalHeight || +img.getAttribute('height'));
   img.style.width = 'auto'; img.style.height = '0px';
   const other = side.getBoundingClientRect().height;                   // the panel without its picture
-  const availW = side.clientWidth - (side.classList.contains('micro--callouts') ? 150 : 0) - 2;
+  const call = side.classList.contains('micro--callouts');
+  if (side.classList.contains('is-big')) {                             // enlarged: as big as the screen allows
+    // (its width follows the picture: measured with the picture in, else its text wraps narrow and tall)
+    const fit = () => { const o = side.getBoundingClientRect().height - img.getBoundingClientRect().height;
+      img.style.height = Math.round(Math.max(200, Math.min(innerHeight * 0.9 - o, (innerWidth * 0.92 - (call ? 170 : 0)) / ar))) + 'px'; };
+    img.style.height = Math.round(innerHeight * 0.6) + 'px'; fit(); fit();
+    if (side.id === 'micro') callouts(side);
+    return;
+  }
+  const availW = side.clientWidth - (call ? 150 : 0) - 2;
   img.style.height = Math.round(Math.max(110, Math.min(room - other, availW / ar))) + 'px';
   if (side.id === 'micro') callouts(side);
 }
@@ -444,7 +460,21 @@ $('#cap').addEventListener('click', e => {
   if (!$('#cap').classList.contains('can-scroll') && $('#capMore').hidden) return;     // (it all shows already)
   zoom.classList.add('text-first'); fitCap();
 });
-$$('.micro').forEach(f => f.addEventListener('click', () => { if (zoom.classList.contains('text-first')) { zoom.classList.remove('text-first'); fitCap(); } }));
+// a press on a slide shows it as big as the screen allows, over a darkened picture; a press anywhere (or Esc) puts it
+// back (Daniel, 4 Oct: "if I click on the image, it should make the whole image huge")
+function bigSlide(f, big) {
+  $$('.micro.is-big').forEach(x => x.classList.remove('is-big'));
+  if (f) f.classList.toggle('is-big', big);
+  zoom.classList.toggle('pic-big', !!f && big); if (cell) cell.pause(!!f && big); fitCap();
+}
+$$('.micro').forEach(f => f.addEventListener('click', e => {
+  e.stopPropagation();
+  if (zoom.classList.contains('text-first')) { zoom.classList.remove('text-first'); fitCap(); return; }
+  if (zoom.clientWidth < 760) return;                                   // (a phone: the slide stays as it is)
+  bigSlide(f, !f.classList.contains('is-big'));
+}));
+zoom.addEventListener('click', () => { if (zoom.classList.contains('pic-big')) bigSlide(null, false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && zoom.classList.contains('pic-big')) bigSlide(null, false); });
 
 // ---------- the tap card ----------
 function hideCard() { $('#tapcard').hidden = true; }
@@ -510,7 +540,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791096054', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791097399', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
