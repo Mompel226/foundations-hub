@@ -18,7 +18,7 @@ const STEPS = [
   { ex: 0, cam: 'edge', photo: 0.82, tube: 1, text: 'The slice cuts the tube <b>at a slant</b>. That is why the photograph shows an oval, not a tube.' },
   { ex: 0, cam: 'across', photo: 0, tube: 1, cut: true, text: 'An imagined slice <b>straight across</b> the same tube would show a <b>circle</b>. One tube: a circle, an oval or a long shape, depending on how the slice cuts it.' },
   { ex: 1, cam: 'face', photo: 1, tube: 0, text: 'In the same photograph, these <b>two shapes</b> look like two different mitochondria.' },
-  { ex: 1, cam: 'sheet', photo: 0.6, tube: 1, text: 'In 3D they are <b>one mitochondrion</b>: a tube {L} µm long that passes through the slice twice.' },
+  { ex: 1, cam: 'cross', photo: 0.6, tube: 0.7, rims: true, text: 'In 3D they are <b>one mitochondrion</b>: a tube {L} µm long that passes through the slice twice.' },
 ];
 
 export async function start(el, { v = '' } = {}) {
@@ -102,6 +102,31 @@ export async function start(el, { v = '' } = {}) {
     cutGroup.userData.clip = new THREE.Plane().setFromNormalAndCoplanarPoint(E0.a.clone().negate(), E0.c);
   }
 
+  // the view that shows where a tube crosses the photograph: tried from many angles, the most slanted one (most 3D)
+  // from which every crossing on the photograph can be seen, none hidden by the tube itself (Daniel, 4 Oct: in step 7
+  // the tube in front hid the lower crossing)
+  const ray = new THREE.Raycaster();
+  function crossingView(E) {
+    if (E.crossDir) return E.crossDir;
+    // (each crossing is tested round its rim, where the tube meets the photograph: a point just outside the rim, on the
+    // photograph, must have a clear line to the camera for most of the rim)
+    const rims = E.d.outlines.map(q => {
+      const c = q.reduce((s, p) => [s[0] + p[0] / q.length, s[1] + p[1] / q.length], [0, 0]), step = Math.max(1, Math.floor(q.length / 12));
+      return q.filter((_, i) => i % step === 0).map(p => { const o = new THREE.Vector2(p[0] - c[0], p[1] - c[1]).normalize(); return new THREE.Vector3(p[0] + o.x * 0.015, p[1] + o.y * 0.015, 0); });
+    });
+    E.tube.updateMatrixWorld();
+    let best = null;
+    // (from the front only: from behind, the photograph reads mirrored)
+    for (const th of [50, 40, 30, 20]) for (let ph = 0; ph < 360; ph += 15) {
+      const t = th * Math.PI / 180, f = ph * Math.PI / 180;
+      const dir = new THREE.Vector3(Math.sin(t) * Math.cos(f), Math.sin(t) * Math.sin(f), Math.cos(t));
+      const seenShare = rims.map(r => r.filter(p => { ray.set(p.clone().addScaledVector(dir, 0.01), dir); return !ray.intersectObject(E.tube, false).length; }).length / r.length);
+      const score = 100 * Math.min(...seenShare) + 0.3 * th + 8 * dir.y;   // the crossings in view first, then slanted, from above
+      if (!best || score > best.score) best = { dir, score };
+    }
+    return (E.crossDir = best ? best.dir : new THREE.Vector3(0.3, 0.4, 1).normalize());
+  }
+
   // the views of each step
   const fov = camera.fov * Math.PI / 360;
   function viewOf(s) {
@@ -118,6 +143,10 @@ export async function start(el, { v = '' } = {}) {
     if (s.cam === 'across') {                        // looking at the cut face, a little from the side
       const dir = E.a.clone().multiplyScalar(0.8).add(side.clone().multiplyScalar(0.6)).normalize();
       return { pos: E.c.clone().addScaledVector(dir, 1.5 / Math.tan(fov)), at: E.c.clone().addScaledVector(E.a, -0.6), up: new THREE.Vector3(0, 1, 0) };
+    }
+    if (s.cam === 'cross') {                         // where the tube crosses the photograph: every crossing in view
+      const dir = crossingView(E);
+      return { pos: centre.clone().addScaledVector(dir, size * 0.8 / Math.tan(fov)), at: centre, up: new THREE.Vector3(0, 1, 0) };
     }
     if (s.cam === 'sheet') {                         // the photograph as a sheet in space, filling the view
       const dir = side.clone().multiplyScalar(0.8).add(new THREE.Vector3(0.35, 0.45, 0)).normalize();
@@ -164,6 +193,8 @@ export async function start(el, { v = '' } = {}) {
     const switching = !E.g.visible;
     ex.forEach((X, k) => { X.g.visible = k === s.ex; });
     cutGroup.visible = !!s.cut;
+    // (where the tube crosses the photograph, drawn over everything: the tube is see-through enough to show it passing)
+    for (const X of ex) { X.lineMat.depthTest = !s.rims; X.lines.renderOrder = s.rims ? 10 : 0; }
     E0.tubeMat.clippingPlanes = s.cut ? [cutGroup.userData.clip] : null; E0.tubeMat.needsUpdate = true;
     from = switching || jump || !to ? viewOf(s) : { pos: camera.position.clone(), at: look.clone(), up: camera.up.clone() };
     if (switching || jump) { camera.position.copy(from.pos); look.copy(from.at); }

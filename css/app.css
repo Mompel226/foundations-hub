@@ -192,6 +192,15 @@ a{color:inherit}
 @media (max-height:780px){.micro figcaption{display:none}}
 .micro--em .micro__img img{width:100%;height:auto}
 .micro__over{position:absolute;inset:0}
+/* each slide says what it is first, then appears (Daniel, 4 Oct: the slides came in too fast, with nothing to say what
+   they were): .is-in is set a frame after the figure is shown */
+.micro__intro{margin:0;padding:10px 12px 8px;font-size:12.5px;line-height:1.4;color:#C7D2DC;opacity:0;transform:translateY(-6px);transition:opacity .35s,transform .35s}
+.micro__intro b{display:block;font-size:14.5px;color:var(--accent);margin-bottom:2px}
+.micro--callouts .micro__intro{grid-column:1/-1;width:0;min-width:100%;box-sizing:border-box}
+.micro .micro__img,.micro .micro__labels,.micro .micro__lines,.micro .key,.micro figcaption{opacity:0;transition:opacity .5s .45s}
+.micro.is-in .micro__intro{opacity:1;transform:none}
+.micro.is-in .micro__img,.micro.is-in .micro__labels,.micro.is-in .micro__lines,.micro.is-in .key,.micro.is-in figcaption{opacity:1}
+@media (prefers-reduced-motion:reduce){.micro__intro,.micro .micro__img,.micro .micro__labels,.micro .micro__lines,.micro .key,.micro figcaption{transition:none}}
 .key{list-style:none;margin:0;padding:7px 10px 0;display:flex;flex-wrap:wrap;gap:3px 10px}
 .key li{font-size:11.5px;color:#DCE3EA;display:flex;align-items:center;gap:5px}
 .key li::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--c)}
@@ -249,15 +258,17 @@ a{color:inherit}
 .cap__notice::after{content:" →"}
 .cap__notice:hover{background:rgba(251,191,36,.22)}
 .about--wide{width:min(980px,calc(100% - 24px))}
-.md__answer{font-size:16px!important;background:#FFF4D6;border-left:4px solid #D97706;padding:10px 12px;border-radius:8px}
-.md{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;margin:6px 0 14px}
-.md__stage{position:relative;aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:#0E141B}
+.md__answer{font-size:15px!important;background:#FFF4D6;border-left:4px solid #D97706;padding:8px 12px;border-radius:8px}
+/* (the picture is sized by the screen's height and the buttons sit just under the step's words, beside it: on a
+   laptop the panel was taller than the screen and "Next step" had to be scrolled to, Daniel 4 Oct) */
+.md{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;margin:6px 0 14px;align-items:start}
+.md__stage{position:relative;height:min(50vh,470px);aspect-ratio:1/1;border-radius:12px;overflow:hidden;background:#0E141B}
 .md__stage canvas{display:block;width:100%;height:100%}
 .md__tag{position:absolute;left:0;top:0;font-size:12px;font-weight:600;color:#fff;background:rgba(14,20,27,.72);
          border:1px solid rgba(255,255,255,.18);padding:2px 7px;border-radius:6px;pointer-events:none;white-space:nowrap}
 .md__side{display:flex;flex-direction:column;gap:10px}
 .md__count{font:12px var(--mono);color:#A16207;letter-spacing:.06em;text-transform:uppercase;margin:0!important}
-.md__text{font-size:16.5px!important;line-height:1.55!important;margin:0!important;flex:1}
+.md__text{font-size:16.5px!important;line-height:1.55!important;margin:0!important}
 .md__btns{display:flex;gap:8px;flex-wrap:wrap}
 .md__btns button{border-radius:999px;padding:9px 18px;font-size:14px;cursor:pointer;background:#F3EEE4;color:#1A1A1A;border:1px solid #E2D8C6}
 .md__btns .md__next{background:#14572B;border-color:#14572B;color:#fff}
@@ -267,7 +278,7 @@ a{color:inherit}
 
 /* ---------- phones and narrow windows ---------- */
 @media (max-width:760px){
-  .md{grid-template-columns:1fr}
+  .md{grid-template-columns:1fr} .md__stage{height:38vh;width:100%;aspect-ratio:auto}
   .about--wide{padding:18px 16px}
   .top{padding:9px 12px 20px}
   .top__title{font-size:18px}

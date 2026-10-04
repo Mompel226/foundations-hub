@@ -102,7 +102,7 @@ img = np.zeros((H, W, 4), np.float32)
 # muscle (uterus): interlacing bundles; connective tissue (cervix): paler, finely fibrous, a few muscle bundles
 bundles = smooth_noise(6) * 0.6 + smooth_noise(2, (1, 4)) * 0.4
 fibres = smooth_noise(1.2, (0.6, 3)) * 0.6 + smooth_noise(4) * 0.4
-MUSCLE, CT, LINING_U, EPI, COVER, LUMEN, CRYPT_L = (hexc(c) for c in ("#C2566F", "#EBB0C3", "#9C5FA8", "#6A3F9C", "#F4D6DF", "#3B2742", "#D9C6E3"))
+MUSCLE, CT, LINING_U, EPI, COVER, LUMEN, CRYPT_L = (hexc(c) for c in ("#C2566F", "#EBB0C3", "#9C5FA8", "#6A3F9C", "#F4D6DF", "#3B2742", "#EFE4EF"))
 ut = wall & (organ == 1); cx = wall & (organ == 2)
 img[..., :3][ut] = MUSCLE[None] * (1 + 0.09 * bundles[ut, None])
 img[..., :3][cx] = CT[None] * (1 + 0.045 * fibres[cx, None])
@@ -171,15 +171,31 @@ for i in RNG.permutation(len(ey)):
     done.append((r, c))
     grow(float(r), float(c), into_wall(r, c), RNG.uniform(3.0, 5.0), RNG.uniform(0.09, 0.14) / (PX * 1000))
 crypt &= cx; lumen &= crypt
-img[..., :3][crypt] = EPI[None]
+# The cervix's lining (on the canal and in the crypts) is painted as the tissue model has it, at this scale (30 µm a
+# pixel; measured on the model's face, bake-face.js): tall pale cells 40 µm, their nuclei in a row near the base. So,
+# from the open space into the wall: one pale pixel (the cells), then one of the nuclei's row mixed with connective
+# tissue. A solid purple band 90 µm wide was painted before, and the model, where it is drawn over the face on the way
+# in, did not match it (Daniel, 4 Oct: "why is that different?")
+LIN_TOP, LIN_BASE = hexc("#ECD9E7"), hexc("#D19FC2")
+crypt_wall = crypt & ~lumen
+crypt_in = crypt_wall & ndimage.binary_dilation(lumen, iterations=1)
+crypt_out = crypt_wall & ~crypt_in
+thin = crypt_in & ndimage.binary_dilation(cx & ~crypt, iterations=1)       # one pixel thick: both at once
+img[..., :3][crypt_out] = LIN_BASE[None]
+img[..., :3][crypt_in] = LIN_TOP[None]
+img[..., :3][thin] = (0.5 * (LIN_TOP + LIN_BASE))[None]
 img[..., :3][lumen] = CRYPT_L[None]
-img[..., :3][canal_edge] = EPI[None]
+# (on the canal: the first pixel of the wall is the cells, the next the nuclei's row; the surface is where the tissue
+# model has it, the dive point, so the two meet without a step)
+lin_base = cx & ~crypt & ndimage.binary_dilation(canal_edge, iterations=1) & ~canal_edge
+img[..., :3][lin_base] = LIN_BASE[None]
+img[..., :3][canal_edge] = LIN_TOP[None]
 cover = wall & (d_out < 0.15)
 img[..., :3][cover] = COVER[None]
 img[..., :3][cavity] = LUMEN[None]
 # the surface of the cavity and the canal (the line the Atlas's inner surface makes) is lining too: left unpainted, it
 # was a black, stepped edge when the zoom came close; and the edge is softened over a pixel either side
-img[..., :3][line_i & (organ == 2)] = EPI[None]
+img[..., :3][line_i & (organ == 2)] = LUMEN[None]                        # (the canal, up to its lining)
 img[..., :3][line_i & (organ == 1)] = LINING_U[None]
 rim = ndimage.binary_dilation(cavity, iterations=2) & ndimage.binary_dilation(~cavity, iterations=2) & inside
 soft = np.stack([ndimage.gaussian_filter(img[..., k], 1.0) for k in range(3)], -1)
@@ -231,7 +247,8 @@ Image.fromarray(img.astype(np.uint8), "RGBA").save(OUT + "section.webp", quality
 # which tissue each point is, for naming what the pointer is on: 0 outside, 1 muscle, 2 lining of the uterus,
 # 3 connective tissue, 4 lining of the cervix (with its crypts), 5 outer covering, 6 cavity or canal
 reg = np.zeros((H, W), np.uint8)
-reg[ut | mb] = 1; reg[ct_in | (cx & ~mb)] = 3; reg[el] = 2; reg[crypt | canal_edge] = 4; reg[cover] = 5; reg[cavity] = 6
+reg[ut | mb] = 1; reg[ct_in | (cx & ~mb)] = 3; reg[el] = 2; reg[crypt | canal_edge | lin_base] = 4; reg[cover] = 5; reg[cavity] = 6
+reg[line_i & (organ == 2)] = 6; reg[line_i & (organ == 1)] = 2
 reg[inface] = face_reg[inface]
 reg[~inside] = 0
 # (at half size, and where any of the four pixels is lining, lining: at a quarter size most of the crypts, a few
