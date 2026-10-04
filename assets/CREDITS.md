@@ -29,7 +29,11 @@ Inside the wall the layers are drawn, not measured, at the widths histology desc
 0.15 mm; in the cervix, mostly connective tissue with bundles of smooth muscle, and crypts of the canal's lining
 3–5 mm deep (IARC Screening Group's atlas, "Anatomical considerations – columnar epithelium",
 screening.iarc.fr).
-Coloured as a slide stained with haematoxylin and eosin.
+Coloured as a slide stained with haematoxylin and eosin. Round the place the zoom goes in (the 2 mm of the tissue
+model's block), the face is painted from the model's own front face (`tools/model-build/bake-face.js`, drawn flat
+at 1 µm a pixel): its surface with the small folds, the glands cut across, and the crypt 0.64 mm from the middle,
+which carries on into the wall as one of the painted crypts. On the way in, the model itself is drawn over that
+place, so the face is sharp where the camera goes and the two pictures meet.
 
 ## 4. The tissue: a model (`js/tissue3d.js`), traced from the photograph beside it (`tissue/*`)
 
@@ -59,8 +63,15 @@ Janelia Research Campus, OpenOrganelle dataset **jrc_hela-2** (an interphase HeL
 freeze-substituted, imaged by FIB-SEM at 4 × 4 × 5.24 nm), CC BY 4.0, s3://janelia-cosem-datasets.
 Xu, C.S. et al. 2021. An open-access volume electron microscopy atlas of whole cells and tissues. *Nature* 599:147.
 Heinrich, L. et al. 2021. Whole-cell organelle segmentation in volume electron microscopy. *Nature* 599:141.
+Mitochondria as rods and tubes that join and divide: Westermann, B. 2010. Mitochondrial fusion and fission in cell
+life and death. *Nat. Rev. Mol. Cell Biol.* 11:872. Each mitochondrion is meshed on its own (the instance segmentation
+kept apart where two touch: made into one mask, 22 touching mitochondria had become one branched piece).
 - `whole.glb`: the cell (split from its two neighbours by a watershed from each nucleus), its nucleus,
-  mitochondria, ER, Golgi, lysosomes and endosomes, at 64 nm (Golgi 32 nm); `tools/build_whole.py`. The imaged
+  mitochondria, ER, Golgi, lysosomes and endosomes, at 64 nm (Golgi 32 nm); `tools/build_whole.py`. Checked against
+  the labels: the ER is drawn at its own thickness (88% of its voxels within 70 nm of the drawn surface, 80% of
+  those more than 6 µm from the nucleus; until 4 Oct 2026 a wider smoothing drew 29%, and the cell's edge looked
+  empty); the 6,299 lysosomes and endosomes smaller than 12 voxels (most of those out towards the membrane) are
+  balls of their own volume at their own centres (smoothed into a surface, they vanished); mitochondria 99%. The imaged
   block (48 × 33 × 6.4 µm) cuts the cell on three sides: those faces are a separate mesh (`w_cut`), drawn as
   faint striped faces and named "Edge of the imaged block", so they are not taken for the cell's edge. What is
   shown is the middle of one cell; in the block the nucleus is about a quarter of the cell's volume.

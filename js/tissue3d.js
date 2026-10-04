@@ -69,33 +69,43 @@ function cellGeometry(THREE, cut) {
 function stromaTexture(THREE, T) {
   const W = 2 * L, TOP = 60, H = Math.round(-BOTTOM) + TOP + 4;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d'), r = rnd(11);
   const X = x => x + L, Y = y => TOP - y;
-  g.fillStyle = '#EBB0C3'; g.fillRect(0, 0, W, H);
-  for (let i = 0; i < W * H / 350; i++) {
-    const x = r() * W, y = r() * H, len = 30 + r() * 90, a = (r() - 0.5) * 0.9;
-    g.strokeStyle = `rgba(${200 + r() * 30 | 0},${110 + r() * 40 | 0},${140 + r() * 30 | 0},${0.25 + r() * 0.35})`;
-    g.lineWidth = 0.8 + r() * 1.6; g.beginPath(); g.moveTo(x, y);
-    g.bezierCurveTo(x + len * 0.33, y + Math.sin(a * 5) * 6 + len * a * 0.3, x + len * 0.66, y - 5 + len * a * 0.6, x + len, y + len * a);
-    g.stroke();
-  }
-  for (let i = 0; i < W * H / 1750; i++) {
-    const x = r() * W, y = r() * H, a = (r() - 0.5) * 0.8;
-    g.fillStyle = `rgba(${70 + r() * 20 | 0},${40 + r() * 15 | 0},${120 + r() * 30 | 0},0.92)`;
-    g.beginPath(); g.ellipse(x, y, 5 + r() * 3, 1.3 + r() * 0.8, a, 0, 7); g.fill();
-  }
-  for (let i = 0; i < W * H / 13000; i++) {
-    const x = r() * W, y = r() * H;
-    g.fillStyle = '#3E2A78'; g.beginPath(); g.arc(x, y, 2.6 + r() * 0.6, 0, 7); g.fill();
-  }
-  const vessel = (x, y, rx, ry, a) => {
-    g.save(); g.translate(X(x), Y(y)); g.rotate(a);
-    g.fillStyle = '#F6E3EA'; g.beginPath(); g.ellipse(0, 0, rx, ry, 0, 0, 7); g.fill();
-    g.strokeStyle = '#B04C78'; g.lineWidth = 1.5; g.stroke();
-    // red blood cells along it (7.5 µm discs), and the long nucleus of a cell of its wall
-    for (let k = -rx + 5; k < rx - 4; k += 6.5) { g.fillStyle = '#E0367A'; g.beginPath(); g.ellipse(k, (r() - 0.5) * Math.max(0, ry - 5), 3.6, Math.max(1.5, Math.min(3.3, ry - 1)), r(), 0, 7); g.fill(); }
-    g.fillStyle = '#4A2C86'; g.beginPath(); g.ellipse(rx * 0.3, -ry + 1.2, 5, 1.2, 0, 0, 7); g.fill();
-    g.restore();
+  // (each vessel and red blood cell is also kept, in the canvas's pixels, so that pointing at one names it: whatAt)
+  const painted = [];
+  // everything is painted by one function, from the same random numbers: once for the whole face (1 µm a pixel), and
+  // again, finer, for the small patch the camera comes close to (detail), so the two are the same picture
+  const paint = (g, record) => {
+    const r = rnd(11);
+    g.fillStyle = '#EBB0C3'; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < W * H / 350; i++) {
+      const x = r() * W, y = r() * H, len = 30 + r() * 90, a = (r() - 0.5) * 0.9;
+      g.strokeStyle = `rgba(${200 + r() * 30 | 0},${110 + r() * 40 | 0},${140 + r() * 30 | 0},${0.25 + r() * 0.35})`;
+      g.lineWidth = 0.8 + r() * 1.6; g.beginPath(); g.moveTo(x, y);
+      g.bezierCurveTo(x + len * 0.33, y + Math.sin(a * 5) * 6 + len * a * 0.3, x + len * 0.66, y - 5 + len * a * 0.6, x + len, y + len * a);
+      g.stroke();
+    }
+    for (let i = 0; i < W * H / 1750; i++) {
+      const x = r() * W, y = r() * H, a = (r() - 0.5) * 0.8;
+      g.fillStyle = `rgba(${70 + r() * 20 | 0},${40 + r() * 15 | 0},${120 + r() * 30 | 0},0.92)`;
+      g.beginPath(); g.ellipse(x, y, 5 + r() * 3, 1.3 + r() * 0.8, a, 0, 7); g.fill();
+    }
+    for (let i = 0; i < W * H / 13000; i++) {
+      const x = r() * W, y = r() * H;
+      g.fillStyle = '#3E2A78'; g.beginPath(); g.arc(x, y, 2.6 + r() * 0.6, 0, 7); g.fill();
+    }
+    const vessel = (x, y, rx, ry, a) => {
+      g.save(); g.translate(X(x), Y(y)); g.rotate(a);
+      g.fillStyle = '#F6E3EA'; g.beginPath(); g.ellipse(0, 0, rx, ry, 0, 0, 7); g.fill();
+      g.strokeStyle = '#B04C78'; g.lineWidth = 1.5; g.stroke();
+      const v = { cx: X(x), cy: Y(y), rx: rx + 1, ry: ry + 1, a, rbc: [] }; if (record) painted.push(v);
+      // red blood cells along it (7.5 µm discs), and the long nucleus of a cell of its wall
+      for (let k = -rx + 5; k < rx - 4; k += 6.5) {
+        const off = (r() - 0.5) * Math.max(0, ry - 5), b = Math.max(1.5, Math.min(3.3, ry - 1));
+        g.fillStyle = '#E0367A'; g.beginPath(); g.ellipse(k, off, 3.6, b, r(), 0, 7); g.fill();
+        v.rbc.push([k, off, 3.8]);
+      }
+      g.fillStyle = '#4A2C86'; g.beginPath(); g.ellipse(rx * 0.3, -ry + 1.2, 5, 1.2, 0, 0, 7); g.fill();
+      g.restore();
   };
   const fx = T.frame.x;
   for (const v of T.vessels) vessel(v.x, v.y, v.rx, v.ry, v.a);
@@ -104,8 +114,28 @@ function stromaTexture(THREE, T) {
     if (x > fx[0] - 30 && x < fx[1] + 30) continue;
     vessel(x, y, 8 + r() * 18, 5 + r() * 5, (r() - 0.5) * 0.8);
   }
+  };
+  paint(cv.getContext('2d'), true);
   const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
-  return { tex: t, W, H, X, Y };
+  // the same picture, `scale` times finer, over x0..x1, y0..y1 (µm); and where it lies on the whole one (its uv)
+  const detail = (x0, x1, y0, y1, scale) => {
+    const c = document.createElement('canvas'); c.width = Math.round((x1 - x0) * scale); c.height = Math.round((y1 - y0) * scale);
+    const g = c.getContext('2d'); g.setTransform(scale, 0, 0, scale, -X(x0) * scale, -Y(y1) * scale);
+    paint(g, false);
+    const d = new THREE.CanvasTexture(c); d.colorSpace = THREE.SRGBColorSpace; d.anisotropy = 8;
+    return { tex: d, rect: new THREE.Vector4(X(x0) / W, 1 - Y(y0) / H, X(x1) / W, 1 - Y(y1) / H) };
+  };
+  // what is painted at a point of the cut face (tissue µm): a red blood cell, a small blood vessel, or nothing
+  const whatAt = (x, y) => {
+    const px = X(x), py = Y(y);
+    for (const v of painted) {
+      const dx = px - v.cx, dy = py - v.cy, c = Math.cos(-v.a), s = Math.sin(-v.a), u = dx * c - dy * s, w = dx * s + dy * c;
+      if ((u / v.rx) ** 2 + (w / v.ry) ** 2 > 1) continue;
+      return v.rbc.some(([k, o, rr]) => (u - k) ** 2 + (w - o) ** 2 < rr * rr) ? 'rbc' : 'capillary';
+    }
+    return null;
+  };
+  return { tex: t, W, H, X, Y, whatAt, detail };
 }
 
 export function build(THREE, group, T) {
@@ -205,7 +235,7 @@ export function build(THREE, group, T) {
     g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
     g.computeVertexNormals();
     const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
-    m.userData.part = 'tcell';
+    m.userData.part = 'gcell';               // (a cell lining a crypt: named apart from those on the surface)
     return m;
   })();
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0), nv = new THREE.Vector3();
@@ -289,10 +319,12 @@ export function build(THREE, group, T) {
   }
   group.add(cells, cutCells, backCells, wedges, nuclei, caps, nucleiB, capsB, stroma, mucus);
 
-  // the cell the zoom goes into next: on the surface, in the FRONT row (the cut face), inside the frame, so the reader
-  // sees it rise and spread (Daniel, 4 Oct: "one of the ones that are on the front line"). While it is shown, it is
+  // the cell the zoom goes into next: on the surface, in the FRONT row (the cut face), just beside the frame, so the
+  // reader sees it rise and spread (Daniel, 4 Oct: "one of the ones that are on the front line"). While it is shown, it is
   // drawn whole, with its nucleus, and the cut cell in its place (and that cell's cut nucleus) is hidden.
-  const pi = Math.max(0, front.findIndex(e => e.ny > 0.9 && e.x > 100 && e.x < 140));
+  // (a cell on the flat stretch of the surface, upright among upright neighbours: where the photograph's small folds
+  // were traced, the cells fan out round each crest)
+  const pi = Math.max(0, front.findIndex(e => e.ny > 0.97 && e.x > 270 && e.x < 310));
   const pick = front[pi];
   const top = new THREE.Vector3(pick.x + pick.nx * pick.h * H_GEO, pick.y + pick.ny * pick.h * H_GEO + 1.6, pick.z);
   const single = new THREE.Mesh(cellGeometry(THREE, false), new THREE.MeshLambertMaterial({ vertexColors: true, emissive: 0x2a1030, transparent: true }));
@@ -300,6 +332,22 @@ export function build(THREE, group, T) {
   const singleNuc = new THREE.Mesh(new THREE.SphereGeometry(1, 24, 16), new THREE.MeshLambertMaterial({ color: COL.nucleus }));
   singleNuc.matrixAutoUpdate = false; singleNuc.visible = false; singleNuc.userData.part = 'tnucleus';
   const nucUp = 7 + 1.25 + (pick.h * H_GEO - 40) * 0.12;          // the nucleus: this far up the cell from its base
+  // the connective tissue under that cell, where the camera comes close (the views are fixed): painted six times finer,
+  // the same fibres and nuclei, faded into the rest over the patch's edges (at 1 µm a pixel it was a blur up close)
+  {
+    const D = st.detail(pick.x - 150, pick.x + 150, pick.y - 130, pick.y + 10, 6);
+    faceMat.onBeforeCompile = sh => {
+      sh.uniforms.tDetail = { value: D.tex }; sh.uniforms.uDet = { value: D.rect };
+      sh.fragmentShader = 'uniform sampler2D tDetail; uniform vec4 uDet;\n' + sh.fragmentShader.replace('#include <map_fragment>', `
+        vec4 sampledDiffuseColor = texture2D(map, vMapUv);
+        vec2 du = (vMapUv - uDet.xy) / (uDet.zw - uDet.xy);
+        if (du.x > 0.0 && du.x < 1.0 && du.y > 0.0 && du.y < 1.0) {
+          float e = clamp(min(min(du.x, 1.0 - du.x) * 12.0, min(du.y, 1.0 - du.y) * 9.0), 0.0, 1.0);
+          sampledDiffuseColor = mix(sampledDiffuseColor, texture2D(tDetail, du), e);
+        }
+        diffuseColor *= sampledDiffuseColor;`);
+    };
+  }
   const hidden = new THREE.Matrix4().makeScale(0, 0, 0), keep = [new THREE.Matrix4(), new THREE.Matrix4(), new THREE.Matrix4()];
   cutCells.getMatrixAt(pi, keep[0]); nuclei.getMatrixAt(pi, keep[1]); caps.getMatrixAt(pi, keep[2]);
   let frontHidden = false;
@@ -316,7 +364,7 @@ export function build(THREE, group, T) {
   const labels = T.marks.map(m => {
     const l = { part: m.part, text: m.part === 'crypt' ? 'Crypt, cut across' : m.text, p: [m.um[0], m.um[1], 0.2], r: R[m.part] || 20, free: m.part === 'crypt' };
     if (m.part === 'tcell') l.cands = nearFront(m.um[0], m.um[1], 8, e => [e.x + e.nx * e.h * 15, e.y + e.ny * e.h * 15, 0.2]);
-    if (m.part === 'tnucleus') l.cands = nucleiAt.map((c, i) => [c, front[i]]).sort((A, B) => Math.hypot(A[0][0] - m.um[0], A[0][1] - m.um[1]) - Math.hypot(B[0][0] - m.um[0], B[0][1] - m.um[1])).slice(0, 8).map(([c]) => [c[0], c[1], 0.3]);
+    if (m.part === 'tnucleus') l.cands = nucleiAt.map((c, i) => [c, front[i]]).sort((A, B) => Math.hypot(A[0][0] - m.um[0], A[0][1] - m.um[1]) - Math.hypot(B[0][0] - m.um[0], B[0][1] - m.um[1])).slice(0, 8).map(([c]) => [c[0], c[1], 0.05]);   // (on the cut nucleus's own face: no parallax from the side)
     return l;
   });
   const tops = full.filter(e => e.ny > 0.95 && e.x > -200 && e.x < 200 && e.z < -60 && e.z > -200);
@@ -333,6 +381,7 @@ export function build(THREE, group, T) {
   return {
     target: { top: top.toArray(), base: [pick.x, pick.y, pick.z], h: pick.h * H_GEO, pose: pose(pick).clone() },
     labels, single, singleNuc, nucUp, hideFront, frame, frameMat: fm,
+    stroma, whatAt: (x, y, z) => (Math.abs(z) < 1.5 || Math.abs(z + DEPTH) < 1.5 ? st.whatAt(x, y) : null),
     materials: [mat, wedges.material, nucMat, faceMat, sideMat, single.material, mucusMat],
     size: { L, BOTTOM, DEPTH, H_CELL: hS, frame: T.frame },
   };

@@ -1,7 +1,8 @@
 // Screenshots of the Foundations hub's 3D intro in real-time headless Chrome (the Browser pane stops drawing
 // while hidden). Uses the GPU when the Mac has one, so WebGL runs at full speed.
-//   node shots.mjs <url> <out-prefix> [--w 1280 --h 800 --dpr 1 --steps "js;js;..."]
-// Each step is JavaScript run in the page (awaited); after each step a screenshot <out-prefix>-<n>.png.
+//   node shots.mjs <url> <out-prefix> [--w 1280 --h 800 --dpr 1 --steps "js;;js;;..." --save <file.png>]
+// Each step is JavaScript run in the page (awaited); after each step a screenshot <out-prefix>-<n>.png. A step that
+// returns { png: <data URL> } has that picture written to the --save file (bake-face.js does).
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -51,7 +52,8 @@ await new Promise(r => setTimeout(r, 600));
 await snap();
 for (const s of steps) {
   const v = await evalp(s);
-  if (v !== undefined && v !== null) console.log('step ->', JSON.stringify(v).slice(0, 400));
+  if (v && v.png && opt('save')) { writeFileSync(opt('save'), Buffer.from(v.png.split(',')[1], 'base64')); console.log('wrote', opt('save'), v.info || ''); }
+  else if (v !== undefined && v !== null) console.log('step ->', JSON.stringify(v).slice(0, 400));
   await new Promise(r => setTimeout(r, 400));
   await snap();
 }

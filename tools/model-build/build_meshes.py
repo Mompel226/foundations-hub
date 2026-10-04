@@ -30,7 +30,7 @@ SCENE_UM = dict(x=(7.15, 14.65), y=(0.0, 4.6), z=(11.95, 19.45))
 # name -> (n5 class, how to make the mask, Gaussian sigma in voxels, iso level, triangle budget)
 CLASSES = {
     "er":       ("er_seg",      "any",  0.75, 0.40, 640000),
-    "mito":     ("mito_seg",    "any",  0.90, 0.50, 90000),
+    "mito":     ("mito_seg",    "any",  0.70, 0.55, 90000),   # (lighter: 0.9 / 0.5 joined 89 mitochondria into 61)
     "golgi":    ("golgi_seg",   "any",  0.70, 0.40, 420000),
     "endo":     ("endo_seg",    "any",  0.80, 0.45, 90000),
     "lyso":     ("lyso_seg",    "any",  0.80, 0.45, 50000),
@@ -51,6 +51,14 @@ def mask_of(name):
     n5, how, *_ = CLASSES[name]
     v, ov, vox = load(n5)
     m = (v == 1) if how == "id1" else (v > 0)
+    if name == "mito":
+        # each mitochondrion apart: made into one mask straight away, touching mitochondria became one branched
+        # piece (22 of them in one, 4 Oct); a gap is left where two different ones touch
+        b = np.zeros(v.shape, bool)
+        for ax in range(3):
+            for sh in (1, -1):
+                w = np.roll(v, sh, axis=ax); b |= (v > 0) & (w > 0) & (w != v)
+        m &= ~b
     if name in ("er", "nucleus"):
         ne = load("ne_seg")[0] > 0
         if name == "er":

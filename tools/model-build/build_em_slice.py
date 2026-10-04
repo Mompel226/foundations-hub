@@ -1,12 +1,13 @@
 """The real electron-microscope picture of the same HeLa cell (jrc_hela-2, Janelia, CC BY 4.0), from the raw FIB-SEM
 volume, with each organelle the computer found outlined in the colour it has in the 3D.
 
-    python3 build_em_slice.py   -> ../../assets/cell/em-section.webp, em-section-outline.png, em-slice.json
+    python3 build_em_slice.py   -> ../../assets/cell/em-section.webp, em-section-outline.png, em-slice.json,
+                                   em-section-3d.webp (the same, see-through outside the cell, for the 3D)
 
 One image of the stack, the plane z = 13.2 µm of the dataset (scene z = -2.55 µm), from the coverslip up (dataset y
 0-6.4 µm), across 12 µm of x (scale s2, 16 nm pixels): the cell membrane on top, the nucleus on the right, the
-cytoplasm between, the glass below; the detailed box outlined in green, as the green frame in the 3D. It is shown
-beside the organelles, and in the cell's "More" (it shows that the block is a section of the cell).
+cytoplasm between, the glass below. It is shown beside the organelles, inside the 3D cell where it was taken (on the
+way in), and in the cell's "More" (it shows that the block is a section of the cell).
 (A window square to the reader's gaze, re-sampled at 4 nm, was tried on 4 Oct and taken out the same day: Daniel,
 "you don't really know what you're looking at… show the whole image". It is in the git history.)
 """
@@ -101,13 +102,26 @@ def section():
     xs = SECTION_X[0] + (np.arange(W) + 0.5) * vx / 1000
     ys = (H - 1 - np.arange(H) + 0.5) * vy / 1000
     D = np.stack([np.broadcast_to(xs[None, :], (H, W)), np.broadcast_to(ys[:, None], (H, W)), np.full((H, W), SECTION_Z)])
-    keep = ((D[0] >= SCENE_UM["x"][0]) & (D[0] <= SCENE_UM["x"][1]) & (D[1] >= SCENE_UM["y"][0]) & (D[1] <= SCENE_UM["y"][1]))
-    ov, dr, _ = outline(masks_at(D), W, H, keep)
-    bx0 = (SCENE_UM["x"][0] - SECTION_X[0]) * 1000 / vx; bx1 = (SCENE_UM["x"][1] - SECTION_X[0]) * 1000 / vx
-    dr.rectangle([bx0, H - 1 - SCENE_UM["y"][1] * 1000 / vy, bx1, H - 1], outline=(143, 227, 200, 255), width=3)
+    # outlines over the whole slice (no box: its straight edges cut the nucleus's outline); the nucleus and the cell
+    # membrane from the whole-cell masks at 64 nm, which reach above the detailed region's 4.6 µm
+    masks = masks_at(D)
+    c4 = N.voxel_nm(RAW, "s4")
+    idx = [np.full(D[0].shape, SECTION_Z * 1000 / c4[2] - 0.5), D[1] * 1000 / c4[1] - 0.5, D[0] * 1000 / c4[0] - 0.5]
+    cellm = np.load(os.path.expanduser("~/Library/Caches/biology-hub/openorganelle/whole/cell_s4.npz"))["cell"]   # [z, y, x]
+    nuc4 = N.read_all("labels/nucleus_seg", "s4") == 1
+    masks["nucleus"] = ndi.map_coordinates(nuc4.astype(np.float32), idx, order=1) > 0.5
+    masks["pm"] = ndi.map_coordinates(cellm.astype(np.float32), idx, order=1) > 0.5
+    ov, dr, _ = outline(masks, W, H, np.ones((H, W), bool), pm_width=0)
     ov.save(OUT + "em-section-outline.png", optimize=True)
+    # the same slice for the 3D: the photograph with its outlines, see-through outside this cell (its own outline,
+    # from build_whole's cell mask at 64 nm, softened), to stand inside the 3D cell where it was taken
+    alpha = ndi.gaussian_filter(ndi.map_coordinates(cellm.astype(np.float32), idx, order=1), 1.5)
+    rgb = np.repeat((g * 255).astype(np.uint8)[:, :, None], 3, axis=2)
+    pic3 = Image.fromarray(rgb).convert("RGBA"); pic3.alpha_composite(ov)
+    a3 = np.array(pic3); a3[:, :, 3] = (np.clip((alpha - 0.3) / 0.4, 0, 1) * 255).astype(np.uint8)
+    Image.fromarray(a3).save(OUT + "em-section-3d.webp", quality=86, method=6)
     # where it is in the 3D (scene µm): the plane z, and the detailed box on it (the green frame drawn there)
-    json.dump({"z": round(SECTION_Z - ORIGIN_UM[2], 4), "x": [SECTION_X[0] - ORIGIN_UM[0], SECTION_X[1] - ORIGIN_UM[0]],
+    json.dump({"z": round(SECTION_Z - ORIGIN_UM[2], 4), "x": [SECTION_X[0] - ORIGIN_UM[0], SECTION_X[1] - ORIGIN_UM[0]], "y": [0, round(H * vy / 1000, 3)],
                "box": {"x": [SCENE_UM["x"][0] - ORIGIN_UM[0], SCENE_UM["x"][1] - ORIGIN_UM[0]], "y": list(SCENE_UM["y"])},
                "size": [W, H], "nm_per_px": vx}, open(OUT + "em-slice.json", "w"), indent=1)
     print(f"section {W} x {H} px ({W * vx / 1000:.1f} x {H * vy / 1000:.1f} µm); cache {N.cache_mb():.0f} MB")

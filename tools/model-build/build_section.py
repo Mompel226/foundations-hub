@@ -150,14 +150,24 @@ ly, lx = np.nonzero(lining)
 mid = np.argsort(lx)[len(lx) // 2]
 r0, c0 = ly[mid], lx[mid]
 g0 = into_wall(r0, c0)
-# the crypt the tissue model has at its middle: straight into the wall, 160 um across, 4 mm deep
-grow(float(r0), float(c0), g0.copy(), 4.0, 0.08 / (PX * 1000), straight=True, branch=False)
-# the others, about every 1.5 to 2.5 mm along both walls of the canal, never on top of the dive
+# the tissue's frame on this face (tissue3d.js): x along the lining, y out of the wall into the canal (µm)
+n_yz = np.array([g0[0], -g0[1]]); t_yz = np.array([n_yz[1], -n_yz[0]])
+P_yz = np.array([hi[0] - r0 * PX, lo[1] + c0 * PX])
+def from_tissue(x, y):       # tissue µm -> (row, col)
+    Y, Zb = P_yz + (x * t_yz + y * n_yz) * 1e-6
+    return (hi[0] - Y) / PX, (Zb - lo[1]) / PX
+# the crypt the tissue model has outside its photograph (x = 640 µm, 124 µm across with its cells), straight on
+# into the wall below the block, 4 mm deep in all
+rc, cc_ = from_tissue(640, 0)
+grow(float(rc), float(cc_), g0.copy(), 4.0, 0.062 / (PX * 1000), straight=True, branch=False)
+# the others, about every 1.5 to 2.5 mm along both walls of the canal, none within 2.6 mm of the dive (the tissue
+# model's block, 2 mm across, is painted there below)
 ey, ex = np.nonzero(canal_edge)
 done = [(r0, c0)]
 for i in RNG.permutation(len(ey)):
     r, c = ey[i], ex[i]
     if min(np.hypot(r - a, c - b) for a, b in done) < RNG.uniform(1.5, 2.5) / (PX * 1000): continue
+    if np.hypot(r - r0, c - c0) < 2.6 / (PX * 1000): continue
     done.append((r, c))
     grow(float(r), float(c), into_wall(r, c), RNG.uniform(3.0, 5.0), RNG.uniform(0.09, 0.14) / (PX * 1000))
 crypt &= cx; lumen &= crypt
@@ -167,14 +177,41 @@ img[..., :3][canal_edge] = EPI[None]
 cover = wall & (d_out < 0.15)
 img[..., :3][cover] = COVER[None]
 img[..., :3][cavity] = LUMEN[None]
+# the surface of the cavity and the canal (the line the Atlas's inner surface makes) is lining too: left unpainted, it
+# was a black, stepped edge when the zoom came close; and the edge is softened over a pixel either side
+img[..., :3][line_i & (organ == 2)] = EPI[None]
+img[..., :3][line_i & (organ == 1)] = LINING_U[None]
+rim = ndimage.binary_dilation(cavity, iterations=2) & ndimage.binary_dilation(~cavity, iterations=2) & inside
+soft = np.stack([ndimage.gaussian_filter(img[..., k], 1.0) for k in range(3)], -1)
+img[..., :3][rim] = soft[rim]
+# Where the zoom goes in, the face is the tissue model's own front face (tools/model-build/bake-face.js: drawn flat,
+# 1 µm a pixel), so the organ shows there what the tissue level will show: its surface with the fold, the glands
+# cut across, the crypt; faded into the painting round it over the block's last 150 µm
+FACE = os.path.expanduser("~/Library/Caches/biology-hub/tissue/tissue-face.png")
+FX0, FY1 = -1200, 200                                       # the bake's corner (µm), as in bake-face.js
+face = np.asarray(Image.open(FACE).convert("RGBA")).astype(np.float32) / 255
+fa = face[..., 3]
+prem = [ndimage.gaussian_filter(face[..., k] * fa, 12) for k in range(3)]; fab = ndimage.gaussian_filter(fa, 12)
+cellish = ndimage.binary_dilation((face[..., 1] > 190 / 255) & (fa > 0.5), iterations=20)
+rows_, cols_ = np.mgrid[0:H, 0:W].astype(np.float32)
+dY = (hi[0] - rows_ * PX) - P_yz[0]; dZ = (lo[1] + cols_ * PX) - P_yz[1]
+tx = (dY * t_yz[0] + dZ * t_yz[1]) * 1e6; ty = (dY * n_yz[0] + dZ * n_yz[1]) * 1e6
+fw = np.clip((1000 - np.abs(tx)) / 150, 0, 1) * np.clip((ty + 900) / 150, 0, 1) * (ty < 190)
+fpx = [FY1 - ty, tx - FX0]                                   # (row, col) in the bake
+samp = lambda a, o=1: ndimage.map_coordinates(a, fpx, order=o, mode="constant")
+a_s = samp(fab)
+model = np.stack([samp(c) for c in prem], -1) / np.maximum(a_s, 1e-3)[..., None] * 255
+empty = np.where(ty > -120, 1, 0)[..., None] * LUMEN[None] + np.where(ty > -120, 0, 1)[..., None] * CRYPT_L[None]
+col = model * a_s[..., None] + empty * (1 - a_s[..., None])
+img[..., :3] = img[..., :3] * (1 - fw[..., None]) + col * fw[..., None]
+inface = fw > 0.5
+face_reg = np.where(samp(fa, 0) < 0.5, np.where(ty > -120, 6, 4), np.where(samp(cellish.astype(np.float32), 0) > 0.5, 4, 3))
 img[..., 3] = (inside * 255).astype(np.float32)
 img[..., :3] = np.clip(img[..., :3], 0, 255)
-g = g0
 def to_body(r, c):
     return [X, float(hi[0] - r * PX), float(lo[1] + c * PX)]
 P = to_body(r0, c0)
-n_rc = -g                                                               # out of the wall, into the canal
-n = [0.0, float(-n_rc[0]), float(n_rc[1])]                              # row grows downwards (-y); col grows +z
+n = [0.0, float(n_yz[0]), float(n_yz[1])]                               # out of the wall, into the canal
 n = (np.array(n) / np.linalg.norm(n)).tolist()
 
 def anchor(mask, score):
@@ -192,11 +229,17 @@ labels = {
 }
 Image.fromarray(img.astype(np.uint8), "RGBA").save(OUT + "section.webp", quality=88, method=6)
 # which tissue each point is, for naming what the pointer is on: 0 outside, 1 muscle, 2 lining of the uterus,
-# 3 connective tissue, 4 lining of the cervix (with its crypts), 5 outer covering, 6 cavity or canal (a quarter size)
+# 3 connective tissue, 4 lining of the cervix (with its crypts), 5 outer covering, 6 cavity or canal
 reg = np.zeros((H, W), np.uint8)
 reg[ut | mb] = 1; reg[ct_in | (cx & ~mb)] = 3; reg[el] = 2; reg[crypt | canal_edge] = 4; reg[cover] = 5; reg[cavity] = 6
+reg[inface] = face_reg[inface]
 reg[~inside] = 0
-Image.fromarray(reg[::4, ::4] * 40, "L").save(OUT + "section-map.png", optimize=True)
+# (at half size, and where any of the four pixels is lining, lining: at a quarter size most of the crypts, a few
+# pixels wide, fell between the pixels, and pointing at one named the connective tissue)
+h2, w2 = H // 2 * 2, W // 2 * 2
+blk = reg[:h2, :w2].reshape(h2 // 2, 2, w2 // 2, 2)
+reg2 = np.where((blk == 4).any(axis=(1, 3)), 4, blk[:, 0, :, 0])
+Image.fromarray(reg2.astype(np.uint8) * 40, "L").save(OUT + "section-map.png", optimize=True)
 meta = {
     "x": X, "corners": [to_body(0, 0), to_body(0, W), to_body(H, W), to_body(H, 0)], "px_m": PX, "size": [W, H],
     "dive": P, "normal": n, "labels": labels,

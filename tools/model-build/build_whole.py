@@ -42,7 +42,36 @@ def cell_mask():
     return cell
 
 
-def mesh(mask, vox_nm, sigma, budget, name, close_edges=True, split_cut=False, min_vox=0, iso=0.5):
+def separate(ids):
+    """An instance label (each mitochondrion its own number) as one mask, with a gap where two different ones touch:
+    made into one mask straight away, touching mitochondria became one long branched piece (22 in one, 4 Oct)."""
+    b = np.zeros(ids.shape, bool)
+    for ax in range(3):
+        for sh in (1, -1):
+            w = np.roll(ids, sh, axis=ax); b |= (ids > 0) & (w > 0) & (w != ids)
+    return (ids > 0) & ~b
+
+
+def small_ones(mask, vox_nm, max_vox):
+    """The pieces of fewer than max_vox voxels, each as a small ball of its own volume at its own place (µm, the
+    same frame as mesh()): blurred into a surface they vanished, and four in five lysosomes and endosomes were missing
+    from the whole cell, most of them those spread through the cytoplasm out to the membrane (4 Oct)."""
+    lab, n = ndi.label(mask)
+    sizes = np.bincount(lab.ravel())
+    ids = np.nonzero((sizes < max_vox) & (np.arange(len(sizes)) > 0))[0]
+    cents = ndi.center_of_mass(mask, lab, ids)
+    vx, vy, vz = (np.array(vox_nm) / 1000)
+    ball = trimesh.creation.icosphere(subdivisions=0)
+    parts = []
+    for i, (cz, cy, cx) in zip(ids, cents):
+        r = (3 * sizes[i] * vx * vy * vz / (4 * np.pi)) ** (1 / 3)
+        b = ball.copy(); b.apply_scale(r); b.apply_translation([cx * vx + vx / 2, cy * vy + vy / 2, cz * vz + vz / 2]); parts.append(b)
+    print("small pieces as balls", len(parts), flush=True)
+    small = np.isin(lab, ids)
+    return trimesh.util.concatenate(parts), mask & ~small
+
+
+def mesh(mask, vox_nm, sigma, budget, name, close_edges=True, split_cut=False, min_vox=0, iso=0.5, min_faces=0, extra=None):
     # clean before neat: pieces of fewer than min_vox voxels are dropped (at 64 nm a piece of ER or a lysosome a few
     # voxels big became a needle when simplified, and the cell looked full of dashes: Daniel, 4 Oct, "I'd rather the
     # students be looking at something that looks clean"); a lower iso-level (iso) with a wider blur makes thin ER
@@ -62,6 +91,12 @@ def mesh(mask, vox_nm, sigma, budget, name, close_edges=True, split_cut=False, m
     if len(f) > budget:
         v, f = fast_simplification.simplify(v.astype(np.float32), f.astype(np.int32), 1 - budget / len(f), agg=6)
     m = trimesh.Trimesh(v, f, process=True)
+    if min_faces:
+        # pieces of a few triangles become needles when simplified (the "dashes"): only those are dropped
+        parts = m.split(only_watertight=False)
+        keep = [q for q in parts if len(q.faces) >= min_faces]
+        print(name, "pieces kept", len(keep), "of", len(parts), flush=True)
+        m = trimesh.util.concatenate(keep)
     cut = None
     if split_cut:
         # the faces that lie on a side or the top of the imaged block: where the block cuts the cell
@@ -75,6 +110,7 @@ def mesh(mask, vox_nm, sigma, budget, name, close_edges=True, split_cut=False, m
     for part, nm in ((m, name), (cut, "w_cut")):
         if part is None: continue
         trimesh.smoothing.filter_taubin(part, iterations=6)
+        if extra is not None and part is m: part = m = trimesh.util.concatenate([m, extra])
         part.apply_translation(-ORIGIN_UM)
         part.export(os.path.join(WORK, nm + ".glb"))
         print(nm, len(part.faces), "triangles", np.round(part.bounds, 2).tolist(), flush=True)
@@ -87,13 +123,18 @@ if __name__ == "__main__":
     nuc = N.read_all("labels/nucleus_seg", "s4") == 1
     mesh(cell, v4, 1.2, 70000, "w_cell", split_cut=True)
     mesh(nuc, v4, 1.2, 24000, "w_nucleus")
-    mito = (N.read_all("labels/mito_seg", "s4") > 0) & cell
-    mesh(mito, v4, 0.9, 110000, "w_mito", min_vox=12)
+    mito = separate(N.read_all("labels/mito_seg", "s4") * cell)
+    mesh(mito, v4, 0.6, 120000, "w_mito", min_faces=24, iso=0.55)
     g = N.read_all("labels/golgi_seg", "s3") > 0
     mesh(g, v3, 0.9, 30000, "w_golgi", min_vox=40)
     ly = ((N.read_all("labels/lyso_seg", "s4") > 0) | (N.read_all("labels/endo_seg", "s4") > 0)) & cell
-    mesh(ly, v4, 0.9, 24000, "w_sacs", min_vox=10, iso=0.42)
+    balls, ly = small_ones(ly, v4, 12)
+    mesh(ly, v4, 0.6, 40000, "w_sacs", iso=0.4, min_faces=24, extra=balls)
+    # the ER at its true thickness (blur 0.5 voxel, level 0.3): measured on 6,000 of its voxels, 88% lie within 70 nm
+    # of the drawn surface (80% more than 6 µm from the nucleus). The wider blur used before (1 voxel, level 0.33,
+    # pieces under 40 faces dropped) drew 29% of it (25% far out), and the edge of the cell, where the ER is thin
+    # tubes, looked empty (Daniel, 4 Oct: "on the edge of the cell membrane there is basically nothing")
     er = (N.read_all("labels/er_seg", "s4") > 0) & cell & ~ndi.binary_dilation(nuc, iterations=1)
-    mesh(er, v4, 1.15, 140000, "w_er", min_vox=60, iso=0.3)
+    mesh(er, v4, 0.5, 420000, "w_er", iso=0.3, min_faces=16)
     nl = N.read_all("labels/nucleolus_seg", "s4") > 0
     mesh(nl & nuc, v4, 0.9, 12000, "w_nucleolus")
