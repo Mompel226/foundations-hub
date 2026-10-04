@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791108252';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791109275';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -112,9 +112,11 @@ const TEXT = {
       '<p class="hint">From the <a href="https://www.youtube.com/watch?v=RUB37QhWNkw" target="_blank" rel="noopener">632nm podcast, episode 61</a>. Three swear words are silenced.</p>',
     go: 'the organelles', mag: '× 7' },
   inside: {
-    def: '<b>Organelles</b>: the parts inside a cell. Each one here is at its real size and in its real place.',
+    def: '<b>Organelles</b>: parts inside a cell, each wrapped in its own membrane. Each one here is at its real size and in its real place.',
     here: 'You are in the cytoplasm beside the nucleus, just under the cell membrane. It is crowded: mitochondria, endoplasmic reticulum, ribosomes, vesicles.',
-    more: '<p>In this box, 7.5 µm across, the microscope found:</p><ul class="chips"><li><b data-count="ribosomes">553,130</b><span>ribosomes</span></li><li><b data-count="vesicles">2,361</b><span>vesicles</span></li><li><b data-count="pores">144</b><span>pores in the nucleus</span></li><li><b data-count="microtubuleUm">225 µm</b><span>of microtubules</span></li></ul>' +
+    more: '<p><b>Organelle or not?</b> Most biologists use the word <b>organelle</b> only for a part with its own membrane: the nucleus, mitochondria, endoplasmic reticulum, vesicles. <b>Ribosomes</b> and microtubules have no membrane, so in this strict sense they are not organelles, although some books still call ribosomes organelles. Your syllabus lists ribosomes with the other parts of a cell and does not say.</p>' +
+      '<p><b>Cytoplasm</b> is not only the jelly. The jelly is the <b>cytosol</b>. The cytoplasm is the cytosol and everything in it (organelles, ribosomes, proteins): all that is inside the cell membrane, except the nucleus.</p>' +
+      '<p>In this box, 7.5 µm across, the microscope found:</p><ul class="chips"><li><b data-count="ribosomes">553,130</b><span>ribosomes</span></li><li><b data-count="vesicles">2,361</b><span>vesicles</span></li><li><b data-count="pores">144</b><span>pores in the nucleus</span></li><li><b data-count="microtubuleUm">225 µm</b><span>of microtubules</span></li></ul>' +
       '<p>Only the ribosomes near you are drawn. There are about 2,000 in every cubic micrometre of cytoplasm: if all of them were drawn, at their real size, you could not see anything else.</p>' +
       '<p><b>Are mitochondria really this shape?</b> In this cell, yes. 7 in 10 are short, under 2&nbsp;µm long; the rest are longer tubes, up to 14&nbsp;µm, and they hold three quarters of all the mitochondria. Mitochondria join together and divide again all the time. A thin slice through a short one or a tube shows an oval: that is the shape in the photograph beside, and in books. <button class="linkbtn" type="button" data-open="diagram">See it step by step</button></p>' +
       '<p>The dark space between them is <b>not empty</b>. It is cytoplasm, full of molecules too small to show here: about 140 million protein molecules, and about a million million water molecules, in this box alone.</p>' +
@@ -287,7 +289,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791108252').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791109275').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -552,7 +554,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791108252', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791109275', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
