@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791086809';
+import { build as buildTissue } from './tissue3d.js?v=1791088601';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -133,12 +133,15 @@ const ahead = (s, side = 0, up = 0) => {             // a point s µm on along t
 // the detailed region (build_meshes.SCENE_UM), cell frame: the cytoplasm beside the nucleus, on its left, where the cell
 // is thickest with no nucleus over it, so the zoom dives straight down into it through the cell membrane
 const BOX = { lo: [-17.85, 0.0, -3.8], hi: [-10.35, 4.6, 3.7] };
-const SECONDS = [4, 5, 15, 8, 12, 9];                             // each step down, when a button is pressed
+const SECONDS = [4, 5, 15, 8, 12, 9];
+// a stay on the way from the tissue to the cell, at the close-up of the lining cells (Z), and how long the Zoom-in
+// button stands there (seconds)
+const HOLD = [0.32, 0.50], HOLD_Z = [3.32, 3.50], HOLD_S = 4;                             // each step down, when a button is pressed
 // how much scrolling each step takes (1 = the usual): organ to tissue magnifies 160 times and grows the tissue out
 // of the cut face, so it is given more (Daniel: "make the movement from organ to tissue slower"; and again on 4 Oct,
 // the change from the cut face to the tissue was too fast: 2.4 -> 2.8, the blend 2.74-2.94; and from the organelles to
 // the molecules, "like boom": 1 -> 1.5, the blend 5.35-5.6 -> 5.28-5.72)
-const STEP_LEN = [1, 1, 2.8, 1.2, 1.4, 1.5];
+const STEP_LEN = [1, 1, 2.8, 1.7, 1.4, 1.5];
 
 const sm = (x, a, b) => THREE.MathUtils.smoothstep(x, a, b);
 // a module loaded later, tried three times (a weak connection drops one now and then; a browser remembers a failed
@@ -431,6 +434,8 @@ export async function mount(el, opts = {}) {
       G.single.add(dish);
     }
     const b = tissue.target.base;
+    // named while the zoom stays at the close-up (HOLD_Z)
+    anchors.push({ group: 'single', frame: 'tissue', p: [b[0], b[1] + 20, b[2]], r: 12, text: 'One lining cell: the zoom goes into this one', part: 'tcell', z: [HOLD_Z[0], HOLD_Z[1]], free: true, nofog: true, dyn: 'single' });
     // the HeLa cell sits where that cell has spread: the middle of its base on the middle of the lifted cell's base,
     // turned a quarter turn so that its side with the organelles' box faces the reader arriving from the tissue
     P.cell.makeTranslation(b[0] - 0.9, b[1] + LIFT, b[2] - 0.5).multiply(new THREE.Matrix4().makeRotationY(Math.PI / 2));
@@ -679,9 +684,9 @@ export async function mount(el, opts = {}) {
     cap.visible = Z >= 1.4;
     // which levels are drawn, and how much of each: [layer, weight]
     // tissue to cell: first the spread lining cell becomes the HeLa cell (the tissue stays), then the tissue goes
-    const mixes = [[2.74, 2.94, LAYER.body, LAYER.tissue], [3.70, 3.80, LAYER.tissue, LAYER.dish], [3.83, 3.94, LAYER.dish, LAYER.cell],
+    const mixes = [[2.74, 2.94, LAYER.body, LAYER.tissue], [3.76, 3.85, LAYER.tissue, LAYER.dish], [3.87, 3.96, LAYER.dish, LAYER.cell],
       [4.25, 4.40, LAYER.cell, LAYER.inside], [5.28, 5.72, LAYER.deep, LAYER.mol]];
-    const order = [[2.74, LAYER.body], [3.70, LAYER.tissue], [3.83, LAYER.dish], [4.25, LAYER.cell], [4.985, LAYER.inside], [5.28, LAYER.deep], [9, LAYER.mol]];
+    const order = [[2.74, LAYER.body], [3.76, LAYER.tissue], [3.87, LAYER.dish], [4.25, LAYER.cell], [4.985, LAYER.inside], [5.28, LAYER.deep], [9, LAYER.mol]];
     layers = null;
     for (const [a, b, A, B] of mixes) if (Z > a && Z < b) { const k = sm(Z, a, b); layers = [[A, 1 - k], [B, k]]; }
     if (!layers) layers = [[order.find(([z]) => Z <= z)[1], 1]];
@@ -689,8 +694,8 @@ export async function mount(el, opts = {}) {
     for (const k in fades) fades[k] = layers.reduce((s, [L, w]) => s + (L[k] ? w : 0), 0);
     patchK = tissue ? sm(Z, 2.4, 2.62) * (Z < 2.94 ? 1 : 0) : 0;
     // the one lining cell the zoom goes into lights up; the slice the photograph shows is outlined
-    // then, with the camera close, it rises out of the tissue (3.36-3.52) and spreads flat (3.52-3.70), and the HeLa
-    // cell takes its place (3.70-3.80)
+    // then the camera stays close (HOLD, 3.32-3.50), it rises out of the tissue (3.50-3.62) and spreads flat
+    // (3.62-3.76), and the HeLa cell takes its place (3.76-3.85)
     if (tissue) {
       // the front-row cell: shown whole from 3.0 (its cut twin hidden), lit up, then it rises, its membrane clearing
       // so its nucleus shows; a dish appears under it; it spreads to the HeLa cell's footprint, its nucleus to the
@@ -699,14 +704,14 @@ export async function mount(el, opts = {}) {
       sg.visible = show; tissue.singleNuc.visible = show; tissue.hideFront(show);
       // (it stays lit, and drawn with depth so it keeps its outline, until it has spread: among the other cells a
       // faint see-through cell could not be told from them)
-      sm1.emissive.setHex(0x8a3c9a).multiplyScalar(sm(Z, 3.05, 3.25) * (1 - 0.7 * sm(Z, 3.62, 3.72)));
-      const lift = sm(Z, 3.36, 3.52), flat = sm(Z, 3.52, 3.70);
-      sm1.opacity = 1 - 0.38 * sm(Z, 3.32, 3.42) - 0.17 * flat; sm1.depthWrite = true;
+      sm1.emissive.setHex(0x8a3c9a).multiplyScalar(sm(Z, 3.05, 3.25) * (1 - 0.7 * sm(Z, 3.70, 3.78)));
+      const lift = sm(Z, 3.50, 3.62), flat = sm(Z, 3.62, 3.76);
+      sm1.opacity = 1 - 0.38 * sm(Z, 3.48, 3.56) - 0.17 * flat; sm1.depthWrite = true;
       sg.matrix.copy(singleMatrix(lift, flat)); sg.matrixWorldNeedsUpdate = true;
       tissue.singleNuc.matrix.copy(singleNucMatrix(lift, flat)); tissue.singleNuc.matrixWorldNeedsUpdate = true;
-      if (dishMat) dishMat.opacity = 0.18 * sm(Z, 3.48, 3.58);
+      if (dishMat) dishMat.opacity = 0.18 * sm(Z, 3.58, 3.66);
       // the tissue round it dims while it spreads (the tops of the other cells fill the view behind it then)
-      const dim = 1 - 0.45 * sm(Z, 3.46, 3.62);
+      const dim = 1 - 0.45 * sm(Z, 3.58, 3.70);
       tissue.materials.forEach((m, i) => { if (m !== sm1 && m.color) m.color.copy(tissueCol[i]).multiplyScalar(dim); });
       const b = tissue.target.base; singleAt = [b[0], b[1] + LIFT * lift + 20 * (1 - flat) + 7 * flat, b[2]];
       slideLine.material.opacity = 0.9 * sm(Z, 2.9, 2.98) * (1 - sm(Z, 3.08, 3.2));
@@ -819,9 +824,11 @@ export async function mount(el, opts = {}) {
       const dC = new THREE.Vector3(...C.pos).sub(new THREE.Vector3(...C.at)).applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2).normalize();
       const stop = (y, D, dir, u) => { const a = new THREE.Vector3(b[0], b[1] + y, b[2]); return { f: 'tissue', at: a.toArray(), pos: a.clone().addScaledVector(dir, D).toArray(), u }; };
       const dF = new THREE.Vector3(0.12, 0.09, 1).normalize();         // face on, as the photograph beside it
+      // (the close-up STAYS from 0.32 to 0.50: the row of lining cells framed face on, as on the second slide, which is
+      // up for the whole stay; Daniel, 4 Oct: it went by too fast to see. Then it rises 0.50-0.62, spreads 0.62-0.76)
       return [{ ...view('tissue'), u: 0 },
-        stop(16, 100, dT.clone().add(dF).normalize(), 0.24), stop(16, 95, dF, 0.36), stop(40, 112, dF, 0.52),
-        stop(LIFT + 3, 105, dF.clone().add(dC).normalize(), 0.70),
+        stop(16, 100, dT.clone().add(dF).normalize(), 0.24), { ...stop(16, 95, dF, 0.32), stay: HOLD[1] - HOLD[0] }, stop(40, 112, dF, 0.62),
+        stop(LIFT + 3, 105, dF.clone().add(dC).normalize(), 0.76),
         { ...view('cell'), u: 1 }]; },
     // into the cell: one straight line from the cell's view, down through the membrane into the cytoplasm beside the
     // nucleus. The gaze turns 7° from the middle of the cell to the way in while the whole cell is still in view; after
@@ -852,6 +859,7 @@ export async function mount(el, opts = {}) {
   function makeFlight(i, poseA, poseB) {
     let keys = PATHS[i]();
     let us = keys.every(k => k.u != null) ? keys.map(k => k.u) : null;       // stops with their own times
+    const stays = keys.map(k => k.stay || 0);                                   // and how long each is stayed at
     keys = keys.map(k => ({ pos: W3(k.f, k.pos), at: W3(k.f, k.at) }));
     if (i === 5) keys[0] = poseA || keys[0];     // the molecules are placed where the reader was looking
     else if (poseA) { const arc = arcKeys(poseA, LEVELS[i]); if (arc.length > 1) { keys.unshift(...arc); us = null; } else keys[0] = poseA; }
@@ -871,7 +879,8 @@ export async function mount(el, opts = {}) {
     const toW = u => {
       if (!us) return u * tot;
       let j = 0; while (j < us.length - 2 && u > us[j + 1]) j++;
-      const f = THREE.MathUtils.clamp((u - us[j]) / Math.max(1e-9, us[j + 1] - us[j]), 0, 1), n1 = us.length - 1;
+      const a = us[j] + stays[j];                                               // (still, until the stay is over)
+      const f = THREE.MathUtils.clamp((u - a) / Math.max(1e-9, us[j + 1] - a), 0, 1), n1 = us.length - 1;
       return cumAt(j / n1) + f * (cumAt((j + 1) / n1) - cumAt(j / n1));
     };
     const sOf = u => {                           // the path's parameter at an even share u of the zoom
@@ -902,7 +911,7 @@ export async function mount(el, opts = {}) {
     // into the cell through the clear water outside it
     // (and from the tissue to the cell, the cell's haze comes with the HeLa cell: the camera is close to the lining cell
     // long before, and by distance the haze greyed it and hid its name)
-    const kf = fl.i === 4 ? sm(Z, 4.86, 5.0) : fl.i === 3 ? sm(Z, 3.66, 3.95) : k;
+    const kf = fl.i === 4 ? sm(Z, 4.86, 5.0) : fl.i === 3 ? sm(Z, 3.74, 3.97) : k;
     post.set({ fog: THREE.MathUtils.lerp(A.fog, B.fog, kf * kf), aoRadius: lg(A.aoRadius, B.aoRadius), ao: THREE.MathUtils.lerp(A.ao, B.ao, k), edge: THREE.MathUtils.lerp(A.edge, B.edge, k) });
     haze(THREE.MathUtils.lerp(hazeOf(LEVELS[fl.i]), hazeOf(LEVELS[fl.i + 1]), kf));
   }
@@ -949,9 +958,16 @@ export async function mount(el, opts = {}) {
       molApi.recut({ position: new THREE.Vector3(0, 0.02, 1) });
       const m = (text, p, r, extra = {}) => anchors.push({ group: 'mol', frame: 'mol', p, r, text, part: 'molecule', z: [5.62, 6.01], ...extra });
       m('Microtubule', [-0.05, -0.006, 0.0125], 0.012);
-      m('Kinesin, a motor protein', [0, 0.02, 0.01], 0.008, { dyn: 'kinesin' });
-      m('Vesicle (its cargo)', [0, 0.05, 0], 0.028, { dyn: 'vesicle' });
-      m('Protein molecules, packed close', [-0.065, 0.075, -0.02], 0.02);
+      m('Kinesin, a motor protein', [0, 0.02, 0.01], 0.008, { dyn: 'kinesin', trail: true });
+      m('Vesicle (its cargo)', [0, 0.05, 0], 0.028, { dyn: 'vesicle', path: true, trail: true });
+      // (below the microtubule, away from the vesicle's path above it: from above, its line ran behind the moving
+      // vesicle: Daniel, 4 Oct)
+      // (inside the crowd's disc, centre (0, 0.015), radius 0.1, clear of its soft edge; above the vesicle's path and
+      // below the microtubule; a grid of places, the name on one that a molecule fills)
+      const crowd = [];
+      for (const y of [0.095, 0.105]) for (const x of [-0.035, -0.02, -0.005, 0.01, 0.025]) crowd.push([x, y, 0.005]);
+      for (const y of [-0.025, -0.035]) for (const x of [-0.06, -0.04, 0.04, 0.06]) crowd.push([x, y, 0.005]);
+      m('Protein molecules, packed close', crowd[0], 0.02, { cands: crowd });
       precompile(G.mol);
     }
   }
@@ -1063,9 +1079,20 @@ export async function mount(el, opts = {}) {
       await ensure(Math.max(0, Math.ceil(Math.max(from, to)) - 1));
       if (tween) tween.cancel();
       const t0 = performance.now(), dur = reduced ? 1 : secs * 1000;
+      // (one step down through the stay, by the button: it moves to the close-up, stands there HOLD_S seconds, then goes
+      // on; each moving part eased. The camera stands still all through the stay, so only time passes there)
+      const lo = Math.min(from, to), hi = Math.max(from, to), stay = !reduced && to > from && hi - lo < 1.01 && lo <= HOLD_Z[0] && hi >= HOLD_Z[1];
+      const T1 = stay ? dur * (HOLD_Z[0] - from) / ((HOLD_Z[0] - from) + (to - HOLD_Z[1])) : 0, T2 = stay ? dur - T1 : 0, TH = HOLD_S * 1000;
+      const zAt = t => {                           // t: ms since the start -> Z
+        if (!stay) return from + (to - from) * ease(Math.min(1, t / dur));
+        if (t < T1) return from + (HOLD_Z[0] - from) * ease(t / T1);
+        if (t < T1 + TH) return HOLD_Z[0] + (HOLD_Z[1] - HOLD_Z[0]) * (t - T1) / TH;
+        return HOLD_Z[1] + (to - HOLD_Z[1]) * ease(Math.min(1, (t - T1 - TH) / T2));
+      };
+      const total = stay ? dur + TH : dur;
       tween = { cancel() { tween = null; res(); }, step(now) {
-        const k = Math.min(1, (now - t0) / dur);
-        Zt = from + (to - from) * ease(k); Z = Zt;
+        const k = Math.min(1, (now - t0) / total);
+        Zt = zAt(now - t0); Z = Zt;
         if (k >= 1) { tween = null; Zt = to; res(); }
       } };
       wake();
@@ -1090,7 +1117,9 @@ export async function mount(el, opts = {}) {
   });
   cv.addEventListener('pointerup', e => { ptrs.delete(e.pointerId); if (downAt && moved < 6 && !tween) { const p = pickAt(e.clientX, e.clientY); emit('pick', p); } downAt = null; });
   cv.addEventListener('pointercancel', e => ptrs.delete(e.pointerId));
-  cv.addEventListener('pointerleave', () => emit('hover', null));
+  // (leaving the picture, onto the caption or anything over it: a name still being looked up is dropped too, or it came
+  // back a moment later and stayed, stuck over the caption: Daniel, 4 Oct)
+  cv.addEventListener('pointerleave', () => { hoverWant = null; emit('hover', null); });
   let hoverWant = null, hoverLast = 0;
   function hoverAt(x, y) { hoverWant = [x, y]; wake(); }
 
@@ -1266,14 +1295,15 @@ export async function mount(el, opts = {}) {
   const tagPool = [];
   const measure = (() => { const c = document.createElement('canvas').getContext('2d'); c.font = '600 12.5px Inter, "Segoe UI", system-ui, sans-serif'; return t => c.measureText(t).width; })();
   const IGNORE = new Set(['hip', 'sacrum', 'coccyx', 'vertebrae', 'femur', 'cytoplasm']);   // names may lie over these
-  let layoutKey = '', placedTags = [];
-  const atRest = () => !tween && Math.abs(Zt - Z) < 1e-5 && Math.abs(Z - Math.round(Z)) < 1e-4 && !(orbit.enabled && orbit.autoRotate);
+  let layoutKey = '', placedTags = [], tagReport = [];
+  const inHold = () => Z > HOLD_Z[0] + 0.01 && Z < HOLD_Z[1] - 0.01;       // (the camera stands still there)
+  const atRest = () => (inHold() || (!tween && Math.abs(Zt - Z) < 1e-5 && Math.abs(Z - Math.round(Z)) < 1e-4)) && !(orbit.enabled && orbit.autoRotate);
   function hideTags() { tagLayer.classList.remove('is-shown'); placedTags = []; layoutKey = ''; }
   function drawTags() {
     if (opts.notags) return;
     if (!atRest()) { if (layoutKey) hideTags(); return; }
     camera.updateMatrixWorld();
-    const key = [Z, W(), H(), inset.left, inset.right, inset.top, inset.bottom, JSON.stringify(inset.avoid || []), ...camera.matrixWorld.elements.map(x => x.toFixed(5))].join('|');
+    const key = [inHold() ? 'hold' : Z, W(), H(), inset.left, inset.right, inset.top, inset.bottom, JSON.stringify(inset.avoid || []), ...camera.matrixWorld.elements.map(x => x.toFixed(5))].join('|');
     if (key !== layoutKey) { layoutKey = key; layoutTags(); }
     else if (placedTags.some(t => t.a.dyn)) moveDyn();
   }
@@ -1311,6 +1341,11 @@ export async function mount(el, opts = {}) {
     const best = new Map(); for (const t of out) if (!best.has(t.a.text) || best.get(t.a.text).rpx < t.rpx) best.set(t.a.text, t);
     return [...best.values()].sort((m, n) => n.rpx - m.rpx);
   }
+  // which way on the screen a travelling part moves: the model's microtubule runs along its x, the kinesin walking to +x
+  function trailSide(a) {
+    const o = W3(a.frame, [0, 0, 0]).project(camera), e = W3(a.frame, [0.01, 0, 0]).project(camera);
+    return e.x > o.x ? -1 : 1;
+  }
   function layoutTags() {
     idPass(true);
     const Wd = W(), Hd = H(), L0 = inset.left + 8, R0 = Wd - inset.right - 8, T0 = inset.top + 6, B0 = Hd - inset.bottom - 6;
@@ -1346,16 +1381,24 @@ export async function mount(el, opts = {}) {
       const k = (iy * idW + ix) * 4, n = idBuf[k] + idBuf[k + 1] * 256; return n ? partOf(idList[n - 1]) : null; };
     const depth = (a, [x, y]) => { const ok = a.accept || [a.part, ...(CONTAINS[a.part] || [])]; let n = 0;
       for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) n += ok.includes(idPart(x + dx * 3 / sx / 3, y + dy * 3 / sy / 3)) ? 1 : 0; return n; };
+    const report = [];                             // (for checks: api.tagReport, what happened to each name)
     for (const c of tagCandidates()) {
+      const seenPts = c.pts.length;
       c.pts.sort((p, q) => depth(c.a, q) - depth(c.a, p));
-      const good = []; for (const p of c.pts.slice(0, 6)) { if (onPart(c.a, p[0], p[1])) good.push(p); if (good.length === 2) break; }
+      const free = c.pts.filter(([x, y]) => !placed.some(t => t.page && y > t.box[1] - 3 && y < t.box[3] + 3 && x > t.box[0] && x < t.box[2]));
+      const good = []; for (const p of free.slice(0, 8)) { if (onPart(c.a, p[0], p[1])) good.push(p); if (good.length === 3) break; }
       c.pts = good;
       if (!c.pts.length) continue;
       const w = measure(c.a.text) + 22;
       let pick = null;
-      for (const [px, py] of c.pts) for (const side of [1, -1]) for (const dy of [0, -8, 8]) {
+      // (a part that travels, the kinesin and its vesicle: its name travels with it, beside it, behind it if there is
+      // room: a name left in place, the vesicle ran into it)
+      const sides = c.a.trail ? [trailSide(c.a), -trailSide(c.a)] : [1, -1];
+      for (const [px, py] of c.pts) for (const side of sides) for (const dy of [0, -8, 8]) {
         const yc = py + dy, y0 = yc - H2, y1 = yc + H2; if (y0 < T0 || y1 > B0) continue;
-        const near = side > 0 ? px + GAP : px - GAP - w, far = side > 0 ? R0 - w : L0;
+        // (a round part that moves, the vesicle: its name starts beyond its edge, not on it)
+        const gap = GAP + (c.a.path ? c.rpx : 0);
+        const near = side > 0 ? px + gap : px - gap - w, far = side > 0 ? R0 - w : L0;
         const steps = Math.floor(Math.abs(far - near) / 6);
         if ((side > 0 && near > far) || (side < 0 && near < far)) continue;
         let found = null, fallback = null;
@@ -1366,15 +1409,21 @@ export async function mount(el, opts = {}) {
           if (lineHitsBox(py, px, edge) || lineOnLine(py, px, edge)) continue;
           const cov = covers(b[0], b[1], b[2], b[3]);
           if (!cov) { found = { b, edge, cost: Math.abs(edge - px) + Math.abs(dy) * 2 }; break; }
-          if (i === steps) fallback = { b, edge, cost: 4000 + cov + Math.abs(edge - px) };
+          // (where parts fill the whole picture, as among the molecules: the place along the row that covers least)
+          const c2 = 4000 + 40 * cov + Math.abs(edge - px);
+          if (!fallback || c2 < fallback.cost) fallback = { b, edge, cost: c2 };
         }
         const o = found || fallback;
         if (o && (!pick || o.cost < pick.cost)) pick = { ...o, px, py, side };
       }
+      report.push({ text: c.a.text, seen: seenPts, onPart: c.pts.length, placed: !!pick });
       if (!pick) continue;                         // (no free row: left out, not squeezed in)
       placed.push({ a: c.a, box: pick.b, ly: pick.py, lx0: pick.px, lx1: pick.edge, side: pick.side, ax: pick.px });
+      // (a part that travels across the picture, the vesicle: no other name or line in the band it moves along, or its
+      // line ran behind the moving vesicle: Daniel, 4 Oct)
+      if (c.a.path) { const hb = Math.max(14, c.rpx); placed.push({ box: [L0, pick.py - hb, R0, pick.py + hb], ly: -1e9, lx0: 0, lx1: 0, page: true }); }
     }
-    placedTags = placed.filter(t => !t.page);
+    placedTags = placed.filter(t => !t.page); tagReport = report;
     renderTags();
   }
   function renderTags() {
@@ -1396,14 +1445,16 @@ export async function mount(el, opts = {}) {
     for (; k < tagPool.length; k++) if (!tagPool[k].hidden) tagPool[k].hidden = true;
     requestAnimationFrame(() => tagLayer.classList.add('is-shown'));
   }
-  // a name on something that moves while the zoom stands still (the kinesin and its vesicle): the name stays, its line
-  // follows the part
+  // a name on something that moves while the zoom stands still (the kinesin and its vesicle): the name and its line
+  // move with the part, side by side
   function moveDyn() {
     const vp = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse), q = new THREE.Vector4();
     for (const t of placedTags) {
-      if (!t.a.dyn || !molApi) continue;
-      const p = W3(t.a.frame, molApi.where()[t.a.dyn]); q.set(p.x, p.y, p.z, 1).applyMatrix4(vp); if (q.w <= 0) continue;
-      t.lx0 = (q.x / q.w * 0.5 + 0.5) * W();
+      if (!t.a.dyn) continue;
+      const at = t.a.dyn === 'single' ? singleAt : molApi && molApi.where()[t.a.dyn]; if (!at) continue;
+      const p = W3(t.a.frame, at); q.set(p.x, p.y, p.z, 1).applyMatrix4(vp); if (q.w <= 0) continue;
+      const nx = (q.x / q.w * 0.5 + 0.5) * W(), dx = nx - t.lx0;
+      t.lx0 = nx; t.lx1 += dx; t.box = [t.box[0] + dx, t.box[1], t.box[2] + dx, t.box[3]];
     }
     renderTags();
   }
@@ -1503,6 +1554,7 @@ export async function mount(el, opts = {}) {
     // for checks: the part under a point of the page (client px), as a tap would find it
     partAt(x, y) { return pickAt(x, y).part; },
     get anchors() { return anchors; },
+    get tagReport() { return tagReport; },
     seekFlight() { return false; },
     stopAutoRotate() { orbit.autoRotate = false; },
     dispose() { cancelAnimationFrame(raf); ro.disconnect(); orbit.dispose(); renderer.dispose(); cv.remove(); },

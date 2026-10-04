@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791086809';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791088601';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -244,7 +244,10 @@ function inset() {
   const capBox = $('#cap').getBoundingClientRect();
   // a photograph or the film at the top right takes room too: the picture (and its names) keep clear of it
   const side = zoom.classList.contains('more-open') ? null : [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
-  const left = Math.min(capBox.left, side ? side.getBoundingClientRect().left : Infinity);
+  // (the film's note stands to its left: the picture keeps clear of it too)
+  const note = $('.filmnote'), nr = side && side.id === 'film' ? note.getBoundingClientRect() : null;
+  const sideLeft = side ? Math.min(side.getBoundingClientRect().left, nr && nr.width ? nr.left : Infinity) : Infinity;
+  const left = Math.min(capBox.left, sideLeft);
   // (the names keep clear of what stands over the picture: the scale bar, and on a phone the ruler)
   const zr = zoom.getBoundingClientRect(), box = sel => { const r = $(sel).getBoundingClientRect(); return [r.left - zr.left - 6, r.top - zr.top - 6, r.right - zr.left + 6, r.bottom - zr.top + 6].map(Math.round); };
   const scale = box('#scalebar'); scale[2] = Math.max(scale[2], scale[0] + Math.round(zoom.clientWidth * 0.2) + 60);   // (its width is set a moment later: its widest)
@@ -272,7 +275,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791086809').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791088601').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -316,8 +319,11 @@ $('#filmPill').addEventListener('click', () => playFilm(video.ended));
 
 // ---------- the name under the pointer ----------
 const tip = $('#hovertip');
+// (only while the pointer is on the picture itself: over the caption, a photograph or a button, never)
+let onPicture = false;
+document.addEventListener('pointerover', e => { onPicture = e.target.tagName === 'CANVAS' && !!e.target.closest('#gl'); if (!onPicture) tip.hidden = true; }, true);
 function showTip(p) {
-  if (!p || !p.part) { tip.hidden = true; return; }
+  if (!p || !p.part || !onPicture) { tip.hidden = true; return; }
   const info = INFO[p.part] || {}, part = PARTS[p.part] || {};
   const name = p.part === 'molecule' && p.label ? p.label : (info.name || part.name || p.part);
   tip.querySelector('span').textContent = cap(name);
@@ -461,7 +467,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791086809', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791088601', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
@@ -478,7 +484,7 @@ async function start() {
     .on('z', z => {
       // the real thing beside the model: the light micrograph at the tissue, the electron micrograph among the organelles
       // (each stays for a good stretch of the zoom, and says what it is before it appears: .is-in)
-      const m = z > 2.86 && z <= 3.25, m2 = z > 3.25 && z < 3.42, e = z > 4.62 && z < 5.38;
+      const m = z > 2.86 && z <= 3.27, m2 = z > 3.27 && z < 3.58, e = z > 4.62 && z < 5.38;
       if ($('#micro').hidden === m || $('#micro2').hidden === m2 || $('#emfig').hidden === e) {
         for (const [f, on] of [[$('#micro'), m], [$('#micro2'), m2], [$('#emfig'), e]]) {
           if (f.hidden !== on) continue;
