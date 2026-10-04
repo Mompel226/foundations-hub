@@ -14,6 +14,7 @@ web files into `../../assets/`. Python needs numpy, scipy, scikit-image, trimesh
 | organelles | `python3 fetch_roi.py` → `python3 build_meshes.py` → `node gltf/zones.mjs <cache>/openorganelle/cell3d <name> <budget>` for each organelle → `node gltf/pack.mjs ../../assets/cell/organelles.glb …` | `assets/cell/organelles.glb` |
 | organelles (small things) | `python3 instances.py <class> s1 [--voxels]` (ribo, vesicle, np, mt-out with --voxels, cent with --voxels) → `python3 build_small.py` | `assets/cell/small.bin` |
 | organelles' electron micrograph | `python3 build_em_slice.py` (one image of the stack, the plane z = 13.2 µm, at s2) | `assets/cell/em-section.*`, `em-slice.json` |
+| mitochondria, oval or tube (the panel) | `python3 build_mito_demo.py` (after `fetch_roi.py`; two mitochondria the slice crosses, and the photograph round each at 8 nm) | `assets/cell/mito-demo.*` |
 | molecules | `python3 build_molecules.py` → `node gltf/pack.mjs ../../assets/mol/molecules.glb <cache>/molecules/m_*.glb` | `assets/mol/*` |
 
 The organ's face is painted from the tissue model where the zoom goes in, so after any change to the tissue's front

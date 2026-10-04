@@ -86,6 +86,16 @@ kept apart where two touch: made into one mask, 22 touching mitochondria had bec
   120 nm, microtubule 25 nm. Ribosomes are drawn only in a shell 0.35–0.7 µm round the reader, with faint dots
   out to 1.8 µm: there are about 2,000 in each µm³, so a line of sight meets one within about 1 µm, and all of
   them would hide everything else.
+- `mito-demo.glb`, `mito-demo.json`, `mito-demo-1.webp`, `mito-demo-2.webp` ("Mitochondria: an oval or a tube?",
+  `tools/build_mito_demo.py`): two mitochondria the photograph's slice crosses, numbers 74 (in the photograph an oval
+  with cristae; in 3D a tube 4.5 µm long, cut at a slant) and 203 (two shapes in the photograph; in 3D one tube 7.4 µm
+  long that crosses the slice twice), meshed from the 16 nm instance labels; their outlines on the slice from the same
+  labels; the photograph round each from the raw image at 8 nm, the same plane. The slice straight across tube 74 is
+  imagined: its outline is the real tube's section through its middle. Counted in the whole cell (instance labels at
+  64 nm): 351 mitochondria, length median 1.2 µm, 69% under 2 µm, the longest 14 µm; those 2 µm and longer hold 76% of
+  the volume. Further reading on the page: Jenkins, B.C. et al. 2024. Mitochondria in disease: changes in shapes and
+  dynamics. *Trends Biochem. Sci.* 49:346 (open access); Hoffmann, H.P. & Avers, C.J. 1973, *Science* 181:749;
+  Glancy, B. et al. 2015, *Nature* 523:617.
 - The way in: one straight line from the cell's view to a place about 0.3 µm under the membrane, where the cell
   is thick, chosen so that the nearest organelles are about 1 µm away across the whole view (deeper in, sheets of
   ER fill the view within half a micrometre).

@@ -2,7 +2,8 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS } from './cell3d.js?v=1791079728';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791081212';
+const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -112,7 +113,7 @@ const TEXT = {
     here: 'You are in the cytoplasm beside the nucleus, just under the cell membrane. It is crowded: mitochondria, endoplasmic reticulum, ribosomes, vesicles.',
     more: '<p>In this box, 7.5 µm across, the microscope found:</p><ul class="chips"><li><b data-count="ribosomes">553,130</b><span>ribosomes</span></li><li><b data-count="vesicles">2,361</b><span>vesicles</span></li><li><b data-count="pores">144</b><span>pores in the nucleus</span></li><li><b data-count="microtubuleUm">225 µm</b><span>of microtubules</span></li></ul>' +
       '<p>Only the ribosomes near you are drawn. There are about 2,000 in every cubic micrometre of cytoplasm: if all of them were drawn, at their real size, you could not see anything else.</p>' +
-      '<p><b>Are mitochondria really this shape?</b> In this cell, yes. Most are short rods, about 1&nbsp;µm long; some are long tubes, up to about 9&nbsp;µm. Mitochondria join together and divide again all the time (fusion and fission). A thin slice through a rod or a tube shows an oval: that is the shape in the photograph beside, and in most books.</p>' +
+      '<p><b>Are mitochondria really this shape?</b> In this cell, yes. 7 in 10 are short, under 2&nbsp;µm long; the rest are longer tubes, up to 14&nbsp;µm, and they hold three quarters of all the mitochondria. Mitochondria join together and divide again all the time. A thin slice through a short one or a tube shows an oval: that is the shape in the photograph beside, and in books. <button class="linkbtn" type="button" data-open="diagram">See it step by step</button></p>' +
       '<p>The dark space between them is <b>not empty</b>. It is cytoplasm, full of molecules too small to show here: about 140 million protein molecules, and about a million million water molecules, in this box alone.</p>' +
       '<p class="hint">Point at any part to see its name. Your syllabus names only some of these parts: press “Only the syllabus parts” to see the difference.</p>',
     go: 'the molecules', mag: '× 50' },
@@ -228,6 +229,7 @@ function setLevelUI(level) {
   go.innerHTML = t.go ? 'Zoom in <b>' + t.mag + '</b>: ' + t.go : 'Start again';
   $('#btnBack').hidden = i === 0;
   $('#sylSwitch').hidden = level !== 'inside';
+  $('#capNotice').hidden = level !== 'cell' && level !== 'inside';
   setNow(Number($('.stop[data-level="' + level + '"]').dataset.m));
   hideCard();
   const below = i >= LEVELS.indexOf('cell');
@@ -259,6 +261,25 @@ function setMore(open) {
   zoom.style.setProperty('--caph', $('#cap').offsetHeight + 'px');
 }
 $('#btnMore').addEventListener('click', () => setMore($('#capMore').hidden));
+
+// ---------- mitochondria: book drawing or real cell? ----------
+// The steps (js/mitodemo.js, its own small 3D picture) are loaded the first time the window opens.
+let demo = null, demoLoading = null;
+async function openDiagram() {
+  $('#diagram').showModal();
+  if (demo) { demo.restart(); return; }
+  if (demoLoading) return;
+  const box = $('#mitoDemo');
+  demoLoading = importRetry('./mitodemo.js?v=1791081212').then(m => m.start(box, { v: VERSION })).then(d => {
+    demo = d;
+    $('.md__next', box).disabled = false;
+    $('.md__next', box).addEventListener('click', () => demo.next());
+    $('.md__back', box).addEventListener('click', () => demo.back());
+  }).catch(e => { console.error(e); demoLoading = null; $('.md__text', box).textContent = 'The 3D steps could not be shown just now (close this and open it again to try again). The text below says the same.'; });
+}
+$('#capNotice').addEventListener('click', openDiagram);
+$('#diagramClose').addEventListener('click', () => $('#diagram').close());
+$('#capMore').addEventListener('click', e => { if (e.target.closest('[data-open="diagram"]')) openDiagram(); });
 
 // ---------- the film ----------
 // A browser lets a film play with sound only after the reader has pressed something on the page. The first
@@ -436,7 +457,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791079728', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791081212', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);

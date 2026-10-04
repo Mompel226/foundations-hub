@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791079728';
+import { build as buildTissue } from './tissue3d.js?v=1791081212';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -140,6 +140,14 @@ const SECONDS = [4, 5, 15, 8, 12, 6];                             // each step d
 const STEP_LEN = [1, 1, 2.4, 1.2, 1.4, 1];
 
 const sm = (x, a, b) => THREE.MathUtils.smoothstep(x, a, b);
+// a module loaded later, tried three times (a weak connection drops one now and then; a browser remembers a failed
+// address, so each try asks for it under a new one)
+export async function importRetry(url, tries = 3) {
+  for (let k = 0; ; k++) {
+    try { return await import(k ? url + '&try=' + k : url); }
+    catch (e) { if (k >= tries - 1) throw e; await new Promise(r => setTimeout(r, 700 * (k + 1))); }
+  }
+}
 const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
 
 export async function mount(el, opts = {}) {
@@ -958,12 +966,13 @@ export async function mount(el, opts = {}) {
         if (h) membraneTop = h.point.clone().applyMatrix4(F('cell').invert()).y;
       }
     }
-    if (i >= 5 && !molApi) await (molMaking ||= makeMolecules());
+    // (if it fails, the next ask tries again: a failed first try had left the molecules out for the whole visit)
+    if (i >= 5 && !molApi) await (molMaking ||= makeMolecules().catch(e => { molMaking = null; throw e; }));
   }
   let molMaking = null;                          // made once, whoever asks first
   async function makeMolecules() {
     {
-      const M = await import('./molecules3d.js?v=' + v);
+      const M = await importRetry('./molecules3d.js?v=' + v);
       molApi = await M.build(THREE, G.mol, { v, small: await insideReady });
       molApi.recut({ position: new THREE.Vector3(0, 0.02, 1) });
       const m = (text, p, r, extra = {}) => anchors.push({ group: 'mol', frame: 'mol', p, r, text, part: 'molecule', z: [5.62, 6.01], ...extra });

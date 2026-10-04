@@ -17,7 +17,7 @@
 <link rel="stylesheet" media="print" onload="this.media='all'"
       href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&display=swap"></noscript>
-<link rel="stylesheet" href="css/app.css?v=1791079728">
+<link rel="stylesheet" href="css/app.css?v=1791081212">
 </head>
 <body>
 <main class="zoom" id="zoom">
@@ -55,6 +55,7 @@
     <p class="cap__eyebrow"><span id="capN">Level 1 of 7</span> · <b id="capLevel">Organism</b> · <span id="capView"></span></p>
     <p class="cap__def" id="capDef"></p>
     <p class="cap__here" id="capHere"></p>
+    <button class="cap__notice" id="capNotice" type="button" hidden><b>Mitochondria: an oval or a tube?</b>Why they look different here from the drawing in your book</button>
     <div class="cap__topics" id="capTopics"></div>
     <div class="cap__more" id="capMore" hidden></div>
     <div class="cap__go">
@@ -146,6 +147,33 @@
   <div id="topicList"></div>
 </dialog>
 
+<!-- mitochondria, book drawing or real cell: why the shapes differ (Daniel, 4 Oct: mitochondria only, so it is not too
+     much at once); the steps are js/mitodemo.js -->
+<dialog class="about about--wide" id="diagram" aria-label="Mitochondria: book drawing or real cell?">
+  <button class="about__x" id="diagramClose" type="button" aria-label="Close">×</button>
+  <h2>Mitochondria: an oval or a tube?</h2>
+  <p class="md__answer"><b>Both are right.</b> A book draws a mitochondrion as an oval, cut open so that you can see inside it. This zoom shows the mitochondria of one real cell, measured by an electron microscope: many of them are long tubes. Here is why the two look different.</p>
+  <div class="md" id="mitoDemo">
+    <div class="md__stage"></div>
+    <div class="md__side">
+      <p class="md__count">Step 1 of 7</p>
+      <p class="md__text">Loading the two mitochondria…</p>
+      <div class="md__btns"><button class="md__back" type="button" disabled>Back</button><button class="md__next" type="button" disabled>Next step</button></div>
+    </div>
+  </div>
+  <h3>In this cell</h3>
+  <p>There are 351 mitochondria. 7 in 10 are short, under 2&nbsp;µm long: these look like the drawing in a book. 3 in 10 are longer tubes, from 2&nbsp;µm up to 14&nbsp;µm long, and they hold three quarters of all the mitochondria. Mitochondria also join together and divide again all the time, so their shapes change.</p>
+  <p>So the drawing in a book shows <b>one short mitochondrion, cut open lengthways</b>, so that you can see its two membranes and the folds (cristae). A photograph from an electron microscope shows <b>one thin slice</b> of the cell: in it, short and long mitochondria all look like ovals or circles.</p>
+  <h3>In your exam</h3>
+  <p>Exam questions use drawings and photographs like the ones in your book. Name a mitochondrion by what it has, not by its whole shape: two membranes, and the inner one folded (cristae).</p>
+  <h3>Explore more</h3>
+  <ul>
+    <li><a href="https://doi.org/10.1016/j.tibs.2024.01.011" target="_blank" rel="noopener">Mitochondria in disease: changes in shapes and dynamics</a> (Jenkins and others, <i>Trends in Biochemical Sciences</i>, 2024; free to read). 3D pictures, made from electron microscope slices, of the many shapes mitochondria can have: short and round, long, branched, even shaped like a ring.</li>
+    <li><a href="https://openorganelle.janelia.org/datasets/jrc_hela-2" target="_blank" rel="noopener">This same cell on OpenOrganelle</a> (Janelia Research Campus). Press “View” to turn the real cell and its mitochondria in 3D in your browser.</li>
+  </ul>
+  <p class="fineprint">Measured in this cell (OpenOrganelle, jrc_hela-2). The two mitochondria in the steps, their outlines and the photograph are real: the outlines are the computer's own, from the same data as the 3D. The slice straight across the tube is imagined; its outline is worked out from the real tube. Others found the same with slices one after another: what looked like many separate mitochondria in yeast is one branched mitochondrion (Hoffmann and Avers, <i>Science</i>, 1973); the mitochondria of a muscle cell form a joined-up network (Glancy and others, <i>Nature</i> 523:617, 2015); mitochondria join and divide (Westermann, <i>Nature Reviews Molecular Cell Biology</i> 11:872, 2010).</p>
+</dialog>
+
 <!-- what is real, the sources, the film's words, the contact line -->
 <dialog class="about" id="about" aria-label="About this picture">
   <button class="about__x" id="aboutClose" type="button" aria-label="Close">×</button>
@@ -162,6 +190,7 @@
     <li><b>The tissue is a model</b>, traced from the photograph beside it: inside the green frame, its cut face has the photograph's surface, gland and blood vessels in the same places, at the same scale. Where each cell and fibre sits is made up.</li>
     <li><b>From the tissue to the cell</b>, one lining cell rises out of the tissue and spreads flat, as a cell of this kind does when it is grown in a dish. That is a picture of what happens, not a measurement.</li>
     <li>The shape of a ribosome and of a pore in the nucleus: the microscope shows where each one is; the shape is drawn at its real size from other studies. A vesicle is a ball of the volume that was measured; a microtubule is a tube 25&nbsp;nm wide along the path that was measured.</li>
+    <li>In <b>“Mitochondria: an oval or a tube?”</b> the two mitochondria, their outlines and the photograph are real; the slice straight across a tube is imagined, and its outline is worked out from the real tube's shape.</li>
     <li><b>The molecules are a model.</b> Measured, and used: the shape and size of each kind of protein (Protein Data Bank), how many of each kind a HeLa cell holds (Mueller et al. 2020), about 3 million protein molecules in every cubic micrometre (Milo 2013), kinesin's 8&nbsp;nm steps. Made up: where each molecule sits, the kinesin's stalk, and the speed. Kinesin takes about 100 steps a second; here it takes one. At that speed the other molecules would be a blur, so here they move only when the vesicle reaches them.</li>
   </ul>
   <h3>Not the same person</h3>
@@ -189,7 +218,7 @@
   <p class="fineprint">Something wrong, or a suggestion? Please contact me: <a href="mailto:dmompelriera@nlcsjeju.kr">dmompelriera@nlcsjeju.kr</a>. Checked against the Cambridge IGCSE Biology 0610 syllabus for 2026–2028.</p>
 </dialog>
 
-<script src="js/topics.js?v=1791079728"></script>
-<script type="module" src="js/intro.js?v=1791079728"></script>
+<script src="js/topics.js?v=1791081212"></script>
+<script type="module" src="js/intro.js?v=1791081212"></script>
 </body>
 </html>
