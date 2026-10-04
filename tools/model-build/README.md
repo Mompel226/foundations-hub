@@ -20,9 +20,16 @@ web files into `../../assets/`. Python needs numpy, scipy, scikit-image, trimesh
 The organ's face is painted from the tissue model where the zoom goes in, so after any change to the tissue's front
 face (`trace.json`, `js/tissue3d.js`), bake the face again and rebuild the section.
 
-The whole cell (`build_whole.py`) is checked against the labels it is made from: ER 88% of its voxels within 70 nm
+The whole cell (`build_whole.py`) is checked against the labels it is made from: ER 89% of its voxels within 70 nm
 of the drawn surface, mitochondria 99%, and the lysosomes and endosomes under 12 voxels drawn as balls (a wider
 smoothing once drew 29% of the ER, and the cell's edge looked empty). Measure again after changing a blur or a level.
+
+**No slivers.** Every mesh is smoothed on the even triangles of the marching cubes FIRST, then simplified with
+meshoptimizer keeping the triangles well shaped (`gltf/simplify.mjs`, Regularize; `zones.mjs` the same), and any
+triangle left longer than 0.3 µm (80 nm in the box) and 12 times longer than high is taken out. Simplified first and
+smoothed after, thin tubes became needles micrometres long that the page drew as streaks across the cell (4 Oct).
+After rebuilding any 3D file, run `node gltf/mesh_check.mjs` (exits 1 on slivers), then look at the cell at Retina size
+(`shots.mjs … --dpr 2`, Z 4.0-5.0) at 100%.
 
 The budgets used for `zones.mjs`: er 400000, mito 90000, endo 60000, lyso 50000, ld 4000 (with `1` after it: one
 tile), nucleus 70000, membrane 50000 (golgi 400000 when the box holds Golgi; the box beside the nucleus has none).

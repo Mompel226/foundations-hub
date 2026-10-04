@@ -41,10 +41,27 @@ for (const zi of [2, 1, 0]) {
   const lock = new Uint8Array(nv);
   for (let t = 0; t < nt; t++) if (zt[t] !== zi) for (let k = 0; k < 3; k++) lock[I[3 * t + k]] = 1;
   const others = nt - mine;
+  // (Regularize keeps the triangles well shaped: without it, flat stretches fanned out to the locked edges of a zone
+  // as triangles up to 200 times longer than high, and the page drew them as streaks: Daniel, 4 Oct)
   const [out] = MeshoptSimplifier.simplifyWithAttributes(I, P, 3, attrs, 3, [0.5, 0.5, 0.5], lock,
-    (others + target) * 3, 0.02, ['Sparse']);
+    (others + target) * 3, 0.02, ['Sparse', 'Regularize']);
   report.push(`zone ${zi}: ${mine} -> ${out.length / 3 - others}`);
   I = out;
+}
+// what is left of slivers (longer than 80 nm and 12 times longer than high) is taken out: it adds nothing to the
+// picture but a line, and the gap is narrower than a pixel (the reader is less than a micrometre away here, so even a
+// short one shows)
+{
+  const keep = [];
+  const d = (a, b) => Math.hypot(P[3 * a] - P[3 * b], P[3 * a + 1] - P[3 * b + 1], P[3 * a + 2] - P[3 * b + 2]);
+  let cut = 0;
+  for (let t = 0; t < I.length / 3; t++) {
+    const a = I[3 * t], b = I[3 * t + 1], c = I[3 * t + 2], ab = d(a, b), bc = d(b, c), ca = d(c, a), L = Math.max(ab, bc, ca), s = (ab + bc + ca) / 2;
+    const h = 2 * Math.sqrt(Math.max(0, s * (s - ab) * (s - bc) * (s - ca))) / Math.max(L, 1e-12);
+    if (L > 0.08 && h < L / 12) { cut++; continue; }
+    keep.push(a, b, c);
+  }
+  if (cut) { I = Uint32Array.from(keep); report.push(`slivers taken out ${cut}`); }
 }
 // compact
 const used = new Int32Array(nv).fill(-1); let k = 0;

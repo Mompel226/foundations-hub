@@ -14,6 +14,7 @@ meet within 0.2 mm).
 import glob, os
 import numpy as np
 import fast_simplification, trimesh
+from build_whole import simplify
 
 SRC = os.path.expanduser("~/Library/Caches/biology-hub/anatomy/parts/")
 OUT = os.path.expanduser("~/Library/Caches/biology-hub/anatomy/")
@@ -83,8 +84,10 @@ for name, (parts, budget) in GROUPS.items():
     m0 = trimesh.Trimesh(V, F, process=True)
     V, F = m0.vertices.astype(np.float32), m0.faces.astype(np.int32)
     n0 = len(F)
+    m = trimesh.Trimesh(V, F, process=False)
     if n0 > budget:
-        V, F = fast_simplification.simplify(V, F, 1 - budget / n0, agg=5)
-    m = trimesh.Trimesh(V, F, process=True)
+        # meshoptimizer, triangles kept well shaped (build_whole.simplify): the plain simplifier left the uterus with
+        # 110 long, thin triangles (4 Oct check, gltf/mesh_check.mjs); no error limit: the budget decides, as before
+        m = simplify(m, budget, 1.0)
     m.export(os.path.join(OUT, "a_" + name + ".glb"))
     print(f"{name:8s} {n0:7d} -> {len(m.faces):6d} triangles; bounds m {np.round(m.bounds, 3).tolist()}")

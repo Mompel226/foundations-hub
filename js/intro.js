@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791081212';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791083863';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -37,7 +37,6 @@ const INFO = {
   mucus:     { syl: false, name: 'mucus, inside the crypt', does: 'A thick, slippery liquid made by the lining cells. It protects the lining.', size: '' },
   crypt:     { syl: false, name: 'crypt', does: 'A deep fold of the lining into the wall. It makes more surface for making mucus.', size: '3 to 5 mm deep.' },
   section:   { syl: false, name: 'cut face', does: '', size: '' },
-  emslice:   { syl: false, name: 'the slice in the photograph', does: 'The plane the electron micrograph beside you shows. The microscope cut this cell into more than 6,000 slices like it, one after another.', size: 'One slice is about 10 nm thick.' },
   tissue:    { syl: true,  does: 'A group of cells with similar structures, working together to perform a shared function.', size: '' },
   cell:      { syl: true,  name: 'cell membrane', does: 'Controls the movement of substances into and out of the cell.',
                size: 'This cell is about 6 µm high and spreads more than 48 µm across the sapphire disc.' },
@@ -270,7 +269,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791081212').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791083863').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -457,7 +456,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791081212', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791083863', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
