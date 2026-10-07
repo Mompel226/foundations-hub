@@ -299,6 +299,7 @@ a{color:inherit}
 .about h3{font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;color:#A16207;margin:16px 0 6px}
 .about ul{margin:0;padding-left:20px}
 .about li,.about p{font-size:14.5px;line-height:1.5;margin:0 0 6px}
+.about__list{margin-top:10px!important} .about__list li{font-size:15px;margin-bottom:11px}
 .about .fineprint{font-size:12.5px;color:var(--grey)}
 .about--topics .topic{border-top:1px solid #E7DFD1;padding:10px 0 4px;transition:background .6s}
 .about--topics .topic.is-picked{background:#FBEFFD}
