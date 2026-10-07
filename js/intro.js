@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791109376';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791360127';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -238,9 +238,10 @@ function setLevelUI(level) {
   setNow(Number($('.stop[data-level="' + level + '"]').dataset.m));
   hideCard();
   const below = i >= LEVELS.indexOf('cell');
-  if (!below) { video.pause(); $('#film').hidden = true; $('#filmPill').hidden = true; }
+  if (!below) { video.pause(); $('#film').hidden = true; $('#filmPill').hidden = true; zoom.classList.remove('film-big'); }
   zoom.style.setProperty('--caph', $('#cap').offsetHeight + 'px');
   zoom.classList.remove('text-first');           // (each level starts with its picture)
+  zoom.classList.remove('sheet-min'); sheetLabel();   // (and, on a phone, with its text unfolded)
   // (and at the top of its text, More closed: scrolled down inside More at one level, the next opened scrolled down,
   // its definition out of sight; Daniel, 4 Oct)
   setMore(false); $('#cap').scrollTop = 0; $('#capMore').scrollTop = 0;
@@ -250,7 +251,7 @@ function setLevelUI(level) {
 // on the right, so the picture is centred between the ruler and the caption; on a phone it is at the bottom
 function inset() {
   if (!cell) return;
-  const narrow = zoom.clientWidth < 760;
+  const narrow = phone(), side_ = narrow && zoom.clientWidth >= 760;   // (side_: a phone on its side, the text on the right)
   const capBox = $('#cap').getBoundingClientRect();
   // a photograph or the film at the top right takes room too: the picture (and its names) keep clear of it
   const side = zoom.classList.contains('more-open') ? null : [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
@@ -264,8 +265,9 @@ function inset() {
   // (on a phone the page's title runs over the picture: the names keep below it)
   const headB = Math.round(($('.top') || $('header')).getBoundingClientRect().bottom - zr.top + 4);
   // (and on a phone, the slide at the top right: a name ran under it)
-  const sideBox = narrow && side ? box('#' + side.id) : null;
-  cell.setInset(narrow ? { left: 30, right: 0, top: Math.max(60, headB), bottom: zoom.clientHeight - capBox.top + 8, avoid: [box('#ruler'), scale, ...(sideBox ? [sideBox] : [])] }
+  const sideBox = narrow && side ? box('#' + side.id) : narrow && !$('#filmPill').hidden ? box('#filmPill') : null;
+  const stripB = Math.round($('#ruler').getBoundingClientRect().bottom - zr.top + 4);
+  cell.setInset(narrow ? { left: 8, right: side_ ? zoom.clientWidth - capBox.left + 6 : 0, top: Math.max(60, headB, stripB), bottom: side_ ? 0 : zoom.clientHeight - capBox.top + 8, avoid: [box('#ruler'), scale, ...(sideBox ? [sideBox] : [])] }
     : { left: 272, right: zoom.clientWidth - left + 6, top: 60, bottom: 0, avoid: [scale] });
 }
 window.addEventListener('resize', () => inset());
@@ -275,11 +277,44 @@ function setMore(open) {
   $('#capMore').hidden = !open;
   $('#btnMore').setAttribute('aria-expanded', String(open));
   $('#btnMore').textContent = open ? 'Less' : 'More';
-  zoom.classList.toggle('more-open', open && zoom.clientWidth >= 760);
+  zoom.classList.toggle('more-open', open && !phone());
+  zoom.classList.toggle('sheet-full', open && phone());
+  if (open) zoom.classList.remove('sheet-min');
+  sheetLabel();
   fitCap();
   zoom.style.setProperty('--caph', $('#cap').offsetHeight + 'px');
 }
 $('#btnMore').addEventListener('click', () => setMore($('#capMore').hidden));
+// On a phone the text is a sheet at the bottom with three heights: folded (its level and buttons), the definition (each
+// level opens so), and all of it (More). Its handle: a tap folds it or opens it again; a swipe down folds, a swipe up opens.
+const phone = () => zoom.clientWidth < 760 || zoom.clientHeight <= 500;   // (a phone, upright or on its side)
+const sheetIs = () => !$('#capMore').hidden ? 'full' : zoom.classList.contains('sheet-min') ? 'min' : 'mid';
+function sheetLabel() {
+  const min = zoom.classList.contains('sheet-min');
+  $('#capGrab').setAttribute('aria-expanded', String(!min));
+  $('#capGrab').setAttribute('aria-label', min ? 'Show the text' : 'Fold the text away');
+}
+function setSheet(to) {
+  if (to === 'full') { setMore(true); return; }
+  if (!$('#capMore').hidden) setMore(false);
+  zoom.classList.toggle('sheet-min', to === 'min'); sheetLabel();
+  $('#cap').scrollTop = 0; fitCap();
+}
+let sheetMoved = 0;                                // (when the sheet last moved by the handle: the click after it is not a press)
+{ let y0 = null;
+  for (const el of [$('#capGrab'), $('.cap__eyebrow')]) {
+    el.addEventListener('pointerdown', e => { if (!phone()) return; y0 = e.clientY; try { el.setPointerCapture(e.pointerId); } catch {} });
+    el.addEventListener('pointerup', e => {
+      if (y0 === null) return; const dy = e.clientY - y0; y0 = null;
+      const now = sheetIs(); if (Math.abs(dy) > 30 || el.id === 'capGrab') sheetMoved = Date.now();
+      if (dy > 30) setSheet(now === 'full' ? 'mid' : 'min');
+      else if (dy < -30) setSheet(now === 'min' ? 'mid' : 'full');
+      else if (el.id === 'capGrab') setSheet(now === 'min' ? 'mid' : now === 'full' ? 'mid' : 'min');
+    });
+    el.addEventListener('pointercancel', () => { y0 = null; });
+  }
+  $('#capGrab').addEventListener('click', e => { if (!phone()) e.preventDefault(); });
+}
 
 // ---------- mitochondria: book drawing or real cell? ----------
 // The steps (js/mitodemo.js, its own small 3D picture) are loaded the first time the window opens.
@@ -289,7 +324,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791109376').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791360127').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -314,7 +349,7 @@ function unlock() {
 document.addEventListener('pointerdown', unlock, { capture: true, once: true });
 document.addEventListener('keydown', unlock, { capture: true, once: true });
 function playFilm(fromStart) {
-  $('#film').hidden = false; $('#filmPill').hidden = true; fitCap();
+  $('#film').hidden = false; $('#filmPill').hidden = true; zoom.classList.toggle('film-big', phone()); fitCap();
   if (fromStart) video.currentTime = 0;
   video.muted = false;
   const p = video.play();
@@ -327,8 +362,9 @@ $('#filmSound').addEventListener('click', () => { video.muted = false; $('#filmS
 $('#filmPlay').addEventListener('click', () => { if (video.paused) video.play(); else video.pause(); });
 video.addEventListener('play', () => { $('#filmPlay').textContent = '❚❚'; $('#filmPlay').setAttribute('aria-label', 'Pause'); });
 video.addEventListener('pause', () => { $('#filmPlay').textContent = '▶'; $('#filmPlay').setAttribute('aria-label', 'Play'); });
-video.addEventListener('ended', () => { $('#film').hidden = true; $('#filmPill').hidden = false; });
-$('#filmClose').addEventListener('click', () => { video.pause(); $('#film').hidden = true; $('#filmPill').hidden = false; });
+function closeFilm() { video.pause(); $('#film').hidden = true; $('#filmPill').hidden = false; zoom.classList.remove('film-big'); fitCap(); }
+video.addEventListener('ended', closeFilm);
+$('#filmClose').addEventListener('click', e => { e.stopPropagation(); closeFilm(); });
 $('#filmPill').addEventListener('click', () => playFilm(video.ended));
 
 // ---------- the name under the pointer ----------
@@ -424,13 +460,21 @@ $('#micro img').addEventListener('load', () => callouts($('#micro')));
 // size, at every level and on every resize (Daniel, 4 Oct: going back from the cell to the tissue, the text card ran
 // under the photograph: the film had gone in another step, and the card's top was still the film's).
 function fitCap() {
-  const narrow = zoom.clientWidth < 760, zr = zoom.getBoundingClientRect();
+  const narrow = phone(), zr = zoom.getBoundingClientRect();
   const side = zoom.classList.contains('more-open') ? null : [$('#film'), $('#micro'), $('#micro2'), $('#emfig')].find(x => !x.hidden);
   // (a slide shown: the picture first, the text short)
   const pf = !!side && side.id !== 'film' && !narrow && !zoom.classList.contains('text-first');
   if (zoom.classList.contains('pic-first') !== pf) zoom.classList.toggle('pic-first', pf);
   if ((!side || !side.classList.contains('is-big')) && zoom.classList.contains('pic-big')) { $$('.micro.is-big').forEach(f => f.classList.remove('is-big')); zoom.classList.remove('pic-big'); if (cell) cell.pause(false); }
-  if (side && !narrow) sizeSide(side);
+  if (narrow) {
+    // (the row of dots under the title, the slide or the film's button under the dots, the scale bar over the sheet)
+    const hb = Math.max($('.top__mark').getBoundingClientRect().bottom, $('.topbtns').getBoundingClientRect().bottom) - zr.top;
+    zoom.style.setProperty('--striptop', Math.round(hb + 6) + 'px');
+    zoom.style.setProperty('--sidetop', Math.round(hb + 6 + 36 + 8) + 'px');
+    zoom.style.setProperty('--caph', $('#cap').offsetHeight + 'px');
+    $$('.micro:not(.is-big) .micro__img img').forEach(im => { if (im.style.height) { im.style.height = ''; im.style.width = ''; } });
+  }
+  if (side && (!narrow || side.classList.contains('is-big'))) sizeSide(side);
   if (side && side.classList.contains('is-big')) { inset(); scrollCue(); return; }     // (enlarged: over everything, the column stays)
   const top = Math.round(side ? side.getBoundingClientRect().bottom - zr.top + 12 : 96);
   if (zoom.style.getPropertyValue('--captop') !== top + 'px') zoom.style.setProperty('--captop', top + 'px');
@@ -449,7 +493,7 @@ function sizeSide(side) {
   if (side.classList.contains('is-big')) {                             // enlarged: as big as the screen allows
     // (its width follows the picture: measured with the picture in, else its text wraps narrow and tall)
     const fit = () => { const o = side.getBoundingClientRect().height - img.getBoundingClientRect().height;
-      img.style.height = Math.round(Math.max(200, Math.min(innerHeight * 0.9 - o, (innerWidth * 0.92 - (call ? 170 : 0)) / ar))) + 'px'; };
+      img.style.height = Math.round(Math.max(160, Math.min(innerHeight * 0.9 - o, (innerWidth * (phone() ? 0.97 : 0.92) - (call ? (phone() ? 150 : 170) : 0)) / ar))) + 'px'; };
     img.style.height = Math.round(innerHeight * 0.6) + 'px'; fit(); fit();
     if (side.id === 'micro') callouts(side);
     return;
@@ -465,11 +509,12 @@ function scrollCue() {
 }
 $('#cap').addEventListener('scroll', scrollCue, { passive: true });
 { const ro = new ResizeObserver(() => requestAnimationFrame(fitCap));
-  ['#film', '#micro', '#micro2', '#emfig', '.cap__more'].forEach(sel => ro.observe($(sel)));
+  ['#film', '#micro', '#micro2', '#emfig', '.cap__more', '#cap'].forEach(sel => ro.observe($(sel)));
   $$('.micro__img img').forEach(im => im.addEventListener('load', () => requestAnimationFrame(fitCap))); }
 // a press on the text gives it the whole column (the photograph shrinks to its heading); a press on the heading brings
 // the photograph back
 $('#cap').addEventListener('click', e => {
+  if (phone()) { if (Date.now() - sheetMoved > 400 && zoom.classList.contains('sheet-min') && !e.target.closest('button, a')) setSheet('mid'); return; }
   if (e.target.closest('button, a, summary, details, figure') || zoom.classList.contains('text-first')) return;
   if (!$('#cap').classList.contains('can-scroll') && $('#capMore').hidden) return;     // (it all shows already)
   zoom.classList.add('text-first'); fitCap();
@@ -484,10 +529,12 @@ function bigSlide(f, big) {
 $$('.micro').forEach(f => f.addEventListener('click', e => {
   e.stopPropagation();
   if (zoom.classList.contains('text-first')) { zoom.classList.remove('text-first'); fitCap(); return; }
-  if (zoom.clientWidth < 760) return;                                   // (a phone: the slide stays as it is)
   bigSlide(f, !f.classList.contains('is-big'));
 }));
-zoom.addEventListener('click', () => { if (zoom.classList.contains('pic-big')) bigSlide(null, false); });
+zoom.addEventListener('click', e => {
+  if (zoom.classList.contains('pic-big')) bigSlide(null, false);
+  if (zoom.classList.contains('film-big') && !e.target.closest('.film, .filmnote, .filmpill')) closeFilm();   // (a tap beside the film closes it)
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && zoom.classList.contains('pic-big')) bigSlide(null, false); });
 
 // ---------- the tap card ----------
@@ -554,7 +601,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791109376', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791360127', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
@@ -590,13 +637,13 @@ async function start() {
         if (!$('#micro2').hidden) fitPins($('#micro2'));
         if (!$('#micro').hidden) requestAnimationFrame(() => callouts($('#micro')));
         // the film and the micrograph share the top right: the film steps aside
-        if (e) { video.pause(); $('#film').hidden = true; }
+        if (e) { video.pause(); $('#film').hidden = true; zoom.classList.remove('film-big'); }
         fitCap();
       }
       // the film's button, whenever the film has been seen, is closed, and the reader is at the cell or below (checked at
       // every step: checked only when a photograph came or went, it never came back after going back up and in again)
       const pill = filmPlayed && z >= 3.5 && !e && $('#film').hidden;
-      if ($('#filmPill').hidden === pill) $('#filmPill').hidden = !pill;
+      if ($('#filmPill').hidden === pill) { $('#filmPill').hidden = !pill; inset(); }
     })
     .on('scale', s => {
       const sb = $('#scalebar'); $('i', sb).style.width = Math.round(s.px) + 'px'; $('span', sb).textContent = s.label;
@@ -607,6 +654,7 @@ async function start() {
   // paused where it was (Daniel, 4 Oct: after going back and in again, the film had gone)
   cell.on('arrive', l => {
     if (l !== 'cell') return;
+    if (phone()) { filmPlayed = true; if ($('#film').hidden) { $('#filmPill').hidden = false; inset(); } return; }   // (a phone: its button only)
     if (!filmPlayed) { filmPlayed = true; playFilm(true); }
     else if ($('#film').hidden) { $('#film').hidden = false; $('#filmPill').hidden = true; fitCap(); }
   });

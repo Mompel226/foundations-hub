@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791109376';
+import { build as buildTissue } from './tissue3d.js?v=1791360127';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -1530,6 +1530,10 @@ export async function mount(el, opts = {}) {
       const p = W3(t.a.frame, at); q.set(p.x, p.y, p.z, 1).applyMatrix4(vp); if (q.w <= 0) continue;
       const nx = (q.x / q.w * 0.5 + 0.5) * W(), dx = nx - t.lx0;
       t.lx0 = nx; t.lx1 += dx; t.box = [t.box[0] + dx, t.box[1], t.box[2] + dx, t.box[3]];
+      // (the name stays on the screen; its line still ends on the part: on a phone the kinesin's name walked off the edge)
+      const R0 = W() - inset.right - 6, L0 = inset.left + 6;
+      let c = t.box[2] > R0 ? R0 - t.box[2] : 0; if (t.box[0] + c < L0) c = L0 - t.box[0];
+      if (c) { t.lx1 += c; t.box = [t.box[0] + c, t.box[1], t.box[2] + c, t.box[3]]; }
     }
     renderTags();
   }
