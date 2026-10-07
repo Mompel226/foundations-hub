@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791360127';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791360636';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -324,7 +324,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791360127').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791360636').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -526,6 +526,7 @@ function bigSlide(f, big) {
   if (f) f.classList.toggle('is-big', big);
   zoom.classList.toggle('pic-big', !!f && big); if (cell) cell.pause(!!f && big); fitCap();
 }
+$$('.micro__min').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); zoom.classList.add('text-first'); fitCap(); }));
 $$('.micro').forEach(f => f.addEventListener('click', e => {
   e.stopPropagation();
   if (zoom.classList.contains('text-first')) { zoom.classList.remove('text-first'); fitCap(); return; }
@@ -601,7 +602,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791360127', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791360636', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
@@ -632,6 +633,7 @@ async function start() {
         for (const [f, on] of [[$('#micro'), m], [$('#micro2'), m2], [$('#emfig'), e]]) {
           if (f.hidden !== on) continue;
           f.hidden = !on; f.classList.remove('is-in');
+          if (on) zoom.classList.remove('text-first');      // (a new slide comes with its picture, even if the last was hidden)
           if (on) requestAnimationFrame(() => requestAnimationFrame(() => f.classList.add('is-in')));
         }
         if (!$('#micro2').hidden) fitPins($('#micro2'));
