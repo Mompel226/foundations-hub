@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1791360636';
+import { build as buildTissue } from './tissue3d.js?v=1791361927';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -1312,7 +1312,7 @@ export async function mount(el, opts = {}) {
     let front = Infinity;
     if (strict) {                                  // one of several places: its own part must be there, filling a small
       const at = (x, y) => { if (x < 0 || y < 0 || x >= idW || y >= idH) return null; const k = (y * idW + x) * 4, n = idBuf[k] + idBuf[k + 1] * 256; return n ? partOf(idList[n - 1]) : null; };
-      const rpx = a.r * SCALE[a.frame] / Math.max(1e-9, zA) * (idH / 2) / Math.tan(camera.fov * Math.PI / 360);
+      const rpx = a.r * SCALE[a.frame] / Math.max(1e-9, zA) * (idH / 2) * camera.zoom / Math.tan(camera.fov * Math.PI / 360);
       // its pixel, and (a part big on the screen) at least two of the four round it: thin threads such as the
       // mitochondria and the ER seen from far away are only a pixel or two wide in this small picture
       if (at(ix, iy) !== a.part) return false;
@@ -1359,6 +1359,8 @@ export async function mount(el, opts = {}) {
   const tagLayer = document.createElement('div'); tagLayer.className = 'tags'; el.appendChild(tagLayer);
   const tagPool = [];
   const measure = (() => { const c = document.createElement('canvas').getContext('2d'); c.font = '600 12.5px Inter, "Segoe UI", system-ui, sans-serif'; return t => c.measureText(t).width; })();
+  // (a phone: the names a size smaller, with shorter lines, or the long ones found no room beside their part)
+  const measureSm = (() => { const c = document.createElement('canvas').getContext('2d'); c.font = '600 11px Inter, "Segoe UI", system-ui, sans-serif'; return t => c.measureText(t).width; })();
   const IGNORE = new Set(['hip', 'sacrum', 'coccyx', 'vertebrae', 'femur', 'cytoplasm']);   // names may lie over these
   let layoutKey = '', placedTags = [], tagReport = [], tagWhy = [], layoutIdParts = null, layoutShort = false, layoutTries = 0;
   const inHold = () => Z > HOLD_Z[0] + 0.01 && Z < HOLD_Z[1] - 0.01;       // (the camera stands still there)
@@ -1379,7 +1381,7 @@ export async function mount(el, opts = {}) {
   // where each name can go: its part's places on the screen (several for a name with several places)
   function tagCandidates() {
     const Wd = W(), Hd = H(), out = [];
-    const f = 1 / Math.tan(camera.fov * Math.PI / 360) * Hd / 2;
+    const f = camera.zoom / Math.tan(camera.fov * Math.PI / 360) * Hd / 2;
     const vp = new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     const q = new THREE.Vector4(), fog = post.fog;
     const onScreen = p => {
@@ -1435,7 +1437,7 @@ export async function mount(el, opts = {}) {
         for (let x = Math.max(0, Math.floor(x0 * sx)); x <= Math.min(idW - 1, Math.floor(x1 * sx)); x++) n += occ[y * idW + x];
       return n;
     };
-    const H2 = 12.5, GAP = 26, ROW = 8, COVER_W = 3;    // (a pixel of the small ID picture covered weighs as 3 px of line)
+    const small = !!inset.fit, H2 = small ? 10.5 : 12.5, GAP = small ? 16 : 26, ROW = small ? 6 : 8, COVER_W = 3;    // (a pixel of the small ID picture covered weighs as 3 px of line)
     // (things on top of the picture the names must keep clear of, given by the page: the ruler, on a phone)
     const placed = (inset.avoid || []).map(b => ({ box: b, ly: -1e9, lx0: 0, lx1: 0, page: true }));
     const boxHit = b => placed.some(t => !(b[2] + ROW < t.box[0] || b[0] - ROW > t.box[2] || b[3] + ROW < t.box[1] || b[1] - ROW > t.box[3]));
@@ -1461,7 +1463,7 @@ export async function mount(el, opts = {}) {
       const good = []; for (const p of free.slice(0, 8)) { if (onPart(c.a, p[0], p[1])) good.push(p); if (good.length === 3) break; }
       c.pts = good;
       if (!c.pts.length) continue;
-      const w = measure(c.a.text) + 22;
+      const w = small ? measureSm(c.a.text) + 18 : measure(c.a.text) + 22;
       let pick = null;
       // (a part that travels, the kinesin and its vesicle: its name travels with it, beside it, behind it if there is
       // room: a name left in place, the vesicle ran into it)
@@ -1544,7 +1546,7 @@ export async function mount(el, opts = {}) {
     clearTimeout(scaleTimer);
     scaleTimer = setTimeout(() => {
       const dist = orbit.enabled ? camera.position.distanceTo(orbit.target) : look.on ? 0.8 : aimDist;
-      const pxPerUm = H() / (2 * dist * Math.tan(camera.fov * Math.PI / 360));
+      const pxPerUm = H() * camera.zoom / (2 * dist * Math.tan(camera.fov * Math.PI / 360));
       const want = W() * 0.16 / pxPerUm;
       const steps = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1e3, 2e3, 5e3, 1e4, 2e4, 5e4, 1e5, 2e5, 5e5];
       const um = steps.reduce((b, s) => (Math.abs(Math.log(s / want)) < Math.abs(Math.log(b / want)) ? s : b), 1);
@@ -1584,9 +1586,14 @@ export async function mount(el, opts = {}) {
     raf = requestAnimationFrame(frame);
   }
   // the picture's subject is centred in the space the page leaves free (beside the ruler and the caption)
-  const inset = { left: 0, right: 0, top: 0, bottom: 0 };
+  const inset = { left: 0, right: 0, top: 0, bottom: 0 }, FITK = Number(new URLSearchParams(location.search).get('fitk')) || 1.2;
   function applyInset() {
     const dx = (inset.left - inset.right) / 2, dy = (inset.bottom - inset.top) / 2;
+    // (a phone: each level is framed for a whole window, but only the band between the levels' dots and the text is
+    // free; the view steps back until the level fits that band, or its parts, and their names, fell outside it: Daniel,
+    // 7 Oct, "some labels are lost in phone mode")
+    const fw = W() - inset.left - inset.right, fh = H() - inset.top - inset.bottom;
+    camera.zoom = inset.fit ? Math.max(0.3, Math.min(1, FITK * fh / H(), FITK * fw / (0.9 * H()))) : 1;
     if (dx || dy) camera.setViewOffset(W(), H(), -dx, dy, W(), H()); else camera.clearViewOffset();
     camera.updateProjectionMatrix();
   }
@@ -1659,7 +1666,7 @@ export async function mount(el, opts = {}) {
       idPass(true); const a = anchors.find(x => x.text === text && Z >= x.z[0] && Z <= x.z[1]); if (!a) return 'none';
       return (a.cands || [a.p]).slice(0, 5).map(c => { const p = W3(a.frame, c), q = new THREE.Vector4(p.x, p.y, p.z, 1).applyMatrix4(idCam.vp);
         const ix = Math.floor((q.x / q.w * 0.5 + 0.5) * idW), iy = Math.floor((q.y / q.w * 0.5 + 0.5) * idH), k = (iy * idW + ix) * 4, n = idBuf[k] + idBuf[k + 1] * 256;
-        const zA = lin(q.z / q.w * 0.5 + 0.5), rpx = a.r * SCALE[a.frame] / Math.max(1e-9, zA) * (idH / 2) / Math.tan(camera.fov * Math.PI / 360);
+        const zA = lin(q.z / q.w * 0.5 + 0.5), rpx = a.r * SCALE[a.frame] / Math.max(1e-9, zA) * (idH / 2) * camera.zoom / Math.tan(camera.fov * Math.PI / 360);
         return { ix, iy, at: n ? partOf(idList[n - 1]) : null, zA: +zA.toFixed(1), rpx: +rpx.toFixed(1), near: idCam.near, far: idCam.far, seen: seen(a, p, 0, true) }; });
     },
     // for checks: which parts the ID picture holds now, and how many of its pixels each

@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791360636';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791361927';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -267,8 +267,8 @@ function inset() {
   // (and on a phone, the slide at the top right: a name ran under it)
   const sideBox = narrow && side ? box('#' + side.id) : narrow && !$('#filmPill').hidden ? box('#filmPill') : null;
   const stripB = Math.round($('#ruler').getBoundingClientRect().bottom - zr.top + 4);
-  cell.setInset(narrow ? { left: 8, right: side_ ? zoom.clientWidth - capBox.left + 6 : 0, top: Math.max(60, headB, stripB), bottom: side_ ? 0 : zoom.clientHeight - capBox.top + 8, avoid: [box('#ruler'), scale, ...(sideBox ? [sideBox] : [])] }
-    : { left: 272, right: zoom.clientWidth - left + 6, top: 60, bottom: 0, avoid: [scale] });
+  cell.setInset(narrow ? { fit: true, left: 8, right: side_ ? zoom.clientWidth - capBox.left + 6 : 0, top: Math.max(60, headB, stripB), bottom: side_ ? 0 : zoom.clientHeight - capBox.top + 8, avoid: [box('#ruler'), scale, ...(sideBox ? [sideBox] : [])] }
+    : { fit: false, left: 272, right: zoom.clientWidth - left + 6, top: 60, bottom: 0, avoid: [scale] });
 }
 window.addEventListener('resize', () => inset());
 // On a laptop, "More" lets the caption take the whole right-hand column: the film or the photograph steps aside
@@ -324,7 +324,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791360636').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791361927').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -602,7 +602,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791360636', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791361927', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
@@ -644,7 +644,7 @@ async function start() {
       }
       // the film's button, whenever the film has been seen, is closed, and the reader is at the cell or below (checked at
       // every step: checked only when a photograph came or went, it never came back after going back up and in again)
-      const pill = filmPlayed && z >= 3.5 && !e && $('#film').hidden;
+      const pill = filmPlayed && z >= 3.5 && !e && $('#film').hidden && !(phone() && z > 4.5);   // (a phone: at the cell only)
       if ($('#filmPill').hidden === pill) { $('#filmPill').hidden = !pill; inset(); }
     })
     .on('scale', s => {

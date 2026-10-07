@@ -137,10 +137,12 @@ a{color:inherit}
 .text-first .micro{cursor:pointer} .text-first .micro .micro__intro b::after{content:"  ▸ Show the picture"}
 /* a slide's own button hides its picture (Daniel, 7 Oct: "you should be able to minimise the images to see the 3D better");
    a press on what is left of it brings the picture back */
-.micro__min{position:absolute;top:6px;right:6px;z-index:3;width:30px;height:30px;border-radius:50%;border:1px solid var(--line-2);
-            background:rgba(14,20,27,.75);color:#fff;font-size:18px;line-height:1;font-weight:700;cursor:pointer;display:grid;place-items:center;padding:0}
-.micro__min:hover{background:rgba(255,255,255,.16)}
-.micro .micro__intro{padding-right:42px}
+.micro__min{position:absolute;top:7px;right:7px;z-index:3;display:flex;align-items:center;gap:2px;height:26px;padding:0 10px;
+            border-radius:var(--r-pill);border:none;background:#F4F7F9;color:#0E141B;font-size:12.5px;font-weight:700;line-height:1;
+            cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.45)}
+.micro__min b{font-size:16px;font-weight:800}
+.micro__min:hover{background:#fff}
+.micro .micro__intro{padding-right:84px}
 .text-first .micro__min,.micro.is-big .micro__min{display:none}
 .text-first .micro .micro__intro{padding-right:12px}
 .cap{cursor:default}
@@ -383,14 +385,15 @@ a{color:inherit}
   .sylswitch{right:8px;top:auto;bottom:calc(var(--caph,190px) + 10px);font-size:12.5px;padding:7px 12px 7px 30px}
   .zoom.sheet-full .scalebar,.zoom.sheet-full .sylswitch{visibility:hidden}
   /* a slide: a small picture at the top right; a tap shows it full screen, with its names and its words */
-  .micro{top:var(--sidetop,124px);right:8px;width:42vw;max-width:220px;border-radius:12px}
+  .micro{top:var(--sidetop,124px);right:8px;width:36vw;max-width:200px;border-radius:12px}
   .micro__intro{font-size:0;padding:7px 9px 6px} .micro__intro b{font-size:12.5px;margin:0}
-  .micro__min{width:28px;height:28px;top:5px;right:5px;font-size:17px} .micro .micro__intro{padding-right:38px}
+  .micro__min{width:28px;height:28px;top:5px;right:5px;padding:0;justify-content:center;border-radius:50%} .micro__min span{display:none}
+  .micro .micro__intro{padding-right:38px}
   .zoom:not(.text-first) .micro .micro__intro b::after{content:"Tap to see it big";display:block;font-size:11px;font-weight:600;color:var(--muted);margin-top:1px}
   .micro figcaption,.micro .key{display:none}
   .micro--callouts{grid-template-columns:0 1fr} .micro__labels,.micro__lines{display:none}
   .micro__img,.micro--callouts .micro__img{width:100%;max-width:none;justify-self:stretch}
-  .micro__img img,.micro--callouts .micro__img img{width:100%;height:auto;max-height:24vh;object-fit:contain}
+  .micro__img img,.micro--callouts .micro__img img{width:100%;height:auto;max-height:20vh;object-fit:contain}
   .micro--em .micro__img img,.micro--wide .micro__img img{width:100%;height:auto;max-height:none}
   .micro.is-big{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:max-content;max-width:calc(100vw - 12px);max-height:calc(100vh - 12px);overflow:auto}
   .micro.is-big .micro__intro{font-size:13.5px;padding:10px 12px 8px} .micro.is-big .micro__intro b{font-size:15px;margin-bottom:2px}
@@ -400,6 +403,7 @@ a{color:inherit}
   .micro.is-big .micro__img img{max-height:none;width:auto}
   .pin span{display:none} .micro.is-big .pin span{display:inline}
   /* the film: a button; a tap plays it full screen, with sound, and who is talking below it */
+  .tag span{height:21px;line-height:19px;padding:0 6px;font-size:11px}   /* (measured so in cell3d.js: measureSm, H2 10.5) */
   .fp-wide{display:none} .fp-phone{display:inline}
   .filmpill{top:var(--sidetop,124px);right:8px;background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-size:14px;padding:10px 15px}
   .film,.filmnote,.film:not([hidden]) + .filmnote{display:none}
