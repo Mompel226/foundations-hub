@@ -19,7 +19,7 @@ window.TOPICS = [
   { no: 2, title: 'Organisation of the organism', lab: 'Cells Lab',
     levels: ['organism', 'system', 'organ', 'tissue', 'cell', 'inside'],
     blurb: 'Cell, tissue, organ, organ system and organism; the parts of animal, plant and bacterial cells and what each does; specialised cells; magnification and size.',
-    status: 'build', url: null },
+    status: 'live', url: 'https://nlcsbiology.com/cells-lab/' },
   { no: 3, title: 'Movement into and out of cells', lab: 'a lab',
     levels: ['cell', 'inside'],
     blurb: 'Diffusion, osmosis and active transport: how substances cross the cell membrane, and the investigations the exam sets.',
