@@ -137,12 +137,14 @@ a{color:inherit}
 .text-first .micro{cursor:pointer} .text-first .micro .micro__intro b::after{content:"  ▸ Show the picture"}
 /* a slide's own button hides its picture (Daniel, 7 Oct: "you should be able to minimise the images to see the 3D better");
    a press on what is left of it brings the picture back */
-.micro__min{position:absolute;top:7px;right:7px;z-index:3;display:flex;align-items:center;gap:2px;height:26px;padding:0 10px;
-            border-radius:var(--r-pill);border:none;background:#F4F7F9;color:#0E141B;font-size:12.5px;font-weight:700;line-height:1;
-            cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.45)}
-.micro__min b{font-size:16px;font-weight:800}
-.micro__min:hover{background:#fff}
-.micro .micro__intro{padding-right:84px}
+/* (a quiet glass pill like the page's other small buttons: a thin border, a chevron, "Hide"; the accent on hover) */
+.micro__min{position:absolute;top:8px;right:8px;z-index:3;display:flex;align-items:center;gap:4px;height:22px;padding:0 9px 0 7px;
+            border-radius:var(--r-pill);border:1px solid rgba(255,255,255,.26);background:rgba(255,255,255,.08);color:#DCE5EC;
+            font-family:inherit;font-size:11px;font-weight:600;line-height:1;letter-spacing:.02em;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+.micro__min svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.micro__min:hover,.micro__min:focus-visible{background:rgba(143,227,200,.14);border-color:var(--accent);color:var(--accent);outline:none}
+.micro__min::before{content:"";position:absolute;inset:-8px}   /* (a finger's worth to press, the pill stays small) */
+.micro .micro__intro{padding-right:72px}
 .text-first .micro__min,.micro.is-big .micro__min{display:none}
 .text-first .micro .micro__intro{padding-right:12px}
 .cap{cursor:default}
@@ -387,8 +389,8 @@ a{color:inherit}
   /* a slide: a small picture at the top right; a tap shows it full screen, with its names and its words */
   .micro{top:var(--sidetop,124px);right:8px;width:36vw;max-width:200px;border-radius:12px}
   .micro__intro{font-size:0;padding:7px 9px 6px} .micro__intro b{font-size:12.5px;margin:0}
-  .micro__min{width:28px;height:28px;top:5px;right:5px;padding:0;justify-content:center;border-radius:50%} .micro__min span{display:none}
-  .micro .micro__intro{padding-right:38px}
+  .micro__min{width:22px;height:22px;top:6px;right:6px;padding:0;justify-content:center} .micro__min span{display:none}
+  .micro .micro__intro{padding-right:32px}
   .zoom:not(.text-first) .micro .micro__intro b::after{content:"Tap to see it big";display:block;font-size:11px;font-weight:600;color:var(--muted);margin-top:1px}
   .micro figcaption,.micro .key{display:none}
   .micro--callouts{grid-template-columns:0 1fr} .micro__labels,.micro__lines{display:none}
