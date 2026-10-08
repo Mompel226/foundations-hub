@@ -45,6 +45,10 @@ A size ruler runs from 1 m to 10 nm, with each topic bracketed beside its levels
 level's definition in the words the exam uses, and how many times bigger the next step makes things.
 Tap any part to see its name, what it does, and whether the syllabus names it.
 
+**The labs behind it.** Each topic's door shows in the caption of the levels it belongs to. Topic 2's opens the
+[Cells Lab](https://nlcsbiology.com/cells-lab/), open since 8 October 2026. The labs for topics 3, 4 and 5 are being
+built; until then the [Protein & Enzyme Sim](https://nlcsbiology.com/protein-enzyme-sim/) covers topics 4 and 5.
+
 ![The seven levels](docs/img/seven-levels.jpg)
 
 ## Adding a lab
