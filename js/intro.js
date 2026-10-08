@@ -2,39 +2,40 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791379662';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1791462199';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
-// What a tapped part is, in exam words. syl = named in the 0610 syllabus.
+// What a tapped part is, in exam words. syl = named in the 0610 syllabus. Each says what the shared glossary
+// (labs-shared/glossary.master.js) and the Cells Lab say, in the same words (Daniel, 8 Oct: "check… the wording matches").
 const INFO = {
   body:      { syl: true,  name: 'organism', does: 'A living thing. This one is a human.', size: 'She was 1.7 m tall.' },
-  ovary:     { syl: true,  does: 'Produces eggs (the female gametes), and the hormone oestrogen.', size: 'About 3 cm long.' },
-  oviduct:   { syl: true,  does: 'Carries the egg from the ovary to the uterus. Fertilisation takes place here.', size: 'About 10 cm long.' },
-  uterus:    { syl: true,  does: 'Where the embryo implants and the fetus develops. Its wall is mostly muscle.', size: 'About 7.5 cm long.' },
-  cervix:    { syl: true,  does: 'A ring of muscle at the lower end of the uterus. It keeps the fetus in the uterus until birth, when it widens.', size: 'About 3 cm long.' },
-  vagina:    { syl: true,  does: 'Sperm are deposited here, and the baby passes through it at birth.', size: '' },
+  ovary:     { syl: true,  does: 'The organ that makes egg cells (the female gametes), and the hormone oestrogen.', size: 'About 3 cm long.' },
+  oviduct:   { syl: true,  does: 'The tube that carries an egg cell from an ovary to the uterus. Fertilisation takes place in it.', size: 'About 10 cm long.' },
+  uterus:    { syl: true,  does: 'The organ in which the embryo implants and the fetus develops. Its wall is mostly muscle tissue, which contracts during birth.', size: 'About 7.5 cm long.' },
+  cervix:    { syl: true,  does: 'The narrow lower end of the uterus: a ring of muscle and connective tissue round a canal that opens into the vagina. It keeps the fetus in the uterus until birth, when it dilates (widens).', size: 'About 3 cm long.' },
+  vagina:    { syl: true,  does: 'The muscular tube from the cervix to the outside of the body. Sperm are deposited in it, and a baby passes through it at birth.', size: '' },
   bladder:   { syl: true,  does: 'Stores urine.', size: '' },
-  rectum:    { syl: true,  does: 'The last part of the large intestine: it stores faeces.', size: '' },
+  rectum:    { syl: true,  does: 'The last part of the large intestine, where faeces are stored before they are egested.', size: '' },
   hip:       { syl: false, does: 'One of the two hip bones. With the sacrum they make the pelvis, which protects the organs inside it.', size: '' },
   sacrum:    { syl: false, does: 'Five vertebrae joined into one bone, at the back of the pelvis.', size: '' },
   coccyx:    { syl: false, does: 'The tail bone: the last few small vertebrae, joined together.', size: '' },
   vertebrae: { syl: false, does: 'Bones of the backbone. These are the lowest two of the lower back.', size: '' },
   femur:     { syl: false, does: 'The thigh bone, the longest bone of the body.', size: '' },
-  muscle:    { syl: true,  name: 'muscle tissue', does: 'Most of the wall of the uterus. It contracts strongly to push the baby out at birth.', size: 'Here about 1 cm thick.' },
+  muscle:    { syl: true,  name: 'muscle tissue', does: 'A tissue of cells that contract. Most of the wall of the uterus is muscle tissue. It contracts to push the baby out at birth.', size: 'Here about 1 cm thick.' },
   lining_u:  { syl: true,  name: 'lining of the uterus', does: 'The tissue an embryo implants in. It thickens every month and is lost in menstruation.', size: 'Thin here: this woman was 59, past the menopause.' },
-  connective:{ syl: false, name: 'connective tissue', does: 'Tissue of fibres and scattered cells that holds other tissues together. Most of the cervix is made of it.', size: '' },
+  connective:{ syl: false, name: 'connective tissue', does: 'A tissue that supports other tissues and holds them together: a few scattered cells among the fibres they make. Most of the cervix is made of it.', size: '' },
   lining_c:  { syl: false, name: 'lining of the cervix', does: 'One layer of tall cells that make mucus. It folds deep into the wall as crypts.', size: 'One cell thick: about 30 µm.' },
   cover:     { syl: false, name: 'outer covering', does: 'A thin, smooth layer over the outside of the uterus.', size: '' },
   canal:     { syl: false, name: 'canal of the cervix', does: 'The narrow way from the vagina into the uterus. Sperm swim through it; at birth it widens to about 10 cm.', size: '' },
   tcell:     { syl: false, name: 'lining cell, on the surface of the canal', does: 'A tall cell that makes mucus. Thousands of cells like it, side by side, make this tissue.', size: 'About 30 µm tall and 7 µm across.' },
-  tnucleus:  { syl: true,  name: 'nucleus', does: 'Contains the genetic material (DNA), which controls the activities of the cell. In these cells it sits near the base.', size: 'About 5 µm wide and 10 µm long.' },
+  tnucleus:  { syl: true,  name: 'nucleus', does: 'Contains the genetic material (DNA in chromosomes) and controls the activities of the cell. In these cells it is near the base.', size: 'About 5 µm wide and 10 µm long.' },
   capillary: { syl: true,  name: 'small blood vessel', does: 'Carries blood through the tissue. Substances pass between the blood and the cells through its thin wall. The red discs inside are red blood cells.', size: '' },
-  rbc:       { syl: true,  name: 'red blood cell', does: 'Carries oxygen round the body, joined to haemoglobin.', size: 'About 7.5 µm across.' },
+  rbc:       { syl: true,  name: 'red blood cell', does: 'Transports oxygen. It is full of haemoglobin, which combines with oxygen. It has no nucleus.', size: 'About 7.5 µm across.' },
   gcell:     { syl: false, name: 'lining cell of a crypt', does: 'A tall cell that makes mucus, like the cells on the surface. The mucus made in a crypt flows out onto the surface of the canal.', size: 'About 65 µm tall here.' },
-  mucus:     { syl: false, name: 'mucus, inside the crypt', does: 'A thick, slippery liquid made by the lining cells. It protects the lining.', size: '' },
+  mucus:     { syl: false, name: 'mucus, inside the crypt', does: 'A slimy liquid secreted by the lining cells. It protects the lining.', size: '' },
   crypt:     { syl: false, name: 'crypt', does: 'A deep fold of the lining into the wall. It makes more surface for making mucus.', size: '3 to 5 mm deep.' },
   section:   { syl: false, name: 'cut face', does: '', size: '' },
   tissue:    { syl: true,  does: 'A group of cells with similar structures, working together to perform a shared function.', size: '' },
@@ -43,11 +44,11 @@ const INFO = {
   sacs:      { syl: false, name: 'lysosomes and endosomes', does: 'Small sacs: lysosomes break down worn-out parts of the cell; endosomes sort what the cell takes in.', size: '' },
   membrane:  { syl: true,  does: 'Controls the movement of substances into and out of the cell.',
                size: 'About 8 nm thick. You see its inner side, where the cell sits on the sapphire disc.' },
-  nucleus:   { syl: true,  does: 'Contains the genetic material (DNA), which controls the activities of the cell.',
+  nucleus:   { syl: true,  does: 'Contains the genetic material (DNA in chromosomes) and controls the activities of the cell.',
                size: 'This nucleus is 21 µm long, 14 µm wide and 5 µm high.' },
   cytoplasm: { syl: true,  name: 'cytoplasm', does: 'Where most of the chemical reactions of the cell take place.',
                size: 'It is not empty: it is full of protein molecules, too small to show at this zoom.' },
-  ribo:      { syl: true,  does: 'Where proteins are made (protein synthesis).',
+  ribo:      { syl: true,  does: 'The site of protein synthesis: where proteins are made.',
                size: 'About 25 to 30 nm across. Many sit in small groups, each group reading one strand of RNA.' },
   mito:      { syl: true,  does: 'Where aerobic respiration takes place, releasing energy for the cell.',
                size: 'In this cell most are about 0.3 µm wide, and many are long and branched.' },
@@ -97,7 +98,7 @@ const TEXT = {
       '<p class="hint">The 3D is a model of this slide: inside the green frame it matches the photograph. The colours are those of the stain: nuclei purple, the rest pink.</p>',
     go: 'one cell', mag: '× 10' },
   cell: {
-    def: '<b>Cell</b>: the basic unit of every living organism.',
+    def: '<b>Cell</b>: the basic unit of life. Every living organism is made of one or more cells.',
     here: 'The middle of one real HeLa cell, a cell like the ones lining the cervix, grown flat in a laboratory. An electron microscope photographed this block of it in 3D: the cell goes on beyond the straight edges.',
     more: '<p>In 1951, cells like those in the lining of the cervix were taken from a cancer of a woman called <b>Henrietta Lacks</b>, without asking her. They still divide in laboratories today, and are called <b>HeLa cells</b>.</p>' +
       '<p>The microscope imaged a block 48 µm by 33 µm. This cell is bigger: where the block cuts it (the striped faces), it goes on. So you see the middle of the cell, round its nucleus, and the nucleus looks larger than it is: in the block it takes up about a quarter of the cell. It is also large because HeLa cells are cancer cells, whose nuclei are bigger than healthy ones.</p>' +
@@ -324,7 +325,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1791379662').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1791462199').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -602,7 +603,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1791379662', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1791462199', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
