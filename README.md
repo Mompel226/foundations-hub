@@ -53,6 +53,8 @@ built; until then the [Protein & Enzyme Sim](https://nlcsbiology.com/protein-enz
 
 ## Adding a lab
 
+The `tools/` named here stay on Daniel's computer: they are not in this repository (since 18 Oct 2026).
+
 Edit **`js/topics.js`**: give the topic its `url` and set `status: 'live'`. Then, outside this repository:
 its row in `labs-shared/labs.json`, the front door's `js/shelves.js` open list, the labs script's `LABS`,
 and the sitemap. Run `node tools/stamp.mjs` here before pushing, so browsers fetch the new files.

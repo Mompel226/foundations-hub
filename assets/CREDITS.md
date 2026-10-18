@@ -1,5 +1,7 @@
 # Foundations: the zoom's sources, licences and changes
 
+The `tools/` named here stay on Daniel's computer: they are not in this repository (since 18 Oct 2026).
+
 Every picture in the zoom is made from real data, except the two models, which say so: the tissue and the
 molecules. The scripts that made the files are in
 `tools/model-build/`; the downloaded data are kept outside the estate, in
