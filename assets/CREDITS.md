@@ -8,7 +8,9 @@ molecules. The scripts that made the files are in
 ## 1–3. The body, the reproductive system, the uterus (`body/anatomy.glb`)
 
 HuBMAP Human Reference Atlas, *3D Reference Organ for United Female*, v1.10.
-https://doi.org/10.48539/HBM637.DWBM.744 — CC BY 4.0. Made from the Visible Human Female (US National
+https://doi.org/10.48539/HBM637.DWBM.744 (since October 2026 the DOI leads to a "Not Found" page on the
+atlas's side, and the atlas's 3D library lists the organs: https://humanatlas.io/3d-reference-library)
+— CC BY 4.0. Made from the Visible Human Female (US National
 Library of Medicine). Only the parts used were read, by HTTP range requests on the 375 MB file
 (`tools/fetch_hra.py`): the skin, the uterus (body, fundus, walls, lower segment, internal os), the cervix
 and external os, the vagina, both oviducts and ovaries, the bladder, the rectum, the sacrum, coccyx,
