@@ -10,7 +10,7 @@
 ![7 levels](https://img.shields.io/badge/7-levels-0E2A22)
 ![Real data](https://img.shields.io/badge/every_level-real_data-1E7A3E)
 
-by **Dr Daniel Mompel Riera** · NLCS Jeju
+by **Dr Daniel Mompel Riera**
 
 </div>
 
