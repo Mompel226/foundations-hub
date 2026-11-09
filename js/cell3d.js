@@ -26,7 +26,7 @@ import { GLTFLoader } from './vendor/three/examples/jsm/loaders/GLTFLoader.js?v=
 import { OrbitControls } from './vendor/three/examples/jsm/controls/OrbitControls.js?v=0.185.1';
 import { MeshoptDecoder } from './vendor/three/examples/jsm/libs/meshopt_decoder.module.js?v=0.185.1';
 import { mergeVertices } from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js?v=0.185.1';
-import { build as buildTissue } from './tissue3d.js?v=1793680472';
+import { build as buildTissue } from './tissue3d.js?v=1794221043';
 
 export const LEVELS = ['organism', 'system', 'organ', 'tissue', 'cell', 'inside', 'molecules'];
 const GROUP = { organism: 'body', system: 'body', organ: 'body', tissue: 'tissue', cell: 'cell', inside: 'inside', molecules: 'mol' };
@@ -1128,6 +1128,10 @@ export async function mount(el, opts = {}) {
       const from = Z;
       await ensure(Math.max(0, Math.ceil(Math.max(from, to)) - 1));
       if (tween) tween.cancel();
+      /* Reduce motion (Daniel, 9 Nov 2026: "Nothing should disappear"): the close-up of the lining cells is a stop of its
+         own, a still with its names, and the next press goes on to the cell (moving, the zoom stands there HOLD_S
+         seconds on its way down) */
+      if (reduced && to > from && from < HOLD_Z[0] - .005 && to >= HOLD_Z[1] && to - from < 1.01) to = (HOLD_Z[0] + HOLD_Z[1]) / 2;
       let t0 = performance.now(); const dur = reduced ? 1 : secs * 1000;
       // (one step down through the stay, by the button: it moves to the close-up, stands there HOLD_S seconds, then goes
       // on; each moving part eased. The camera stands still all through the stay, so only time passes there)
