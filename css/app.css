@@ -10,7 +10,8 @@
   --text:#E9EEF3; --muted:#9FB0C0; --dim:#6D7E8E;
   --accent:#8FE3C8; --accent-ink:#0E2A22;
   --topic:#E879F9;   /* the Foundations door's own colour on the front door */
-  --syl:#1E7A3E; --beyond:#7A6B52; --ink:#1A1A1A; --grey:#6B6B6B;
+  --syl:#1E7A3E; --beyond:#7243C0;   /* extension violet (Daniel, 10 Nov 2026, "One violet"), as in every lab */
+   --ink:#1A1A1A; --grey:#6B6B6B;
   --sans:Inter,"Segoe UI",system-ui,-apple-system,"Helvetica Neue",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --r:12px; --r-lg:18px; --r-pill:999px;
@@ -185,7 +186,7 @@ a{color:inherit}
 .tapcard__x:hover{background:#EFE8DC}
 .tapcard__name{font-size:17px;padding-right:24px}
 .tapcard__badge{margin:4px 0 6px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
-.tapcard__badge.is-syl{color:var(--syl)} .tapcard__badge.is-beyond{color:var(--beyond)}
+.tapcard__badge.is-syl{color:var(--syl)} .tapcard__badge.is-beyond{color:var(--beyond)} .tapcard__badge.is-model{color:var(--grey)}
 .tapcard__does{margin:0;font-size:14.5px;line-height:1.45}
 .tapcard__size{margin:6px 0 0;font-size:13px;color:#4A4A4A}
 

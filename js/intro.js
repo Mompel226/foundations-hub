@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1794221043';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1794314977';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -325,7 +325,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1794221043').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1794314977').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -548,7 +548,7 @@ function showCard(p) {
   $('.tapcard__name', card).textContent = cap(p.part === 'molecule' && p.label ? p.label : (info.name || part.name || p.part));
   const badge = $('.tapcard__badge', card);
   badge.textContent = p.part === 'molecule' ? 'A model: real shape and size' : info.syl ? 'Named in your syllabus' : 'Not named in your syllabus';
-  badge.className = 'tapcard__badge ' + (info.syl && p.part !== 'molecule' ? 'is-syl' : 'is-beyond');
+  badge.className = 'tapcard__badge ' + (p.part === 'molecule' ? 'is-model' : info.syl ? 'is-syl' : 'is-beyond');   /* a model is not extension: grey, not violet */
   $('.tapcard__does', card).textContent = info.does || '';
   $('.tapcard__does', card).hidden = !info.does;
   $('.tapcard__size', card).textContent = info.size || '';
@@ -603,7 +603,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1794221043', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1794314977', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
