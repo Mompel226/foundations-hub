@@ -2,7 +2,7 @@
    left shows how big the view is; the caption says what each level is, in the words the exam uses.
    Each level waits for the reader: nothing moves on until a button is pressed. The film of Eric Betzig
    appears, and plays, only when the reader reaches the cell. */
-import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1794314977';
+import { mount, PARTS, LEVELS, importRetry } from './cell3d.js?v=1795309795';
 const VERSION = new URL(import.meta.url).searchParams.get('v') || '';   // (the page's stamp: index.html loads intro.js?v=…)
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -102,7 +102,7 @@ const TEXT = {
     here: 'The middle of one real HeLa cell, a cell like the ones lining the cervix, grown flat in a laboratory. An electron microscope photographed this block of it in 3D: the cell goes on beyond the straight edges.',
     more: '<p>In 1951, cells like those in the lining of the cervix were taken from a cancer of a woman called <b>Henrietta Lacks</b>, without asking her. They still divide in laboratories today, and are called <b>HeLa cells</b>.</p>' +
       '<p>The microscope imaged a block 48 µm by 33 µm. This cell is bigger: where the block cuts it (the striped faces), it goes on. So you see the middle of the cell, round its nucleus, and the nucleus looks larger than it is: in the block it takes up about a quarter of the cell. It is also large because HeLa cells are cancer cells, whose nuclei are bigger than healthy ones.</p>' +
-      '<p>Between the organelles the cytoplasm is <b>not empty</b>: it is full of ribosomes and proteins, too small to draw at this zoom. In the photograph below they are the grey grains.</p>' +
+      '<p>Between the large organelles the cytoplasm is <b>not empty</b>: it is full of ribosomes and proteins, too small to draw at this zoom. In the photograph below they are the grey grains.</p>' +
       '<p>Near the cell membrane there are fewer large organelles than near the nucleus. In this cell, mitochondria fill about 3 parts in 100 of the space near the edge, and about 8 near the nucleus; the endoplasmic reticulum fills about 2 and about 11. Small sacs and thin tubes of endoplasmic reticulum reach all the way to the edge.</p>' +
       '<figure class="cap__fig"><div class="cap__figimg"><img src="assets/cell/em-section.webp?v=6" alt="An electron micrograph: one slice through this cell, from the glass up. The cell membrane is at the top, the nucleus on the right, the cytoplasm in between; on the left the cell gets thinner and goes on" width="750" height="400" loading="lazy"><img src="assets/cell/em-section-outline.png?v=6" alt="" width="750" height="400" loading="lazy"></div>' +
       '<figcaption>One real slice through the block, 12 µm across: the glass at the bottom, the membrane at the top, the nucleus on the right. On the left the cell gets thinner and goes on past the block. Each part the computer found is outlined in its colour in the 3D.</figcaption></figure>' +
@@ -113,10 +113,10 @@ const TEXT = {
       '<p class="hint">From the <a href="https://www.youtube.com/watch?v=RUB37QhWNkw" target="_blank" rel="noopener">632nm podcast, episode 61</a>. Three swear words are silenced.</p>',
     go: 'the organelles', mag: '× 7' },
   inside: {
-    def: '<b>Organelles</b>: parts inside a cell, each wrapped in its own membrane. Each one here is at its real size and in its real place.',
+    def: '<b>Organelles</b>: separate parts of a cell, each with a specific function. Most kinds are wrapped in their own membrane. Each one here is at its real size and in its real place.',
     here: 'You are in the cytoplasm beside the nucleus, just under the cell membrane. It is crowded: mitochondria, endoplasmic reticulum, ribosomes, vesicles.',
-    more: '<p><b>Organelle or not?</b> Most biologists use the word <b>organelle</b> only for a part with its own membrane: the nucleus, mitochondria, endoplasmic reticulum, vesicles. <b>Ribosomes</b> and microtubules have no membrane, so in this strict sense they are not organelles, although some books still call ribosomes organelles. Your syllabus lists ribosomes with the other parts of a cell and does not say.</p>' +
-      '<p><b>Cytoplasm</b> is not only the jelly. The jelly is the <b>cytosol</b>. The cytoplasm is the cytosol and everything in it (organelles, ribosomes, proteins): all that is inside the cell membrane, except the nucleus. The nucleus is an organelle too, the biggest one, with a double membrane, but it is not counted as part of the cytoplasm.</p>' +
+    more: '<p><b>Organelle or not?</b> An <b>organelle</b> is a separate part of a cell with a specific function. Most kinds of organelle have their own membrane: the nucleus, mitochondria, endoplasmic reticulum, vesicles. <b>Ribosomes</b> have no membrane: they are membraneless organelles. Some books still say that ribosomes are not organelles, because ribosomes have no membrane; many scientists now use the word organelle for parts with a membrane and for parts with no membrane. Microtubules are part of the cytoskeleton, a network of protein fibres through the whole cell. The cytoskeleton is not one separate part, so microtubules are not organelles. Your syllabus lists ribosomes with the other parts of a cell. The syllabus does not say whether ribosomes are organelles.</p>' +
+      '<p><b>Cytoplasm</b> is not only the jelly. The jelly is the <b>cytosol</b>. The cytoplasm is the cytosol and everything in it (the organelles, ribosomes included, and proteins): all that is inside the cell membrane, except the nucleus. The nucleus is an organelle too, the biggest one, with a double membrane, but it is not counted as part of the cytoplasm.</p>' +
       '<p>In this box, 7.5 µm across, the microscope found:</p><ul class="chips"><li><b data-count="ribosomes">553,130</b><span>ribosomes</span></li><li><b data-count="vesicles">2,361</b><span>vesicles</span></li><li><b data-count="pores">144</b><span>pores in the nucleus</span></li><li><b data-count="microtubuleUm">225 µm</b><span>of microtubules</span></li></ul>' +
       '<p>Only the ribosomes near you are drawn. There are about 2,000 in every cubic micrometre of cytoplasm: if all of them were drawn, at their real size, you could not see anything else.</p>' +
       '<p><b>Are mitochondria really this shape?</b> In this cell, yes. 7 in 10 are short, under 2&nbsp;µm long; the rest are longer tubes, up to 14&nbsp;µm, and they hold three quarters of all the mitochondria. Mitochondria join together and divide again all the time. A thin slice through a short one or a tube shows an oval: that is the shape in the photograph beside, and in books. <button class="linkbtn" type="button" data-open="diagram">See it step by step</button></p>' +
@@ -325,7 +325,7 @@ async function openDiagram() {
   if (demo) { demo.restart(); return; }
   if (demoLoading) return;
   const box = $('#mitoDemo');
-  demoLoading = importRetry('./mitodemo.js?v=1794314977').then(m => m.start(box, { v: VERSION })).then(d => {
+  demoLoading = importRetry('./mitodemo.js?v=1795309795').then(m => m.start(box, { v: VERSION })).then(d => {
     demo = d;
     $('.md__next', box).disabled = false;
     $('.md__next', box).addEventListener('click', () => demo.next());
@@ -603,7 +603,7 @@ async function start() {
   });
   try {
     const Q = new URLSearchParams(location.search);
-    cell = await mount(gl, { v: '1794314977', test: Q.get('test') === '1',
+    cell = await mount(gl, { v: '1795309795', test: Q.get('test') === '1',
       samples: Q.has('msaa') ? Number(Q.get('msaa')) : undefined, dprCap: Q.has('dpr') ? Number(Q.get('dpr')) : undefined, depthUint: Q.get('depth') === 'u', notags: Q.get('notags') === '1' });
   } catch (e) {
     console.error(e);
