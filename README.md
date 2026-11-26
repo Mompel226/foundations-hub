@@ -14,7 +14,7 @@ by **Dr Daniel Mompel Riera**
 
 </div>
 
-![Inside one real human cell: the endoplasmic reticulum, the Golgi apparatus, ribosomes, vesicles, microtubules and the two centrioles, at their real sizes and places](docs/img/screen.jpg)
+![The Foundations zoom at its first level: a real woman's body, the levels from organism down to molecules on the left with topics 2–5 marked, and the level's card](docs/img/screen.jpg)
 
 ---
 
@@ -47,7 +47,7 @@ Tap any part to see its name, what it does, and whether the syllabus names it.
 
 **The labs behind it.** Each topic's door shows in the caption of the levels it belongs to. Topic 2's opens the
 [Cells Lab](https://nlcsbiology.com/cells-lab/), open since 8 October 2026, and topic 3's the
-[Membrane Lab](https://nlcsbiology.com/membrane-lab/), and topic 4's the [Molecules Lab](https://nlcsbiology.com/molecules-lab/). The lab for topic 5 is being built; until then the [Protein & Enzyme Sim](https://nlcsbiology.com/protein-enzyme-sim/) covers topic 5.
+[Membrane Lab](https://nlcsbiology.com/membrane-lab/), and topic 4's the [Molecules Lab](https://nlcsbiology.com/molecules-lab/). The lab for topic 5 is not built yet; until then the [Protein & Enzyme Sim](https://nlcsbiology.com/protein-enzyme-sim/) covers topic 5.
 
 ![The seven levels](docs/img/seven-levels.jpg)
 
