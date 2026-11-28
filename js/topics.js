@@ -28,10 +28,10 @@ window.TOPICS = [
     levels: ['molecules'],
     blurb: 'What carbohydrates, fats and proteins are made of, the large molecules built from smaller ones, the structure of DNA, and the food tests.',
     status: 'live', url: 'https://nlcsbiology.com/molecules-lab/' },
-  { no: 5, title: 'Enzymes', lab: 'a lab',
+  { no: 5, title: 'Enzymes', lab: 'Enzymes Lab',
     levels: ['molecules'],
     blurb: 'Enzymes as biological catalysts, the shape of the active site, and how temperature and pH change how fast they work.',
-    status: 'build', url: null },
+    status: 'live', url: 'https://nlcsbiology.com/enzymes-lab/' },
 ];
 window.EXTRAS = [
   { title: 'Protein & Enzyme Sim', kind: 'sim', levels: ['molecules'],

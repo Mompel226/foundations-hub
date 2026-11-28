@@ -47,7 +47,7 @@ Tap any part to see its name, what it does, and whether the syllabus names it.
 
 **The labs behind it.** Each topic's door shows in the caption of the levels it belongs to. Topic 2's opens the
 [Cells Lab](https://nlcsbiology.com/cells-lab/), open since 8 October 2026, and topic 3's the
-[Membrane Lab](https://nlcsbiology.com/membrane-lab/), and topic 4's the [Molecules Lab](https://nlcsbiology.com/molecules-lab/). The lab for topic 5 is not built yet; until then the [Protein & Enzyme Sim](https://nlcsbiology.com/protein-enzyme-sim/) covers topic 5.
+[Membrane Lab](https://nlcsbiology.com/membrane-lab/), topic 4's the [Molecules Lab](https://nlcsbiology.com/molecules-lab/), and topic 5's the [Enzymes Lab](https://nlcsbiology.com/enzymes-lab/); the [Protein & Enzyme Sim](https://nlcsbiology.com/protein-enzyme-sim/) stands beside topics 4 and 5.
 
 ![The seven levels](docs/img/seven-levels.jpg)
 
